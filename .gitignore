@@ -1,11 +1,83 @@
-CMakeLists.txt.user
+# === OS-specific ===
+.DS_Store
+Thumbs.db
+
+# === CMake ===
+CMakeFiles/
 CMakeCache.txt
-CMakeFiles
-CMakeScripts
-Testing
-Makefile
 cmake_install.cmake
-install_manifest.txt
+Makefile
+build/
+build-*/
 compile_commands.json
+Testing/
 CTestTestfile.cmake
-_deps
+_install/
+_install/*
+_install
+
+# === Visual Studio (.vs, .vcxproj, user data) ===
+.vs/
+*.vcxproj*
+*.sln
+*.user
+*.suo
+*.VC.db
+*.VC.opendb
+ipch/
+
+# === Compiler output ===
+*.obj
+*.o
+*.lo
+*.a
+*.lib
+*.so
+*.dll
+*.dylib
+*.exe
+*.out
+
+# === Debug/Release folders ===
+Debug/
+Release/
+x64/
+x86/
+bin/
+Bin/
+obj/
+Obj/
+
+# === Logs and temp ===
+*.log
+*.tmp
+
+# === Editor/IDE-specific ===
+*.swp
+*~
+*.bak
+*.orig
+
+# === CLion / JetBrains ===
+.idea/
+cmake-build-*/
+
+# === CodeBlocks ===
+*.depend
+*.layout
+*.cbp
+*.layout.save
+
+# === Qt Creator ===
+*.pro.user
+*.qbs.user
+*.pro.user.*
+*.qbs.user.*
+*.autosave
+
+# === Backup files ===
+*.old
+*.save
+
+# === Custom ===
+# Add your own folders here, e.g. test-generated data, etc.
