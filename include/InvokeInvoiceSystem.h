@@ -3,11 +3,16 @@
 
 #pragma once  
 
+#include "pch.h"
+
 #include <iostream>  
-#include "../include/AccountManager.h"  
+#include "../../include/AccountManager.h"  
 
 // TODO: Reference additional headers your program requires here.  
 
 class InvoiceSystem {  
+public:
+	//static void printTitleBox();
 
+	AccountManager accountManager;
 };

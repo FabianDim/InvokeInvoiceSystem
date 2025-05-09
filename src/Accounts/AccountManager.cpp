@@ -14,7 +14,7 @@ bool AccountManager::doesAccountExist(const string& username){
 		return true;
 	}
 	else {
-		cout << "Username is not taken." << endl;
+		cout << "Username is valid." << endl;
 	}
 	return false;
 }
@@ -47,7 +47,7 @@ bool AccountManager::validatePassword(const string& password){
 void AccountManager::createAccount() {
 	// Logic to create an account
 	string potentialUsername{};
-	cout << "Please enter your new username:	";
+	cout << "Please enter your new username: ";
 	cin >> potentialUsername;
 
 	if (doesAccountExist(potentialUsername)) {
@@ -56,18 +56,14 @@ void AccountManager::createAccount() {
 	else {
 		accounts[potentialUsername] = ""; // Placeholder for password
 		string password{};
-		cout << "Please enter your password:	";
-		cin >> password;
-		if (validatePassword) {
-			//password is valid
-			//hash the password
-			//store the password
-			accounts[potentialUsername] = password; // Store the password
-		}
-		else {
-			cout << "Password does not meet the requirements." << endl;
-			createAccount();
-		}
+
+		do {
+			cout << "Please enter your password: ";
+			cin >> password;
+		} while (!validatePassword(password));
+
+		accounts[potentialUsername] = password; // Store the password
+		
 	}
 	std::cout << "Account created." << std::endl;
 }

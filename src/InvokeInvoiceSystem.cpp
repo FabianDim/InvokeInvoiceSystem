@@ -1,15 +1,13 @@
-﻿// InvokeInvoiceSystem.cpp : Defines the entry point for the application.
-//
+﻿#include "InvoiceSystem.h"
+#include "AccountManager.h"
+#include <iostream>
 
-#include "InvokeInvoiceSystem.h"
+int main() {
+    InvoiceSystem::printTitleBox();
 
-using namespace std;
+    AccountManager accountManager;
+    std::cout << "Welcome to the Invoke Invoice System(tm)." << std::endl;
+    accountManager.createAccount();
 
-int main()
-{
-	AccountManager accountManager;
-	cout << "Welcome to the Invoke Invoice System(tm)." << endl;
-	accountManager.createAccount();
-
-	return 0;
+    return 0;
 }
