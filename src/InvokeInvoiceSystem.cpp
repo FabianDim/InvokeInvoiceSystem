@@ -7,6 +7,9 @@ using namespace std;
 
 int main()
 {
-	cout << "Hello CMake." << endl;
+	AccountManager accountManager;
+	cout << "Welcome to the Invoke Invoice System(tm)." << endl;
+	accountManager.createAccount();
+
 	return 0;
 }

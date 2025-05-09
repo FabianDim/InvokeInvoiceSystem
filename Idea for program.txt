@@ -1,0 +1,8 @@
+Features:
+- User authentication (login/signup)
+- Generate PDF's from user input
+- Store generated PDFs in a database
+- Allow users to download their generated PDFs
+- we have a front end that takes user input such as services and their details like prices and inclusions such as GST and other taxes
+- Generate a PDF with the user input
+- Have users information such as company names and addresses and ABN's be stored so the user doesn't have to enter them every time
