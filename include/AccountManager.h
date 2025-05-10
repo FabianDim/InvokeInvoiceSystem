@@ -8,6 +8,7 @@ class AccountManager {
     friend class user; 
 public:
     AccountManager();
+    bool validName(string& name);
 	bool doesAccountExist(const string& username); // we eventually want to hash the password.
     bool doesPasswordMatch(const string& password);
 	bool validatePassword(const string& password);

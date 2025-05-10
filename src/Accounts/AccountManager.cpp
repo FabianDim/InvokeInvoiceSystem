@@ -8,6 +8,17 @@ AccountManager::AccountManager() {
 	//loadencryption module;
 }
 
+bool AccountManager::validName(string& name) {
+	for (char& c : name) {
+		if (isdigit(c) or ispunct(c)) {
+			cout << "Names cannot include numbers or punctuation" << endl;
+			return false;
+		}
+	}
+	
+	return true;
+}
+
 bool AccountManager::doesAccountExist(const string& username){
 	if (accounts.contains(username)) {
 		cout << "Username already exists. Please try again or login." << endl;
@@ -49,7 +60,7 @@ void AccountManager::createAccount() {
 
 	// Prompt until a valid (unused) username is entered
 	while (true) {
-		cout << "Please enter your new username (or * to cancel): ";
+		cout << "Please enter your new email (or * to cancel): ";
 		cin >> username;
 
 		if (username == "*") {
@@ -73,11 +84,26 @@ void AccountManager::createAccount() {
 		}
 	}
 
+	string firstName;
+	string lastName;
+
+	while (true) {
+		cout << "Please enter your first name: ";
+		cin >> firstName;
+		cout << "Please enter your last name: ";
+		cin >> lastName;
+		if (validName(lastName) && validName(firstName)) {
+			break;
+		}
+
+	}
+
 	// Create and store user
 	User* user = new User(username, password);
 	accounts[username] = password;
 	user->setPassword(password);
-
+	user->setFirstName(firstName);
+	user->setFirstName(lastName);
 	cout << "Account created successfully!\n";
 	mainMenu.displayMenu(user);
 }
