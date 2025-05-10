@@ -14,7 +14,7 @@ add_executable(${PROJECT_NAME}
     src/InvokeInvoiceSystem.cpp
     src/Accounts/AccountManager.cpp
     src/System/InvoiceSystem.cpp
- "src/System/Menu/MainMenu.cpp" "include/MainMenu.h")
+ "src/System/Menu/MainMenu.cpp" "include/MainMenu.h" "src/Accounts/User.cpp" "include/User.h")
 
 # Precompiled header (optional)
 target_precompile_headers(${PROJECT_NAME} PRIVATE include/pch.h)

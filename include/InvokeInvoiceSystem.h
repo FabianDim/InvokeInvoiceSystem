@@ -7,12 +7,13 @@
 
 #include <iostream>  
 #include "../../include/AccountManager.h"  
+#include "../../include/User.h"
+#include "../../include/MainMenu.h"
 
 // TODO: Reference additional headers your program requires here.  
-
 class InvoiceSystem {  
 public:
 	//static void printTitleBox();
 
-	AccountManager accountManager;
+	
 };

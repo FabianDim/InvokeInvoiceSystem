@@ -1,6 +1,6 @@
 #include "AccountManager.h"
 #include <iostream>
-
+MainMenu mainMenu;
 AccountManager::AccountManager() {
     // Constructor logic
 
@@ -45,25 +45,86 @@ bool AccountManager::validatePassword(const string& password){
 }
 
 void AccountManager::createAccount() {
-	// Logic to create an account
-	string potentialUsername{};
-	cout << "Please enter your new username: ";
-	cin >> potentialUsername;
+	string username;
 
-	if (doesAccountExist(potentialUsername)) {
-		createAccount();
+	// Prompt until a valid (unused) username is entered
+	while (true) {
+		cout << "Please enter your new username (or * to cancel): ";
+		cin >> username;
+
+		if (username == "*") {
+			cout << "Account creation canceled.\n";
+			return;
+		}
+
+		if (!doesAccountExist(username)) {
+			break; // valid and not taken
+		}
+	}
+
+	// Password setup loop
+	string password;
+	while (true) {
+		cout << "Please enter your password: ";
+		cin >> password;
+
+		if (validatePassword(password)) {
+			break;
+		}
+	}
+
+	// Create and store user
+	User* user = new User(username, password);
+	accounts[username] = password;
+	user->setPassword(password);
+
+	cout << "Account created successfully!\n";
+	mainMenu.displayMenu(user);
+}
+
+
+void AccountManager::login() {
+	string username;
+	string password;
+	bool isReal = false;
+	while (true) {
+		cout << "Please enter your username (or * to cancel): ";
+		cin >> username;
+		if (username == "*") {
+			cout << "Account creation canceled.\n";
+			return;
+		}
+		break;
+	}
+	if (!accounts.contains(username)) {
+		isReal = false;
 	}
 	else {
-		accounts[potentialUsername] = ""; // Placeholder for password
-		string password{};
-
-		do {
-			cout << "Please enter your password: ";
+		while (true) {
+			cout << "Please enter your password (or * to cancel): ";
 			cin >> password;
-		} while (!validatePassword(password));
+			auto& user = accounts[username];
 
-		accounts[potentialUsername] = password; // Store the password
-		
+			if (user == password) {
+				currentUser = new User(username, password);
+				return;
+			}
+			else {
+				cout << "That username and password combo does not exist retry.(or * to cancel)" << endl;
+				login();
+			}
+		}
+		//welcome back first name.
 	}
-	std::cout << "Account created." << std::endl;
+	cout << "Please enter your password: ";
+	cin >> password;
+	cout << "That username and password combo does not exist. Retry or type * into the usern name or password field to exit" << endl;
+}
+
+User* AccountManager::getAccount() {
+	return currentUser ? currentUser : nullptr;
+}
+
+bool AccountManager::isLoggedIn() {
+	return currentUser != nullptr;
 }

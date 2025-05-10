@@ -1,13 +1,10 @@
 ﻿#include "InvoiceSystem.h"
 #include "AccountManager.h"
 #include <iostream>
+#include "MainMenu.h"
 
 int main() {
-    InvoiceSystem::printTitleBox();
-
-    AccountManager accountManager;
-    //std::cout << "Welcome to the Invoke Invoice System(tm)." << std::endl;
-    accountManager.createAccount();
-
+    
+	InvoiceSystem::startSystem();
     return 0;
 }

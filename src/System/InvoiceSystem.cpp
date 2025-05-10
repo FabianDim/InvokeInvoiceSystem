@@ -14,3 +14,9 @@ void InvoiceSystem::printTitleBox() {
 )";
     std::cout << line << std::endl;
 }
+
+void InvoiceSystem::startSystem() {
+	MainMenu mainMenu;
+    AccountManager accountManager;
+	mainMenu.displayMenu(accountManager.getAccount());
+}
