@@ -10,9 +10,6 @@ class MainMenu {
 public:
 	void displayMenu(AccountManager& manager);
 	void loggedInMenu(AccountManager& manager);
-
-
-	void exitProgram();
 	static void printTitleBox();
 private:
 	void createAccount();
