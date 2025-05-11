@@ -108,14 +108,15 @@ void AccountManager::createAccount() {
 	AccountManager accountMangager;
 
 	// Create and store user
-	User* user = new User(userEmail, userPassword);
+	auto user = make_shared<User>(User(userEmail, userPassword));
 	user->setUserEmail(userEmail);
 	user->setPassword(userPassword);
 	user->setFirstName(firstName);
 	user->setLastName(lastName);
-	accounts[userEmail] = user;
+	accounts[userEmail] = move(user);
+	currentUser = accounts[userEmail];
 	cout << "Account created successfully!\n";
-	mainMenu.loggedInMenu(accountMangager);
+	mainMenu.loggedInMenu(*this);
 }
 
 
@@ -156,7 +157,8 @@ void AccountManager::login() {
 	cout << "That username and password combo does not exist. Retry or type * into the usern name or password field to exit" << endl;
 }
 
-User* AccountManager::getAccount() {
+shared_ptr<User> AccountManager::getAccount() {
+	if (!currentUser) cout << "no user" << endl;
 	return currentUser ? currentUser : nullptr;
 }
 

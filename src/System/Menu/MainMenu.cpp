@@ -1,4 +1,4 @@
-#include "MainMenu.h"
+﻿#include "MainMenu.h"
 AccountManager accountManager;
 void MainMenu::displayMenu(AccountManager& manager) {
     printTitleBox();
@@ -25,17 +25,38 @@ void MainMenu::displayMenu(AccountManager& manager) {
 }
 void MainMenu::loggedInMenu(AccountManager& manager) {
     printTitleBox();
+    auto user = manager.getAccount();
     int choice;
     do {
-        std::cout << "Welcome Back, " << manager.getAccount()->getFirstName() << endl;
-        std::cout << "\n1. Create Account\n2. Login\n3. Exit\nPlease select an option: ";
+        std::cout << "Welcome Back, " << user->getFirstName() << endl;
+
+        std::cout << "\n1. Create a new Invoice\n2. Invoice Management\n3. Stock Management\
+                       n4. Account Management\n5. See invoices\n6. Exit!\nPlease select an option: ";
         std::cin >> choice;
         std::cin.ignore(); // Clear the newline character from the input buffer
 
         switch (choice) {
+        case 1:
+            std::cout << "This feature is in development! Stay Tuned!\n\n";
+            continue;
+        case 2:
+            std::cout << "This feature is in development! Stay Tuned!\n\n";
+            continue;
         case 3:
-            std::cout << "Goodbye!\n";
-            break;
+            std::cout << "This feature is in development! Stay Tuned!\n\n";
+            continue;
+        case 4:
+            std::cout << "This feature is in development! Stay Tuned!\n\n";
+            continue;
+        case 5:
+            std::cout << "This feature is in development! Stay Tuned!\n\n";
+            continue;
+        case 6:
+            std::cout << "This feature is in development! Stay Tuned!\n\n";
+            continue;
+        case 7:
+            std::cout << "This feature is in development! Stay Tuned!\n\n";
+            continue;
         default:
             std::cout << "Invalid option. Please try again.\n";
         }
@@ -46,11 +67,11 @@ void MainMenu::printTitleBox() {
 
     // Use standard raw string (no u8 prefix)
     std::string line = R"(  
-????????????????????????????????????????????????  
-?                                              ?  
-?  WELCOME TO THE INVOKE INVOICE SYSTEM (TM)   ?  
-?                                              ?  
-????????????????????????????????????????????????  
+╔══════════════════════════════════════════════╗  
+║                                              ║  
+║  WELCOME TO THE INVOKE INVOICE SYSTEM (TM)   ║  
+║                                              ║  
+╚══════════════════════════════════════════════╝  
 )";
     std::cout << line << std::endl;
 }

@@ -15,10 +15,10 @@ public:
 	bool validatePassword(const string& password);
     void createAccount();//create the account and store it.
     void login();//login
-    User* getAccount();
+    shared_ptr<User>  getAccount();
     bool isLoggedIn();
 
 private:
-	unordered_map<string, User*> accounts;
-    User* currentUser = nullptr;
+	unordered_map<string, shared_ptr<User>> accounts;
+    shared_ptr<User> currentUser = nullptr;
 };
