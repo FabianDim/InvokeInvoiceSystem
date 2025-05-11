@@ -8,10 +8,10 @@ AccountManager::AccountManager() {
 	//loadencryption module;
 }
 
-bool AccountManager::validName(string& name) {
-	for (char& c : name) {
-		if (isdigit(c) or ispunct(c)) {
-			cout << "Names cannot include numbers or punctuation" << endl;
+bool AccountManager::validEmail(string& email) {
+	for (char& c : email) {
+		if (isspace(c)) {
+			cout << "Email cannot include spaces" << endl;
 			return false;
 		}
 	}
@@ -19,13 +19,21 @@ bool AccountManager::validName(string& name) {
 	return true;
 }
 
+bool AccountManager::validName(string& name) {
+	for (char& c : name) {
+		if (isdigit(c) or ispunct(c)) {
+			cout << "Names cannot include numbers or punctuation" << endl;
+			return false;
+		}
+	}
+
+	return true;
+}
+
 bool AccountManager::doesAccountExist(const string& username){
 	if (accounts.contains(username)) {
-		cout << "Username already exists. Please try again or login." << endl;
+		cout << "Email already exists. Please try again or login." << endl;
 		return true;
-	}
-	else {
-		cout << "Username is valid." << endl;
 	}
 	return false;
 }
@@ -56,30 +64,30 @@ bool AccountManager::validatePassword(const string& password){
 }
 
 void AccountManager::createAccount() {
-	string username;
+	string userEmail;
 
 	// Prompt until a valid (unused) username is entered
 	while (true) {
 		cout << "Please enter your new email (or * to cancel): ";
-		cin >> username;
+		getline(std::cin >> std::ws, userEmail);
 
-		if (username == "*") {
+		if (userEmail == "*") {
 			cout << "Account creation canceled.\n";
 			return;
 		}
 
-		if (!doesAccountExist(username)) {
+		if (!doesAccountExist(userEmail) && validEmail(userEmail)) {
 			break; // valid and not taken
 		}
 	}
 
 	// Password setup loop
-	string password;
+	string userPassword;
 	while (true) {
 		cout << "Please enter your password: ";
-		cin >> password;
+		cin >> userPassword;
 
-		if (validatePassword(password)) {
+		if (validatePassword(userPassword)) {
 			break;
 		}
 	}
@@ -89,9 +97,9 @@ void AccountManager::createAccount() {
 
 	while (true) {
 		cout << "Please enter your first name: ";
-		cin >> firstName;
+		getline(std::cin >> std::ws, firstName);
 		cout << "Please enter your last name: ";
-		cin >> lastName;
+		getline(std::cin >> std::ws, lastName);
 		if (validName(lastName) && validName(firstName)) {
 			break;
 		}
@@ -99,11 +107,12 @@ void AccountManager::createAccount() {
 	}
 
 	// Create and store user
-	User* user = new User(username, password);
-	accounts[username] = password;
-	user->setPassword(password);
+	User* user = new User(userEmail, userPassword);
+	user->setUserEmail(userEmail);
+	user->setPassword(userPassword);
 	user->setFirstName(firstName);
-	user->setFirstName(lastName);
+	user->setLastName(lastName);
+	accounts[userEmail] = user;
 	cout << "Account created successfully!\n";
 	mainMenu.displayMenu(user);
 }
@@ -117,7 +126,7 @@ void AccountManager::login() {
 		cout << "Please enter your username (or * to cancel): ";
 		cin >> username;
 		if (username == "*") {
-			cout << "Account creation canceled.\n";
+			cout << "Login canceled.\n";
 			return;
 		}
 		break;
@@ -131,13 +140,12 @@ void AccountManager::login() {
 			cin >> password;
 			auto& user = accounts[username];
 
-			if (user == password) {
-				currentUser = new User(username, password);
+			if (password == user->getPassword()) {
+				currentUser = user;
 				return;
 			}
 			else {
 				cout << "That username and password combo does not exist retry.(or * to cancel)" << endl;
-				login();
 			}
 		}
 		//welcome back first name.

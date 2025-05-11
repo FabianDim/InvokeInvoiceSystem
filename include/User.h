@@ -13,7 +13,7 @@ public:
    string getEmail() const;  
    string getFirstName() const;
    string getPassword() const;  
-   void setUsername(const string& newUsername);  
+   void setUserEmail(const string& newUsername);  
    void setPassword(const string& newPassword);  
    void setFirstName(const string& firstName);
    void setLastName(const string& lastName);

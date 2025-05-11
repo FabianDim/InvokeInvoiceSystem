@@ -8,6 +8,7 @@ class AccountManager {
     friend class user; 
 public:
     AccountManager();
+    bool validEmail(string& email);
     bool validName(string& name);
 	bool doesAccountExist(const string& username); // we eventually want to hash the password.
     bool doesPasswordMatch(const string& password);
@@ -18,6 +19,6 @@ public:
     bool isLoggedIn();
 
 private:
-	unordered_map<string, string> accounts;
+	unordered_map<string, User*> accounts;
     User* currentUser = nullptr;
 };

@@ -9,7 +9,7 @@ void MainMenu::displayMenu(User* user) {
 		handleUserInput(user);
 	}
 	else {
-		cout << "Welcome Back " << user->getFirstName() << endl;
+		cout << "Welcome Back, " << user->getFirstName() << endl;
 		std::cout << "1. Create Account" << std::endl;
 		std::cout << "3. Exit" << std::endl;
 		handleUserInput(user);//update profiles
