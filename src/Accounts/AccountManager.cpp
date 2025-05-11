@@ -105,6 +105,7 @@ void AccountManager::createAccount() {
 		}
 
 	}
+	AccountManager accountMangager;
 
 	// Create and store user
 	User* user = new User(userEmail, userPassword);
@@ -114,7 +115,7 @@ void AccountManager::createAccount() {
 	user->setLastName(lastName);
 	accounts[userEmail] = user;
 	cout << "Account created successfully!\n";
-	mainMenu.displayMenu(user);
+	mainMenu.loggedInMenu(accountMangager);
 }
 
 

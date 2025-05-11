@@ -1,44 +1,56 @@
 #include "MainMenu.h"
 AccountManager accountManager;
-void MainMenu::displayMenu(User* user) {
-	InvoiceSystem::printTitleBox();
-	if (user == nullptr) {
-		std::cout << "1. Create Account" << std::endl;
-		cout << "2. Login" << std::endl;
-		std::cout << "3. Exit" << std::endl;
-		handleUserInput(user);
-	}
-	else {
-		cout << "Welcome Back, " << user->getFirstName() << endl;
-		std::cout << "1. Create Account" << std::endl;
-		std::cout << "3. Exit" << std::endl;
-		handleUserInput(user);//update profiles
-	}
+void MainMenu::displayMenu(AccountManager& manager) {
+    printTitleBox();
+    int choice;
+    do {
+        std::cout << "\n1. Create Account\n2. Login\n3. Exit\nPlease select an option: ";
+        std::cin >> choice;
+        std::cin.ignore(); // Clear the newline character from the input buffer
 
+        switch (choice) {
+        case 1:
+            manager.createAccount();
+            break;
+        case 2:
+            manager.login();
+            break;
+        case 3:
+            std::cout << "Goodbye!\n";
+            break;
+        default:
+            std::cout << "Invalid option. Please try again.\n";
+        }
+    } while (choice != 3);
 }
+void MainMenu::loggedInMenu(AccountManager& manager) {
+    printTitleBox();
+    int choice;
+    do {
+        std::cout << "Welcome Back, " << manager.getAccount()->getFirstName() << endl;
+        std::cout << "\n1. Create Account\n2. Login\n3. Exit\nPlease select an option: ";
+        std::cin >> choice;
+        std::cin.ignore(); // Clear the newline character from the input buffer
 
-void MainMenu::handleUserInput(User* user) {
-	int choice = 0;
-
-	std::cout << "Please select an option: ";
-	std::cin >> choice;
-	if (user == nullptr) {
-		switch (choice) {//case of invalid input
-		case 1:
-			createAccount();
-			break;
-		case 2:
-			login();
-			break;
-		}
-	}
+        switch (choice) {
+        case 3:
+            std::cout << "Goodbye!\n";
+            break;
+        default:
+            std::cout << "Invalid option. Please try again.\n";
+        }
+    } while (choice != 3);
 }
+void MainMenu::printTitleBox() {
+    //SetConsoleOutputCP(CP_UTF8); // For proper box character rendering
 
-void MainMenu::createAccount() {
-
-	accountManager.createAccount();
-}
-
-void MainMenu::login() {
-	accountManager.login();
+    // Use standard raw string (no u8 prefix)
+    std::string line = R"(  
+????????????????????????????????????????????????  
+?                                              ?  
+?  WELCOME TO THE INVOKE INVOICE SYSTEM (TM)   ?  
+?                                              ?  
+????????????????????????????????????????????????  
+)";
+    std::cout << line << std::endl;
 }

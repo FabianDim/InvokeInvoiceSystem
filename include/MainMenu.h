@@ -8,10 +8,12 @@
 class MainMenu {
 	friend class AccountManager; // Allow AccountManager to access private members of MainMenu
 public:
-	void displayMenu(User* user);
-	void handleUserInput(User* user);
+	void displayMenu(AccountManager& manager);
+	void loggedInMenu(AccountManager& manager);
+
 
 	void exitProgram();
+	static void printTitleBox();
 private:
 	void createAccount();
 	void login();

@@ -6,6 +6,6 @@
 
 class InvoiceSystem {
 public:
-    static void printTitleBox();
+
 	static void startSystem();
 };
