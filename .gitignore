@@ -81,3 +81,4 @@ cmake-build-*/
 
 # === Custom ===
 # Add your own folders here, e.g. test-generated data, etc.
+include/Database_Connection.h
