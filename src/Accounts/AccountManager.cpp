@@ -1,5 +1,6 @@
 #include "AccountManager.h"
 #include <iostream>
+
 MainMenu mainMenu;
 AccountManager::AccountManager() {
     // Constructor logic
@@ -88,6 +89,9 @@ void AccountManager::createAccount() {
 		cin >> userPassword;
 
 		if (validatePassword(userPassword)) {
+			string storedHash = bcrypt::generateHash(userPassword);
+			//store the password in the db along with username
+
 			break;
 		}
 	}

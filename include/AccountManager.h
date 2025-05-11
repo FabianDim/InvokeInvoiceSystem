@@ -2,7 +2,7 @@
 #include "pch.h"
 #include "User.h"
 #include "MainMenu.h"
-
+#include "bcrypt.h"
 //using namespace std;
 class AccountManager {
     friend class user; 
