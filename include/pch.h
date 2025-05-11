@@ -7,5 +7,6 @@
 #include <memory>
 #include <algorithm>
 #include <unordered_map>// Resolve ambiguity
+#include <thread>
 
 using namespace std;

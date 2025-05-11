@@ -147,14 +147,14 @@ void AccountManager::login() {
 				return;
 			}
 			else {
-				cout << "That username and password combo does not exist retry.(or * to cancel)" << endl;
+				cout << "That email and password combo does not exist retry.(or * to cancel)" << endl;
 			}
 		}
 		//welcome back first name.
 	}
 	cout << "Please enter your password: ";
 	cin >> password;
-	cout << "That username and password combo does not exist. Retry or type * into the usern name or password field to exit" << endl;
+	cout << "That email and password combo does not exist.\n" << endl;
 }
 
 shared_ptr<User> AccountManager::getAccount() {
