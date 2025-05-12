@@ -7,10 +7,10 @@
 using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::make_document;
 
-class DatabaseConnection {
+class MongoDBHandler {
 public:
-	DatabaseConnection();
-	mongocxx::database getDatabase();
+	MongoDBHandler();
+	mongocxx::database getDatabase() const;
 private:
 	static mongocxx::instance instance;
 	mongocxx::client client;

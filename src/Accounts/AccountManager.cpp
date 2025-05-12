@@ -66,6 +66,7 @@ bool AccountManager::validatePassword(const string& password){
 
 void AccountManager::createAccount() {
 	string userEmail;
+	//MongoDBHandler mongoDBHandler;
 
 	// Prompt until a valid (unused) username is entered
 	while (true) {
@@ -92,6 +93,8 @@ void AccountManager::createAccount() {
 			string storedHash = bcrypt::generateHash(userPassword);
 			//store the password in the db along with username
 			cout << storedHash << endl;
+
+			//auto db = mongoDBHandler.getDatabase();
 			break;
 		}
 	}
