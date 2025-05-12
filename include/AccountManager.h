@@ -3,7 +3,7 @@
 #include "User.h"
 #include "MainMenu.h"
 #include "bcrypt.h"
-//#include "MongoDBHandler.h"
+#include "MongoDBHandler.h"
 //using namespace std;
 class AccountManager {
     friend class user; 

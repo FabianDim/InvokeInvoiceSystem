@@ -4,7 +4,6 @@
 #include "MainMenu.h"
 
 int main() {
-    
 	InvoiceSystem::startSystem();
     return 0;
 }

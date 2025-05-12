@@ -1,0 +1,29 @@
+{
+  // For VS 2019/2022 CMakeSettings.json schema v1
+  "configurations": [
+    {
+      "name": "x64-Debug",
+      "generator": "Ninja",
+      "configurationType": "Debug",
+      "inheritEnvironments": [ "msvc_x64" ],
+      "buildRoot": "${projectDir}\\out\\build\\x64-Debug",
+      "installRoot": "${projectDir}\\out\\install\\x64-Debug",
+      "cmakeCommandArgs": "-DCMAKE_TOOLCHAIN_FILE=C:/Users/Fabian Di Mento/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Debug",
+      "buildCommandArgs": "--config Debug",
+      "variables": [
+        {
+          "name": "CMAKE_CXX_STANDARD",
+          "value": "20"
+        },
+        {
+          "name": "CMAKE_CXX_STANDARD_REQUIRED",
+          "value": "ON"
+        },
+        {
+          "name": "VCPKG_MANIFEST_MODE",
+          "value": "OFF"
+        }
+      ]
+    }
+  ]
+}

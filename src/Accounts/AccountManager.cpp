@@ -1,5 +1,7 @@
 #include "AccountManager.h"
 #include <iostream>
+#include <iso646.h>
+#include <cctype> 
 
 MainMenu mainMenu;
 AccountManager::AccountManager() {
@@ -32,7 +34,7 @@ bool AccountManager::validName(string& name) {
 }
 
 bool AccountManager::doesAccountExist(const string& username){
-	if (accounts.contains(username)) {
+	if (accounts.find(username) != accounts.end()) {
 		cout << "Email already exists. Please try again or login." << endl;
 		return true;
 	}
@@ -66,7 +68,7 @@ bool AccountManager::validatePassword(const string& password){
 
 void AccountManager::createAccount() {
 	string userEmail;
-	//MongoDBHandler mongoDBHandler;
+	MongoDBHandler mongoDBHandler;
 
 	// Prompt until a valid (unused) username is entered
 	while (true) {
@@ -94,7 +96,7 @@ void AccountManager::createAccount() {
 			//store the password in the db along with username
 			cout << storedHash << endl;
 
-			//auto db = mongoDBHandler.getDatabase();
+			auto db = mongoDBHandler.getDatabase();
 			break;
 		}
 	}
@@ -140,7 +142,7 @@ void AccountManager::login() {
 		}
 		break;
 	}
-	if (!accounts.contains(username)) {
+	if (accounts.find(username) != accounts.end()) {
 		isReal = false;
 	}
 	else {
