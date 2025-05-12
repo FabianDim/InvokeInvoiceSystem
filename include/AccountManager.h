@@ -4,6 +4,7 @@
 #include "MainMenu.h"
 #include "bcrypt.h"
 #include "MongoDBHandler.h"
+#include "MongoDBDataManager.h"
 //using namespace std;
 class AccountManager {
     friend class user; 

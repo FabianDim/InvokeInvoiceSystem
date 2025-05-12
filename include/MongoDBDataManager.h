@@ -11,13 +11,16 @@
 using bsoncxx::builder::basic::kvp;  
 using bsoncxx::builder::basic::make_document;  
 
-class MongoDBDataManager {  
+class MongoDBDataManager {
+    MongoDBHandler dbHandler;
+    mongocxx::database InvokeDB; // Add this member variable
+
 public:
-	MongoDBDataManager();
-   void writeNewUser(User* newUser );
+    MongoDBDataManager()
+        : InvokeDB{ dbHandler.getDatabase() } { // Initialize it in the constructor
+    }
 
-private:  
-	MongoDBHandler DBHandler
-	mongocxx::database InvokeDB;
-
+    bool writeNewUser(std::shared_ptr<User> newUser);
+    bool updateUser(std::shared_ptr<User> oldUser);
+    bool removeUser(std::shared_ptr<User> user);
 };
