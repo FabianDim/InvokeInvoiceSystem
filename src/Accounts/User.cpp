@@ -10,7 +10,7 @@ string User::getEmail() const {
 }
 
 string User::getPassword() const {
-	return string();
+	return password;
 }
 
 void User::setUserEmail(const string& newEmail) {

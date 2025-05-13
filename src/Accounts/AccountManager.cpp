@@ -97,7 +97,6 @@ void AccountManager::createAccount() {
 			break;
 		}
 	}
-
 	string firstName;
 	string lastName;
 
@@ -116,6 +115,9 @@ void AccountManager::createAccount() {
 
 	// Create and store user
 	auto user = make_shared<User>(User(userEmail, userPassword));
+
+
+
 	user->setUserEmail(userEmail);
 	user->setPassword(storedHash);
 	user->setFirstName(firstName);
