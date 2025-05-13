@@ -131,40 +131,7 @@ void AccountManager::createAccount() {
 
 
 void AccountManager::login() {
-	string username;
-	string password;
-	bool isReal = false;
-	while (true) {
-		cout << "Please enter your username (or * to cancel): ";
-		cin >> username;
-		if (username == "*") {
-			cout << "Login canceled.\n";
-			return;
-		}
-		break;
-	}
-	if (accounts.find(username) != accounts.end()) {
-		isReal = false;
-	}
-	else {
-		while (true) {
-			cout << "Please enter your password (or * to cancel): ";
-			cin >> password;
-			auto& user = accounts[username];
 
-			if (password == user->getPassword()) {
-				currentUser = user;
-				return;
-			}
-			else {
-				cout << "That email and password combo does not exist retry.(or * to cancel)" << endl;
-			}
-		}
-		//welcome back first name.
-	}
-	cout << "Please enter your password: ";
-	cin >> password;
-	cout << "That email and password combo does not exist.\n" << endl;
 }
 
 shared_ptr<User> AccountManager::getAccount() {
