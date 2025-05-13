@@ -21,6 +21,7 @@ public:
     }
 
     bool writeNewUser(const std::shared_ptr<User>& newUser);
+	bool findUser(const std::string& email, const std::string& password);
     bool updateUser(std::shared_ptr<User> oldUser);
     bool removeUser(std::shared_ptr<User> user);
 };

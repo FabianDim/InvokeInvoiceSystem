@@ -27,6 +27,25 @@ bool MongoDBDataManager::writeNewUser(const std::shared_ptr<User>& newUser) {
         return result && result->result().inserted_count() == 1;
     
 }
+
+bool MongoDBDataManager::findUser(const std::string& email, const std::string& password) {
+	constexpr char kCollectionName[] = "Users";
+    auto collection = InvokeDB[kCollectionName];
+
+    auto result = collection.find_one(make_document(kvp("UserEmail", email)));
+
+    if (!result) {
+        std::cout << "No user with that email found!" << std::endl;
+    }
+    //else if (password == ) {
+
+    //}
+
+
+    return false;
+}
+
+
 bool MongoDBDataManager::updateUser(std::shared_ptr<User> oldUser) {
 	return false;
 }
