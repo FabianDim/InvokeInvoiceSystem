@@ -5,7 +5,6 @@
 #include <mongocxx/uri.hpp>
 #include <cstdlib> 
 #include <mongocxx/exception/bulk_write_exception.hpp>
-#include <mongocxx/exception/bulk_write_exception.hpp>
 using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::make_document;
 

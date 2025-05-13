@@ -94,7 +94,6 @@ void AccountManager::createAccount() {
 		if (validatePassword(userPassword)) {
 			storedHash = bcrypt::generateHash(userPassword);
 			//store the password in the db along with username
-			cout << storedHash << endl;
 			break;
 		}
 	}
@@ -118,7 +117,7 @@ void AccountManager::createAccount() {
 	// Create and store user
 	auto user = make_shared<User>(User(userEmail, userPassword));
 	user->setUserEmail(userEmail);
-	user->setPassword(userPassword);
+	user->setPassword(storedHash);
 	user->setFirstName(firstName);
 	user->setLastName(lastName);
 	dataManager.writeNewUser(user);

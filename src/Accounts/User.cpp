@@ -31,3 +31,7 @@ void User::setLastName(const string& lastName) {
 string User::getFirstName() const {
 	return firstName;
 }
+
+string User::getLastName() const {
+	return lastName;
+}

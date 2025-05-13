@@ -1,19 +1,26 @@
 #include "MongoDBDataManager.h"
+#include <bsoncxx/json.hpp>
+#include <mongocxx/exception/bulk_write_exception.hpp>
+#include <mongocxx/exception/exception.hpp>
 
-
-bool MongoDBDataManager::writeNewUser(std::shared_ptr<User> newUser) {
+bool MongoDBDataManager::writeNewUser(const std::shared_ptr<User>& newUser) {
     constexpr char kCollectionName[] = "Users";
     auto collection = InvokeDB[kCollectionName];
 
-    bsoncxx::builder::basic::document builder;
-    builder.append(
-        kvp("UserEmail", newUser->getEmail()),
-        kvp("UserPassword", newUser->getPassword()),
-        kvp("FirstName", newUser->getFirstName())
-    );
-    auto doc = builder.extract();
+    using bsoncxx::builder::stream::document;
+    using bsoncxx::builder::stream::finalize;
 
+    // build the document with the stream API
+    document doc{};
+    doc << "UserEmail" << newUser->getEmail()
+        << "UserPassword" << newUser->getPassword()
+        << "FirstName" << newUser->getFirstName();
+	doc << "LastName" << newUser->getLastName()
+		<< bsoncxx::builder::stream::finalize;
+
+    // insert into MongoDB
     collection.insert_one(doc.view());
+
     return true;
 }
 bool MongoDBDataManager::updateUser(std::shared_ptr<User> oldUser) {
