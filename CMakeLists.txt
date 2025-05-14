@@ -13,7 +13,7 @@ find_package(mongocxx CONFIG REQUIRED)
 add_library(passlib STATIC
   src/Accounts/PasswordHashing/bcrypt.cpp
   src/Accounts/PasswordHashing/blowfish.cpp
-)
+ "src/Accounts/SetUserFromDB.cpp" "include/SetUserFromDB.h")
 target_include_directories(passlib PUBLIC
   src/Accounts/PasswordHashing
   ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -28,6 +28,8 @@ add_executable(${PROJECT_NAME}
   src/System/Menu/MainMenu.cpp
   src/System/Database/MongoDBHandler.cpp
   src/System/Database/MongoDBDataManager.cpp
+ src/Accounts/SetUserFromDB.cpp
+ include/SetUserFromDB.h
 )
 
 # 4) Link in fmt, passlib and the MongoDB C++ driver

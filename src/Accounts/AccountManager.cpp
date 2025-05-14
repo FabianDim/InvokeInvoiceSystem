@@ -122,7 +122,7 @@ void AccountManager::createAccount() {
 	user->setPassword(storedHash);
 	user->setFirstName(firstName);
 	user->setLastName(lastName);
-	dataManager.writeNewUser(user);
+	dataManager.buildNewUser(user);
 	accounts[userEmail] = move(user);
 	currentUser = accounts[userEmail];
 	cout << "Account created successfully!\n";
@@ -131,7 +131,45 @@ void AccountManager::createAccount() {
 
 
 void AccountManager::login() {
-	
+	while (true) {
+		string userEmail;
+		string userPassword;
+		while (true) {
+			cout << "Please enter your email (or * to cancel): ";
+			getline(std::cin >> std::ws, userEmail);
+
+			if (userEmail == "*") {
+				cout << "Login canceled.\n";
+				return;
+			}
+
+			if (validEmail(userEmail)) {
+				break;
+			}
+			//maybe eventually add some sort of convenience check like must include @
+
+		}
+		while (true) {
+			cout << "Please enter your password (or * to cancel): ";
+			getline(std::cin >> std::ws, userPassword);
+
+			if (userPassword == "*") {
+				cout << "Login canceled.\n";
+				return;
+			}
+
+			break;
+		}
+
+		MongoDBDataManager dataManager;
+		if (dataManager.validPassword(userPassword, userEmail)) {
+			mainMenu.loggedInMenu(*this);
+			break;
+		}
+		else {
+			cout << "That username/password combo does not exist: try again.\n\n";
+		}
+	}
 }
 
 shared_ptr<User> AccountManager::getAccount() {

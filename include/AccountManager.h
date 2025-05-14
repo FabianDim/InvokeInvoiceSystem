@@ -8,6 +8,7 @@
 //using namespace std;
 class AccountManager {
     friend class user; 
+    friend class MongoDBDataManager;
 public:
     AccountManager();
     bool validEmail(string& email);

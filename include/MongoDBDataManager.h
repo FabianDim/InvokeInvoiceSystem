@@ -13,16 +13,21 @@ using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::make_document;  
 
 class MongoDBDataManager {
+    friend class  AccountManager;
     MongoDBHandler dbHandler;
     const mongocxx::database InvokeDB; // Add this member variable
-
+    
 public:
     MongoDBDataManager()
         : InvokeDB{ dbHandler.getDatabase() } { // Initialize it in the constructor
     }
 
-    bool writeNewUser(const std::shared_ptr<User>& newUser);
+    bsoncxx::document::value  buildNewUser(const std::shared_ptr<User>& newUser);
+private:
+    bool insertDocument(const string& collectionName, const bsoncxx::document::view& docView);
+    optional<bsoncxx::document::view> findOne(const string& collectionName, const bsoncxx::document::view_or_value& filter);
+    //optional<bsoncxx::document::element> findElement(const string& collectionName, const string& documentName, const string& elementName);
     optional<string> fetchStoredPassword(const std::string& email);
-    bool updateUser(std::shared_ptr<User> oldUser);
-    bool removeUser(std::shared_ptr<User> user);
+    bool validPassword(const string& password, const string& hashedPW);
+
 };
