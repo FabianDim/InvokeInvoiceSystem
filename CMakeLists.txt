@@ -3,7 +3,7 @@ project(InvokeInvoiceSystem LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # 1) Find external libraries
 find_package(fmt      CONFIG REQUIRED)
 find_package(bsoncxx CONFIG REQUIRED)
@@ -29,7 +29,7 @@ add_executable(${PROJECT_NAME}
   src/System/Database/MongoDBHandler.cpp
   src/System/Database/MongoDBDataManager.cpp
  src/Accounts/SetUserFromDB.cpp
- include/SetUserFromDB.h
+ #include/SetUserFromDB.h
 )
 
 # 4) Link in fmt, passlib and the MongoDB C++ driver

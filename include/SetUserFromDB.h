@@ -7,6 +7,7 @@
 #include "AccountManager.h"
 
 class SetUser {
-public:
 
+public:
+	shared_ptr<User> setUserOnLogin(const string& email);
 };

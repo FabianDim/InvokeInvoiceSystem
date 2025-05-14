@@ -29,7 +29,7 @@ bool MongoDBDataManager::insertDocument(const string& collectionName, const bson
 }
 
 //finds a document view in the database.
-optional<bsoncxx::document::view> MongoDBDataManager::findOne(const string& collectionName, const bsoncxx::document::view_or_value& filter) {
+optional<bsoncxx::document::value> MongoDBDataManager::findOne(const string& collectionName, const bsoncxx::document::view_or_value& filter) {
     auto collection = InvokeDB[collectionName];
     try {
         if(auto result = collection.find_one(filter)){
@@ -43,6 +43,23 @@ optional<bsoncxx::document::view> MongoDBDataManager::findOne(const string& coll
         cerr << e.what() << endl;
         return nullopt;
     }
+}
+
+string MongoDBDataManager::getUserOID(const string& collectionName, optional<bsoncxx::document::view_or_value>& viewOpt) {
+
+    auto docOpt = findOne(collectionName, *viewOpt);
+    if (!docOpt) {
+        // not found (or error)
+        return {};
+    }
+    auto view = docOpt->view();
+    auto idElem = view["_id"];
+    if (!idElem || idElem.type() != bsoncxx::type::k_oid) {
+        // no _id, or wrong type
+        return {};
+    }
+    bsoncxx::oid oid = idElem.get_oid().value;
+    return oid.to_string();
 }
 
 

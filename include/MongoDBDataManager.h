@@ -14,6 +14,7 @@ using bsoncxx::builder::basic::make_document;
 
 class MongoDBDataManager {
     friend class  AccountManager;
+    friend class SetUser;
     MongoDBHandler dbHandler;
     const mongocxx::database InvokeDB; // Add this member variable
     
@@ -25,7 +26,8 @@ public:
     bsoncxx::document::value  buildNewUser(const std::shared_ptr<User>& newUser);
 private:
     bool insertDocument(const string& collectionName, const bsoncxx::document::view& docView);
-    optional<bsoncxx::document::view> findOne(const string& collectionName, const bsoncxx::document::view_or_value& filter);
+    optional<bsoncxx::document::value> findOne(const string& collectionName, const bsoncxx::document::view_or_value& filter);
+    string getUserOID(const string& collectionName, optional<bsoncxx::document::view_or_value>& view);
     //optional<bsoncxx::document::element> findElement(const string& collectionName, const string& documentName, const string& elementName);
     optional<string> fetchStoredPassword(const std::string& email);
     bool validPassword(const string& password, const string& hashedPW);
