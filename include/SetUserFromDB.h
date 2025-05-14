@@ -9,5 +9,5 @@
 class SetUser {
 
 public:
-	shared_ptr<User> setUserOnLogin(const string& email);
+	shared_ptr<User> setUserOnLogin(const string& email, const string& password);
 };

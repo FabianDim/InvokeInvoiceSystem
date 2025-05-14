@@ -17,6 +17,9 @@ bool AccountManager::validEmail(string& email) {
 			cout << "Email cannot include spaces" << endl;
 			return false;
 		}
+		if (isupper(c)) {
+			hasUppers = true;
+		}
 	}
 	
 	return true;
@@ -73,7 +76,7 @@ void AccountManager::createAccount() {
 	while (true) {
 		cout << "Please enter your new email (or * to cancel): ";
 		getline(std::cin >> std::ws, userEmail);
-
+		if(hasUppers)transform(userEmail.begin(), userEmail.end(), userEmail.begin(), ::tolower);
 		if (userEmail == "*") {
 			cout << "Account creation canceled.\n";
 			return;
@@ -117,12 +120,13 @@ void AccountManager::createAccount() {
 	auto user = make_shared<User>(User(userEmail, userPassword));
 
 
-
+	
 	user->setUserEmail(userEmail);
 	user->setPassword(storedHash);
 	user->setFirstName(firstName);
 	user->setLastName(lastName);
-	dataManager.buildNewUser(user);
+	auto builder = dataManager.buildNewUser(user);
+	dataManager.insertDocument("Users", builder);
 	accounts[userEmail] = move(user);
 	currentUser = accounts[userEmail];
 	cout << "Account created successfully!\n";
@@ -137,7 +141,7 @@ void AccountManager::login() {
 		while (true) {
 			cout << "Please enter your email (or * to cancel): ";
 			getline(std::cin >> std::ws, userEmail);
-
+			transform(userEmail.begin(), userEmail.end(), userEmail.begin(), ::tolower);
 			if (userEmail == "*") {
 				cout << "Login canceled.\n";
 				return;
@@ -163,6 +167,9 @@ void AccountManager::login() {
 
 		MongoDBDataManager dataManager;
 		if (dataManager.validPassword(userPassword, userEmail)) {
+			SetUser setuser;
+			currentUser = setuser.setUserOnLogin(userEmail, userPassword);
+			accounts[userEmail] = currentUser;
 			mainMenu.loggedInMenu(*this);
 			break;
 		}

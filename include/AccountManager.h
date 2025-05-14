@@ -5,6 +5,7 @@
 #include "bcrypt.h"
 #include "MongoDBHandler.h"
 #include "MongoDBDataManager.h"
+#include "SetUserFromDB.h"
 //using namespace std;
 class AccountManager {
     friend class user; 
@@ -20,7 +21,7 @@ public:
     void login();//login
     shared_ptr<User>  getAccount();
     bool isLoggedIn();
-
+    bool hasUppers = false;
 private:
 	unordered_map<string, shared_ptr<User>> accounts;
     shared_ptr<User> currentUser = nullptr;
