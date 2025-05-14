@@ -7,6 +7,7 @@
 #include <bsoncxx/builder/basic/kvp.hpp>  
 #include <User.h>
 #include <MongoDBHandler.h>
+#include "bcrypt.h"
 
 using bsoncxx::builder::basic::kvp;  
 using bsoncxx::builder::basic::make_document;  
@@ -21,7 +22,7 @@ public:
     }
 
     bool writeNewUser(const std::shared_ptr<User>& newUser);
-	bool findUser(const std::string& email, const std::string& password);
+    optional<string> fetchStoredPassword(const std::string& email);
     bool updateUser(std::shared_ptr<User> oldUser);
     bool removeUser(std::shared_ptr<User> user);
 };
