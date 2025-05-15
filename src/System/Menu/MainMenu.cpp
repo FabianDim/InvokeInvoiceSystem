@@ -5,6 +5,7 @@ void MainMenu::displayMenu(AccountManager& manager) {
     do {
         std::cout << "\n1. Create Account\n2. Login\n3. Exit\nPlease select an option: ";
         std::cin >> choice;
+        std::cout << endl;
         std::cin.ignore(); // Clear the newline character from the input buffer
 
         switch (choice) {
