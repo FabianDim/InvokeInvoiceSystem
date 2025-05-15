@@ -200,9 +200,8 @@ void AccountManager::logOut() {
 		return;
 	}
 
-	currentUser = nullptr; // just clear the user
+	currentUser = nullptr;
 	cout << "Successfully logged out.\n";
-	// Do NOT call mainMenu.isLoggedIn() here.
 }
 
 bool AccountManager::needsAccountSetup(const string& email) {

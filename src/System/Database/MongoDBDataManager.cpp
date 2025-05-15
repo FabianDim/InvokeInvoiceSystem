@@ -46,23 +46,6 @@ optional<bsoncxx::document::value> MongoDBDataManager::findOne(const string& col
     }
 }
 
-string MongoDBDataManager::getUserOID(const string& collectionName, optional<bsoncxx::document::view_or_value>& viewOpt) {
-
-    auto docOpt = findOne(collectionName, *viewOpt);
-    if (!docOpt) {
-        // not found (or error)
-        return {};
-    }
-    auto view = docOpt->view();
-    auto idElem = view["_id"];
-    if (!idElem || idElem.type() != bsoncxx::type::k_oid) {
-        // no _id, or wrong type
-        return {};
-    }
-    bsoncxx::oid oid = idElem.get_oid().value;
-    return oid.to_string();
-}
-
 optional<bsoncxx::document::element> MongoDBDataManager::findElement(const string& collectionName, optional<bsoncxx::document::view_or_value> documentName, const string& elementName) {
     
     try {
