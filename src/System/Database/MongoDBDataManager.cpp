@@ -8,11 +8,12 @@ bsoncxx::document::value  MongoDBDataManager::buildNewUser(const std::shared_ptr
         using bsoncxx::builder::stream::finalize;
 
         // build the document with the stream API
-        return document{} 
+        return document{}
             << "UserEmail" << newUser->getEmail()
             << "UserPassword" << newUser->getPassword()
             << "FirstName" << newUser->getFirstName()
             << "LastName" << newUser->getLastName()
+            << "AccountSetupNeeded" << true
             << finalize;
 }
 bool MongoDBDataManager::insertDocument(const string& collectionName, const bsoncxx::document::view& docView) {
@@ -60,6 +61,23 @@ string MongoDBDataManager::getUserOID(const string& collectionName, optional<bso
     }
     bsoncxx::oid oid = idElem.get_oid().value;
     return oid.to_string();
+}
+
+optional<bsoncxx::document::element> MongoDBDataManager::findElement(const string& collectionName, optional<bsoncxx::document::view_or_value> documentName, const string& elementName) {
+    
+    try {
+        auto& view = documentName->view();
+        auto idElem = view[elementName];
+        
+        if (idElem && idElem.type() != bsoncxx::type::k_null) {
+            return bsoncxx::document::element{ idElem };;
+        }
+    }
+    catch (const mongocxx::exception& e) {
+        cerr << e.what() << endl;
+        return nullopt;
+    }
+    return nullopt;
 }
 
 

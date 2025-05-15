@@ -14,7 +14,7 @@ public:
     AccountManager();
     bool validEmail(string& email);
     bool validName(string& name);
-	bool doesAccountExist(const string& username); // we eventually want to hash the password.
+	bool doesAccountExist(const string& username);
     bool doesPasswordMatch(const string& password);
 	bool validatePassword(const string& password);
     void createAccount();//create the account and store it.
@@ -22,6 +22,8 @@ public:
     shared_ptr<User>  getAccount();
     bool isLoggedIn();
     void logOut();
+
+    bool needsAccountSetup(const string& email);
 
     bool hasUppers = false;
 private:

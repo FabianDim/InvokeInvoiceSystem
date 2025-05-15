@@ -34,9 +34,13 @@ bool AccountManager::validName(string& name) {
 	return true;
 }
 
-bool AccountManager::doesAccountExist(const string& username){
-	if (accounts.find(username) != accounts.end()) {
-		cout << "Email already exists. Please try again or login." << endl;
+bool AccountManager::doesAccountExist(const string& email){
+	MongoDBDataManager dataManager;
+
+	auto document = dataManager.findOne("Users", make_document(kvp("UserEmail", email)));
+
+	if (document) {
+		cout << "An account with that email exists already. Try again: " << endl;
 		return true;
 	}
 	return false;
@@ -199,4 +203,22 @@ void AccountManager::logOut() {
 	currentUser = nullptr; // just clear the user
 	cout << "Successfully logged out.\n";
 	// Do NOT call mainMenu.isLoggedIn() here.
+}
+
+bool AccountManager::needsAccountSetup(const string& email) {
+	MongoDBDataManager dataManager;
+
+    auto document = dataManager.findOne("Users", make_document(kvp("UserEmail", email))); 
+
+    if (document) {  
+		auto view = document->view();
+		auto element = dataManager.findElement("Users", view, "AccountSetupNeeded");
+       if (element) {  
+           // Process the element if needed  
+		   auto needsSetup{ element->get_bool() };
+
+		   return needsSetup;
+       }  
+    }
+	return false;
 }

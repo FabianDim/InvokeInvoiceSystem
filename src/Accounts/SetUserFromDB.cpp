@@ -4,6 +4,7 @@
 #include <bsoncxx/builder/stream/helpers.hpp>
 
 
+
 shared_ptr<User> SetUser::setUserOnLogin(const string& email, const string & password) {
     MongoDBDataManager mongoDataManager;
 	auto filter = bsoncxx::builder::stream::document{} 
