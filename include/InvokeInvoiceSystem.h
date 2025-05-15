@@ -12,6 +12,7 @@
 
 // TODO: Reference additional headers your program requires here.  
 class InvoiceSystem {  
+	friend class MainMenu;
 public:
 	//static void printTitleBox();
 

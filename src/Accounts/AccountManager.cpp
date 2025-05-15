@@ -2,8 +2,6 @@
 #include <iostream>
 #include <iso646.h>
 #include <cctype> 
-
-MainMenu mainMenu;
 AccountManager::AccountManager() {
     // Constructor logic
 
@@ -106,14 +104,21 @@ void AccountManager::createAccount() {
 	while (true) {
 		cout << "Please enter your first name: ";
 		getline(std::cin >> std::ws, firstName);
+		if (firstName == "*") {
+			cout << "Account creation canceled.\n";
+			return;
+		}
 		cout << "Please enter your last name: ";
 		getline(std::cin >> std::ws, lastName);
+		if (lastName == "*") {
+			cout << "Account creation canceled.\n";
+			return;
+		}
 		if (validName(lastName) && validName(firstName)) {
 			break;
 		}
 
 	}
-	AccountManager accountMangager;
 	MongoDBDataManager dataManager;
 
 	// Create and store user
@@ -130,7 +135,7 @@ void AccountManager::createAccount() {
 	accounts[userEmail] = move(user);
 	currentUser = accounts[userEmail];
 	cout << "Account created successfully!\n";
-	mainMenu.loggedInMenu(*this);
+	return;
 }
 
 
@@ -170,8 +175,7 @@ void AccountManager::login() {
 			SetUser setuser;
 			currentUser = setuser.setUserOnLogin(userEmail, userPassword);
 			accounts[userEmail] = currentUser;
-			mainMenu.loggedInMenu(*this);
-			break;
+			return;
 		}
 		else {
 			cout << "That username/password combo does not exist: try again.\n\n";
@@ -180,10 +184,19 @@ void AccountManager::login() {
 }
 
 shared_ptr<User> AccountManager::getAccount() {
-	if (!currentUser) cout << "no user" << endl;
 	return currentUser ? currentUser : nullptr;
 }
 
 bool AccountManager::isLoggedIn() {
 	return currentUser != nullptr;
+}
+
+void AccountManager::logOut() {
+	if (!isLoggedIn()) {
+		return;
+	}
+
+	currentUser = nullptr; // just clear the user
+	cout << "Successfully logged out.\n";
+	// Do NOT call mainMenu.isLoggedIn() here.
 }

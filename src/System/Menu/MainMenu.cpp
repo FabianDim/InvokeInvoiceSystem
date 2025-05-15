@@ -1,5 +1,4 @@
 ﻿#include "MainMenu.h"
-AccountManager accountManager;
 void MainMenu::displayMenu(AccountManager& manager) {
     printTitleBox();
     int choice;
@@ -11,10 +10,10 @@ void MainMenu::displayMenu(AccountManager& manager) {
         switch (choice) {
         case 1:
             manager.createAccount();
-            break;
+            return;
         case 2:
             manager.login();
-            break;
+            return;
         case 3:
             std::cout << "Goodbye!\n";
             break;
@@ -57,9 +56,9 @@ void MainMenu::loggedInMenu(AccountManager& manager) {
             this_thread::sleep_for(chrono::seconds(2));
             continue;
         case 6:
-            std::cout << "This feature is in development! Stay Tuned!\n\n";
-            this_thread::sleep_for(chrono::seconds(2));
-            continue;
+            std::cout << "Logging out\n\n";
+            manager.logOut();
+            return;
         case 7:
             std::cout << "This feature is in development! Stay Tuned!\n\n";
             this_thread::sleep_for(chrono::seconds(2));
@@ -76,4 +75,15 @@ void MainMenu::printTitleBox() {
         "|     WELCOME TO THE INVOKE INVOICE SYSTEM        |\n"
         "+-------------------------------------------------+\n";
     std::cout << header;
+}
+
+void MainMenu::isLoggedIn(AccountManager& accountManager) {
+    while (true) {
+        if (accountManager.getAccount() == nullptr) {
+            displayMenu(accountManager);
+        }
+        else {
+            loggedInMenu(accountManager);
+        }
+    }
 }

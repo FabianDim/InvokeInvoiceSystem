@@ -6,7 +6,8 @@
 #include "AccountManager.h"
 
 class MainMenu {
-	friend class AccountManager; // Allow AccountManager to access private members of MainMenu
+	friend class AccountManager;
+	friend class InvoiceSystem;// Allow AccountManager to access private members of MainMenu
 public:
 	void displayMenu(AccountManager& manager);
 	void loggedInMenu(AccountManager& manager);
@@ -14,6 +15,7 @@ public:
 private:
 	void createAccount();
 	void login();
+	void isLoggedIn(AccountManager& accountManager);
 
 
 };

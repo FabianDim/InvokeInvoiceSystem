@@ -21,6 +21,8 @@ public:
     void login();//login
     shared_ptr<User>  getAccount();
     bool isLoggedIn();
+    void logOut();
+
     bool hasUppers = false;
 private:
 	unordered_map<string, shared_ptr<User>> accounts;
