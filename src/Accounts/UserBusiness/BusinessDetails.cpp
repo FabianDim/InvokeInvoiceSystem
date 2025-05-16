@@ -153,12 +153,8 @@ bool BusinessDetails::acnInput() {
 	string acn;
 	cin >> acn;
 
-	if (toLower(acn) == "back")
+	if (toLower(acn) == "back"){
 		return false; // the main loop can choose to restart or change the step
-
-	if (acn.length() != 9 || !all_of(acn.begin(), acn.end(), ::isdigit)) {
-		cout << "Invalid ABN. Please try again.\n";
-		return false; // stays on this step
 	}
 	currentLevel = BusinessStep::CONFIRM;
 	userBusiness.ACN = acn;
@@ -206,26 +202,66 @@ bool BusinessDetails::confirmInfo() {
 	return false;
 }
 void BusinessDetails::collectBusinessInfo() {
-
-
-	cout << "Lets get to know you and your business a bit better, fields marked with a * are mandatory.\n\n";
-	cout << "This information will be autofilled on invoices. You can change values later. \n Type 'Back' to edit previous answers.";
+	auto thisUser = accountManager.getAccount();
 	while (true) {
 		if (currentLevel == BusinessStep::ENTER_ABN) {
+			std::cout << "Please enter your ABN: ";
 			if (!abnInput()) continue;
 		}
 		else if (currentLevel == BusinessStep::ENTER_NAME) {
+			std::cout << "Please enter your business name: ";
 			if (!nameInput()) continue;
 		}
 		else if (currentLevel == BusinessStep::ENTER_ADDRESS) {
+			std::cout << "Please enter your business address: ";
 			if (!addressInput()) continue;
 		}
 		else if (currentLevel == BusinessStep::ENTER_ACN) {
+			std::cout << "Please enter your ACN (leave blank if not applicable): ";
 			if (!acnInput()) continue;
 		}
 		else if (currentLevel == BusinessStep::CONFIRM) {
 			if (confirmInfo()) return;
 		}
+		createBusinessDoc();
+	}
 
+}
+
+void BusinessDetails::updateAccountRequirement() {
+	try {
+		dbManager.updateElement("Users", "AccountSetupNeeded", true, false);
+	}
+	catch (mongocxx::exception e) {
+		cerr << e.what() << endl;
 	}
 }
+
+bsoncxx::document::value BusinessDetails::createBusinessDoc() {
+	using bsoncxx::builder::stream::document;
+	using bsoncxx::builder::stream::finalize;
+
+	string address = userBusiness.businessAddress.streetAddress +
+		", " + userBusiness.businessAddress.postcode + ", " +
+		userBusiness.businessAddress.city + ", " + userBusiness.businessAddress.stateOrProvince + ", "
+		+ userBusiness.businessAddress.country;
+
+	return document{}
+	<< "ABN" << userBusiness.ABN
+	<< "BusinessName" << userBusiness.businessName 
+	<< "BusinessAddress" << address
+	<< "ACN" << userBusiness.ACN
+	<< finalize;
+}
+
+void BusinessDetails::insertBusinessDoc(bsoncxx::document::value doc) {
+	try {
+		dbManager.insertDocument("Business", doc);
+		updateAccountRequirement();
+	}
+	catch (mongocxx::exception e) {
+		cerr << e.what() << endl;
+	}
+
+}
+

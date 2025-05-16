@@ -1,6 +1,8 @@
 #pragma once
 #include "pch.h"
 #include "AccountManager.h"
+#include "MongoDBDataManager.h"
+#include "User.h"
 
 
 enum class BusinessStep {
@@ -21,6 +23,7 @@ enum class AddressStep {
 };
 
 class BusinessDetails {
+	friend class MainMenu;
 	struct business {
 		struct Address {
 			string country;
@@ -49,7 +52,12 @@ class BusinessDetails {
 	bool acnInput();
 	bool confirmInfo();
 	void collectBusinessInfo();
-
+	void updateAccountRequirement();
+	bsoncxx::document::value createBusinessDoc();
+	void insertBusinessDoc(bsoncxx::document::value doc);
 private:
 	business userBusiness;
+	AccountManager accountManager;
+	MongoDBDataManager dbManager;
+	//const shared_ptr<User> thisUser = accountManager.getAccount();
 };

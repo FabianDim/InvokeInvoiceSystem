@@ -16,6 +16,16 @@ bsoncxx::document::value  MongoDBDataManager::buildNewUser(const std::shared_ptr
             << "AccountSetupNeeded" << true
             << finalize;
 }
+//we have a query filter which finds the doc and value we want to update
+//we then have an update document that defines the updated values.
+//we use $set to make sure it doesnt delete the entire doc
+//we then use update one to update the values.
+void MongoDBDataManager::updateElement(const string& collectionName, const string& docparameter, const bool prevVal, const bool updateValue) {
+    auto query_filter = make_document(kvp(docparameter, prevVal));
+    auto update_doc = make_document(kvp("$set", make_document(kvp(docparameter, updateValue))));
+    auto collection = InvokeDB[collectionName];
+    auto result = collection.update_one(query_filter.view(), update_doc.view());
+}
 bool MongoDBDataManager::insertDocument(const string& collectionName, const bsoncxx::document::view& docView) {
     auto collection = InvokeDB[collectionName];
 

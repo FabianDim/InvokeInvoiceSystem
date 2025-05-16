@@ -28,21 +28,32 @@ void MainMenu::displayMenu(AccountManager& manager) {
 void MainMenu::loggedInMenu(AccountManager& manager) {
     printTitleBox();
     auto user = manager.getAccount();
-    bool firstLogin;
     int choice;
     do {
-        
-
         if (manager.needsAccountSetup(user->getEmail())) {
-            std::cout << "Welcome to the Invoke Invoice System, " << user->getFirstName() << endl;
-            string agree;
-            std::cout << "Your account needs to be setup to utilise invoice functionality.\nPlease type 'yes' to begin or 'no' to logout : ";
-            cin >> agree;
-            if (agree == "no") {
-                manager.logOut();
-                return;
+            string input;
+            std::cout << "\n🔔 In order to start using the Invoke Invoice System, your account needs to be fully set up.\n";
+            std::cout << "These details will help us autofill your invoices and make your workflow smoother.\n\n";
+
+            std::cout << "👋 First, we need to get to know your business a little better.\n";
+            std::cout << "Let's go through a few quick questions about your ABN, business name, and contact info.\n";
+            std::cout << "Don't worry — you'll only need to do this once.\n\n";
+
+            cout << "Type 'Yes' to begin";
+
+            cin >> input;
+            for (auto c : input) {
+                tolower(c);
+            }
+            BusinessDetails businessDetails;
+            if (input == "yes") {
+                while (manager.needsAccountSetup(user->getEmail())) {
+                    businessDetails.collectBusinessInfo();
+                }
             }
         }
+
+
         std::cout << "Welcome back to the Invoke Invoice System, " << user->getFirstName() << endl;
         std::cout << "\n1. Create a new Invoice\n2. Invoice Management\n3. Stock Management\
                        \n4. Account Management\n5. See invoices\n6. Logout\n7. Exit!\nPlease select an option: ";
@@ -104,3 +115,10 @@ void MainMenu::isLoggedIn(AccountManager& accountManager) {
         }
     }
 }
+
+void MainMenu::accountSetup(AccountManager& manager) {
+    auto user = manager.getAccount();
+
+
+}
+

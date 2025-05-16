@@ -22,10 +22,11 @@ public:
     MongoDBDataManager()
         : InvokeDB{ dbHandler.getDatabase() } { // Initialize it in the constructor
     }
-
-    bsoncxx::document::value  buildNewUser(const std::shared_ptr<User>& newUser);
-private:
     bool insertDocument(const string& collectionName, const bsoncxx::document::view& docView);
+    bsoncxx::document::value  buildNewUser(const std::shared_ptr<User>& newUser);
+    void updateElement(const string& collectionName, const string& docparameter, const bool prevVal, const bool updateValue);
+private:
+    //bool insertDocument(const string& collectionName, const bsoncxx::document::view& docView);
     optional<bsoncxx::document::value> findOne(const string& collectionName, const bsoncxx::document::view_or_value& filter);
     string getUserOID(const string& collectionName, optional<bsoncxx::document::view_or_value>& view);
     optional<bsoncxx::document::element> findElement(const string& collectionName, optional<bsoncxx::document::view_or_value> documentName, const string& elementName);
