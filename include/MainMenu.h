@@ -4,7 +4,12 @@
 #include "pch.h"
 #include "InvoiceSystem.h"
 #include "AccountManager.h"
-
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <Windows.h>
+#include <io.h>
+#include <fcntl.h>
+#include <BusinessDetails.h>
 
 class MainMenu {
 	friend class AccountManager;

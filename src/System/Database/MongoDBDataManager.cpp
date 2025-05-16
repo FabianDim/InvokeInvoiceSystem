@@ -65,6 +65,8 @@ optional<bsoncxx::document::element> MongoDBDataManager::findElement(const strin
 
 
 
+
+
 //break up the functions into smaller less specific functions to create more flexibility
 optional<string> MongoDBDataManager::fetchStoredPassword(const std::string& email) {
     constexpr char kCollectionName[] = "Users";

@@ -9,7 +9,7 @@ private:
    string password;
    string firstName;
    string lastName;
-   string mongoOID;
+   string mongoUserOID;
 
 
 public:  
@@ -18,10 +18,10 @@ public:
    string getFirstName() const;
    string getLastName() const;
    string getPassword() const;
-   string getMongoID()const;
+   string getMongoUserID()const;
    void setUserEmail(const string& newUsername);  //to track uer
    void setPassword(const string& newPassword);  
    void setFirstName(const string& firstName);
    void setLastName(const string& lastName);
-   void setMongoID(const string& mongoID); // to track user
+   void setMongoUserID(const string& mongoID); // to track user
 };

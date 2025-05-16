@@ -8,7 +8,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(fmt      CONFIG REQUIRED)
 find_package(bsoncxx CONFIG REQUIRED)
 find_package(mongocxx CONFIG REQUIRED)
-
+find_package(unofficial-libharu CONFIG REQUIRED) 
 # 2) Your own bcrypt library (renamed to avoid clash with Windows' bcrypt.lib)
 add_library(passlib STATIC
   src/Accounts/PasswordHashing/bcrypt.cpp
@@ -30,14 +30,14 @@ add_executable(${PROJECT_NAME}
   src/System/Database/MongoDBDataManager.cpp
  src/Accounts/SetUserFromDB.cpp
  #include/SetUserFromDB.h
-)
+ src/Accounts/UserBusiness/BusinessDetails.cpp)
 
 # 4) Link in fmt, passlib and the MongoDB C++ driver
 target_link_libraries(${PROJECT_NAME}
   PRIVATE
     passlib
     fmt::fmt
-
+    unofficial::libharu::hpdf
     # pick the static bsoncxx if available else fall back to shared
     $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,
        mongo::bsoncxx_static,
@@ -48,6 +48,7 @@ target_link_libraries(${PROJECT_NAME}
        mongo::mongocxx_static,
        mongo::mongocxx_shared>
 )
+
 
 # 5) Optional precompiled header
 target_precompile_headers(${PROJECT_NAME} PRIVATE include/pch.h)
