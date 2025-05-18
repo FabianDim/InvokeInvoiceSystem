@@ -2,175 +2,159 @@
 #include <iostream>
 #include <iso646.h>
 #include <cctype> 
-AccountManager::AccountManager() {
-    // Constructor logic
 
-	//load accounts from disk
-	//loadencryption module;
+AccountManager::AccountManager() {
+	// Constructor logic
 }
 
-bool AccountManager::validEmail(string& email) {
+bool AccountManager::validEmail(std::string& email) {
 	for (char& c : email) {
-		if (isspace(c)) {
-			cout << "Email cannot include spaces" << endl;
+		if (std::isspace(c)) {
+			std::cout << "Email cannot include spaces" << std::endl;
 			return false;
 		}
-		if (isupper(c)) {
+		if (std::isupper(c)) {
 			hasUppers = true;
 		}
 	}
-	
 	return true;
 }
 
-bool AccountManager::validName(string& name) {
+bool AccountManager::validName(std::string& name) {
 	for (char& c : name) {
-		if (isdigit(c) or ispunct(c)) {
-			cout << "Names cannot include numbers or punctuation" << endl;
+		if (std::isdigit(c) or std::ispunct(c)) {
+			std::cout << "Names cannot include numbers or punctuation" << std::endl;
 			return false;
 		}
 	}
-
 	return true;
 }
 
-bool AccountManager::doesAccountExist(const string& email){
+bool AccountManager::doesAccountExist(const std::string& email) {
 	MongoDBDataManager dataManager;
-
 	auto document = dataManager.findOne("Users", make_document(kvp("UserEmail", email)));
-
 	if (document) {
-		cout << "An account with that email exists already. Try again: " << endl;
+		std::cout << "An account with that email exists already. Try again: " << std::endl;
 		return true;
 	}
 	return false;
 }
 
-bool AccountManager::doesPasswordMatch(const string& password){
+bool AccountManager::doesPasswordMatch(const std::string& password) {
 	return false;
 }
 
-bool AccountManager::validatePassword(const string& password){
-   bool isDigit = false, isUpper = false, isSpecial = false;
-   for (char c : password) {
-       if (isdigit(c)) {
-           isDigit = true;
-       } else if (isupper(c)) {
-           isUpper = true;
-       } else if (ispunct(c)) {
-           isSpecial = true;
-       }
-   }
-   if (isDigit && isUpper && isSpecial) {
-	   cout << "Password is valid." << endl;
-   }
-   else {
-	   cout << "Password must contain at least one digit, one uppercase letter, and one special character." << endl;
-   }
-
-   return isDigit && isUpper && isSpecial;
+bool AccountManager::validatePassword(const std::string& password) {
+	bool isDigit = false, isUpper = false, isSpecial = false;
+	for (char c : password) {
+		if (std::isdigit(c)) {
+			isDigit = true;
+		}
+		else if (std::isupper(c)) {
+			isUpper = true;
+		}
+		else if (std::ispunct(c)) {
+			isSpecial = true;
+		}
+	}
+	if (isDigit && isUpper && isSpecial) {
+		std::cout << "Password is valid." << std::endl;
+	}
+	else {
+		std::cout << "Password must contain at least one digit, one uppercase letter, and one special character." << std::endl;
+	}
+	return isDigit && isUpper && isSpecial;
 }
 
 void AccountManager::createAccount() {
-	string userEmail;
+	std::string userEmail;
 
-	// Prompt until a valid (unused) username is entered
 	while (true) {
-		cout << "Please enter your new email (or * to cancel): ";
-		getline(std::cin >> std::ws, userEmail);
-		if(hasUppers)transform(userEmail.begin(), userEmail.end(), userEmail.begin(), ::tolower);
+		std::cout << "Please enter your new email (or * to cancel): ";
+		std::getline(std::cin >> std::ws, userEmail);
+		if (hasUppers) std::transform(userEmail.begin(), userEmail.end(), userEmail.begin(), ::tolower);
 		if (userEmail == "*") {
-			cout << "Account creation canceled.\n";
+			std::cout << "Account creation canceled.\n";
 			return;
 		}
-
 		if (!doesAccountExist(userEmail) && validEmail(userEmail)) {
-			break; // valid and not taken
-		}
-	}
-
-	// Password setup loop
-	string userPassword;
-	string storedHash;
-	while (true) {
-		cout << "Please enter your password: ";
-		cin >> userPassword;
-
-		if (validatePassword(userPassword)) {
-			storedHash = bcrypt::generateHash(userPassword);
-			//store the password in the db along with username
 			break;
 		}
 	}
-	string firstName;
-	string lastName;
+
+	std::string userPassword;
+	std::string storedHash;
+	while (true) {
+		std::cout << "Please enter your password: ";
+		std::cin >> userPassword;
+		if (validatePassword(userPassword)) {
+			storedHash = bcrypt::generateHash(userPassword);
+			break;
+		}
+	}
+
+	std::string firstName;
+	std::string lastName;
 
 	while (true) {
-		cout << "Please enter your first name: ";
-		getline(std::cin >> std::ws, firstName);
+		std::cout << "Please enter your first name: ";
+		std::getline(std::cin >> std::ws, firstName);
 		if (firstName == "*") {
-			cout << "Account creation canceled.\n";
+			std::cout << "Account creation canceled.\n";
 			return;
 		}
-		cout << "Please enter your last name: ";
-		getline(std::cin >> std::ws, lastName);
+		std::cout << "Please enter your last name: ";
+		std::getline(std::cin >> std::ws, lastName);
 		if (lastName == "*") {
-			cout << "Account creation canceled.\n";
+			std::cout << "Account creation canceled.\n";
 			return;
 		}
 		if (validName(lastName) && validName(firstName)) {
 			break;
 		}
-
 	}
+
 	MongoDBDataManager dataManager;
+	auto user = std::make_shared<User>(User(userEmail, userPassword));
 
-	// Create and store user
-	auto user = make_shared<User>(User(userEmail, userPassword));
-
-
-	
 	user->setUserEmail(userEmail);
 	user->setPassword(storedHash);
 	user->setFirstName(firstName);
 	user->setLastName(lastName);
+
 	auto builder = dataManager.buildNewUser(user);
 	dataManager.insertDocument("Users", builder);
-	accounts[userEmail] = move(user);
-	currentUser = accounts[userEmail];
-	cout << "Account created successfully!\n";
-	return;
-}
 
+	accounts[userEmail] = std::move(user);
+	currentUser = accounts[userEmail];
+	std::cout << "Account created successfully!\n";
+}
 
 void AccountManager::login() {
 	while (true) {
-		string userEmail;
-		string userPassword;
+		std::string userEmail;
+		std::string userPassword;
+
 		while (true) {
-			cout << "Please enter your email (or * to cancel): ";
-			getline(std::cin >> std::ws, userEmail);
-			transform(userEmail.begin(), userEmail.end(), userEmail.begin(), ::tolower);
+			std::cout << "Please enter your email (or * to cancel): ";
+			std::getline(std::cin >> std::ws, userEmail);
+			std::transform(userEmail.begin(), userEmail.end(), userEmail.begin(), ::tolower);
 			if (userEmail == "*") {
-				cout << "Login canceled.\n";
+				std::cout << "Login canceled.\n";
 				return;
 			}
-
 			if (validEmail(userEmail)) {
 				break;
 			}
-			//maybe eventually add some sort of convenience check like must include @
-
 		}
-		while (true) {
-			cout << "Please enter your password (or * to cancel): ";
-			getline(std::cin >> std::ws, userPassword);
 
+		while (true) {
+			std::cout << "Please enter your password (or * to cancel): ";
+			std::getline(std::cin >> std::ws, userPassword);
 			if (userPassword == "*") {
-				cout << "Login canceled.\n";
+				std::cout << "Login canceled.\n";
 				return;
 			}
-
 			break;
 		}
 
@@ -182,12 +166,12 @@ void AccountManager::login() {
 			return;
 		}
 		else {
-			cout << "That username/password combo does not exist: try again.\n\n";
+			std::cout << "That username/password combo does not exist: try again.\n\n";
 		}
 	}
 }
 
-shared_ptr<User> AccountManager::getAccount() {
+std::shared_ptr<User> AccountManager::getAccount() {
 	return currentUser ? currentUser : nullptr;
 }
 
@@ -199,25 +183,21 @@ void AccountManager::logOut() {
 	if (!isLoggedIn()) {
 		return;
 	}
-
 	currentUser = nullptr;
-	cout << "Successfully logged out.\n";
+	std::cout << "Successfully logged out.\n";
 }
 
-bool AccountManager::needsAccountSetup(const string& email) {
+bool AccountManager::needsAccountSetup(const std::string& email) {
 	MongoDBDataManager dataManager;
+	auto document = dataManager.findOne("Users", make_document(kvp("UserEmail", email)));
 
-    auto document = dataManager.findOne("Users", make_document(kvp("UserEmail", email))); 
-
-    if (document) {  
+	if (document) {
 		auto view = document->view();
 		auto element = dataManager.findElement("Users", view, "AccountSetupNeeded");
-       if (element) {  
-           // Process the element if needed  
-		   auto needsSetup{ element->get_bool() };
-
-		   return needsSetup;
-       }  
-    }
+		if (element) {
+			auto needsSetup{ element->get_bool() };
+			return needsSetup.value;
+		}
+	}
 	return false;
 }

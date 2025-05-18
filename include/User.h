@@ -1,27 +1,25 @@
 #pragma once  
 #include "pch.h"
 
+class User {
 
-class User {  
+private:
+	std::string email;
+	std::string password;
+	std::string firstName;
+	std::string lastName;
+	std::string mongoUserOID;
 
-private:  
-   string email;  
-   string password;
-   string firstName;
-   string lastName;
-   string mongoUserOID;
-
-
-public:  
-   User(const string& email, const string& password);  
-   string getEmail() const;  
-   string getFirstName() const;
-   string getLastName() const;
-   string getPassword() const;
-   string getMongoUserID()const;
-   void setUserEmail(const string& newUsername);  //to track uer
-   void setPassword(const string& newPassword);  
-   void setFirstName(const string& firstName);
-   void setLastName(const string& lastName);
-   void setMongoUserID(const string& mongoID); // to track user
+public:
+	User(const std::string& email, const std::string& password);
+	std::string getEmail() const;
+	std::string getFirstName() const;
+	std::string getLastName() const;
+	std::string getPassword() const;
+	std::string getMongoUserID() const;
+	void setUserEmail(const std::string& newUsername);  // to track user
+	void setPassword(const std::string& newPassword);
+	void setFirstName(const std::string& firstName);
+	void setLastName(const std::string& lastName);
+	void setMongoUserID(const std::string& mongoID); // to track user
 };

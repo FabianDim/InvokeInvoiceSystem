@@ -4,7 +4,6 @@
 #include "MongoDBDataManager.h"
 #include "User.h"
 
-
 enum class BusinessStep {
 	ENTER_ABN,
 	ENTER_NAME,
@@ -13,6 +12,7 @@ enum class BusinessStep {
 	CONFIRM,
 	DONE
 };
+
 enum class AddressStep {
 	COUNTRY,
 	STATE,
@@ -26,21 +26,23 @@ class BusinessDetails {
 	friend class MainMenu;
 	struct business {
 		struct Address {
-			string country;
-			string streetAddress;
-			string city;
-			string stateOrProvince;
-			string postcode;
+			std::string country;
+			std::string streetAddress;
+			std::string city;
+			std::string stateOrProvince;
+			std::string postcode;
 		};
-		string ABN;
-		string businessName;
+		std::string ABN;
+		std::string businessName;
 		Address businessAddress;
-		string ACN;
+		std::string ACN;
 	};
+public:
+	BusinessDetails();
 	enum BusinessStep currentLevel = BusinessStep::ENTER_ABN;
 	enum AddressStep current = AddressStep::COUNTRY;
-	string toLower(string text);
-	
+	std::string toLower(std::string text);
+
 	bool getCountry();
 	bool getState();
 	bool getCity();
@@ -52,12 +54,12 @@ class BusinessDetails {
 	bool acnInput();
 	bool confirmInfo();
 	void collectBusinessInfo();
-	void updateAccountRequirement();
+	void updateAccountRequirement(std::string email);
 	bsoncxx::document::value createBusinessDoc();
 	void insertBusinessDoc(bsoncxx::document::value doc);
+	std::shared_ptr<User> thisUser;
+
 private:
 	business userBusiness;
-	AccountManager accountManager;
 	MongoDBDataManager dbManager;
-	//const shared_ptr<User> thisUser = accountManager.getAccount();
 };

@@ -2,266 +2,274 @@
 
 #include <cctype>
 
-string BusinessDetails::toLower(string text) {
-	transform(text.begin(), text.end(), text.begin(), ::tolower);
-	return text;
+BusinessDetails::BusinessDetails() {
+    AccountManager accountManager;
+    thisUser = accountManager.getAccount();
 }
 
+std::string BusinessDetails::toLower(std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(), ::tolower);
+    return text;
+}
 
 bool BusinessDetails::addressInput() {
-	while (true) {
-		if (current == AddressStep::COUNTRY) {
-			getCountry();
-		}
-		if (current == AddressStep::STATE) {
-			getState();
-		}
-		if (current == AddressStep::CITY) {
-			getCity();
-		}
-		if (current == AddressStep::POST_CODE) {
-			getPostCode();
-		}
-		if (current == AddressStep::STREET) {
-			getStreetAddress();
-		}
-	}
-	currentLevel = BusinessStep::ENTER_ACN;
-	return true;
+    std::cout << "Please enter your business address: \n";
+    while (true) {
+        if (current == AddressStep::COUNTRY) {
+            if (!getCountry()) continue;
+        }
+        if (current == AddressStep::STATE) {
+            if (!getState()) continue;
+        }
+        if (current == AddressStep::CITY) {
+            if (!getCity()) continue;
+        }
+        if (current == AddressStep::POST_CODE) {
+            if (!getPostCode()) continue;
+        }
+        if (current == AddressStep::STREET) {
+            if (!getStreetAddress()) continue;
+        }
+        if (current == AddressStep::DONE) {
+            currentLevel = BusinessStep::ENTER_ACN;
+            break;
+        }
+    }
+    return true;
 }
+
 bool BusinessDetails::getCountry() {
-	cout << "Please enter your country*";
-	string country;
-	getline(std::cin >> std::ws, country);
+    std::cout << "Please enter your country*: ";
+    std::string country;
+    std::getline(std::cin >> std::ws, country);
 
-	for (auto& c : country) {
-		if (isdigit(c) or ispunct(c) || toLower(country) == "back") {
-			return false;
-		}
-	}
+    for (auto& c : country) {
+        if (std::isdigit(c) or std::ispunct(c) || toLower(country) == "back") {
+            return false;
+        }
+    }
 
-	country = toLower(country);
-	country[0] = toupper(country[0]);
-	userBusiness.businessAddress.country = country;
-	cout << endl;
-	current = AddressStep::STATE;
-	return true;
+    country = toLower(country);
+    country[0] = std::toupper(country[0]);
+    userBusiness.businessAddress.country = country;
+    current = AddressStep::STATE;
+    return true;
 }
 
 bool BusinessDetails::getState() {
-	cout << "Please enter your state or province*";
-	string state;
-	getline(std::cin >> std::ws, state);
+    std::cout << "Please enter your state or province*: ";
+    std::string state;
+    std::getline(std::cin >> std::ws, state);
 
-	for (auto& c : state) {
-		if (isdigit(c) or ispunct(c) || toLower(state) == "back") {
-			return false;
-		}
-	}
+    for (auto& c : state) {
+        if (std::isdigit(c) or std::ispunct(c) || toLower(state) == "back") {
+            return false;
+        }
+    }
 
-	state = toLower(state);
-	state[0] = toupper(state[0]);
-	userBusiness.businessAddress.stateOrProvince = state;
-	cout << endl;
-	current = AddressStep::CITY;
-	return true;
+    state = toLower(state);
+    state[0] = std::toupper(state[0]);
+    userBusiness.businessAddress.stateOrProvince = state;
+    current = AddressStep::CITY;
+    return true;
 }
 
 bool BusinessDetails::getCity() {
-	cout << "Please enter your city*";
-	string city;
-	getline(std::cin >> std::ws, city);
+    std::cout << "Please enter your city*: ";
+    std::string city;
+    std::getline(std::cin >> std::ws, city);
 
-	for (auto& c : city) {
-		if (isdigit(c) or ispunct(c) || toLower(city) == "back") {
-			return false;
-		}
-	}
+    for (auto& c : city) {
+        if (std::isdigit(c) or std::ispunct(c) || toLower(city) == "back") {
+            return false;
+        }
+    }
 
-	city = toLower(city);
-	city[0] = toupper(city[0]);
-	userBusiness.businessAddress.city = city;
-	cout << endl;
-	current = AddressStep::POST_CODE;
-	return true;
+    city = toLower(city);
+    city[0] = std::toupper(city[0]);
+    userBusiness.businessAddress.city = city;
+    current = AddressStep::POST_CODE;
+    return true;
 }
 
 bool BusinessDetails::getPostCode() {
-	cout << "Please enter your post/zip code*";
-	string postcode;
-	getline(std::cin >> std::ws, postcode);
+    std::cout << "Please enter your post/zip code*: ";
+    std::string postcode;
+    std::getline(std::cin >> std::ws, postcode);
 
-	for (auto& c : postcode) {
-		if (isdigit(c) || toLower(postcode) == "back") {
-			return false;
-		}
-		toupper(c);
-	}
+    for (auto& c : postcode) {
+        if (toLower(postcode) == "back" || std::isspace(c)) {
+            return false;
+        }
 
-	userBusiness.businessAddress.postcode = postcode;
-	cout << endl;
-	current = AddressStep::STREET;
-	return true;
+        c = std::toupper(c);
+    }
+
+    userBusiness.businessAddress.postcode = postcode;
+    current = AddressStep::STREET;
+    return true;
 }
 
 bool BusinessDetails::getStreetAddress() {
-	cout << "Please enter your street address*";
-	string streetAddress;
-	getline(std::cin >> std::ws, streetAddress);
+    std::cout << "Please enter your street address*: ";
+    std::string streetAddress;
+    std::getline(std::cin >> std::ws, streetAddress);
 
-	for (auto& c : streetAddress) {
-		if (toLower(streetAddress) == "back") {
-			return false;
-		}
-	}
+    for (auto& c : streetAddress) {
+        if (toLower(streetAddress) == "back") {
+            return false;
+        }
+    }
 
-	userBusiness.businessAddress.streetAddress = streetAddress;
-	cout << endl;
-	current = AddressStep::STREET;
-	return true;
+    userBusiness.businessAddress.streetAddress = streetAddress;
+    current = AddressStep::DONE;
+    return true;
 }
+
 bool BusinessDetails::abnInput() {
-	cout << "Enter your 10-digit ABN (or type 'back' to cancel): ";
-	string abn;
-	cin >> abn;
+    std::cout << "Enter your 10-digit ABN (or type 'back' to cancel): ";
+    std::string abn;
+    std::cin >> abn;
 
-	if (toLower(abn) == "back")
-		return false; // the main loop can choose to restart or change the step
+    if (toLower(abn) == "back")
+        return false;
 
-	if (abn.length() != 10 || !all_of(abn.begin(), abn.end(), ::isdigit)) {
-		cout << "Invalid ABN. Please try again.\n";
-		return false; // stays on this step
-	}
-	currentLevel = BusinessStep::ENTER_NAME;
-	userBusiness.ABN = abn;
-	return true; // continue to next step
+    if (abn.length() != 10 || !std::all_of(abn.begin(), abn.end(), ::isdigit)) {
+        std::cout << "Invalid ABN. Please try again.\n";
+        return false;
+    }
+    currentLevel = BusinessStep::ENTER_NAME;
+    userBusiness.ABN = abn;
+    return true;
 }
 
 bool BusinessDetails::nameInput() {
-		cout << "Name";
-		string name;
-		cin >> name;
+    std::cout << "Please enter your business name: ";
+    std::string name;
 
-		if (toLower(name) == "back")currentLevel = BusinessStep::ENTER_ABN; return false;
-		userBusiness.businessName = name;
-		currentLevel = BusinessStep::ENTER_ADDRESS;
-		//if back do somethi
+    std::getline(std::cin >> std::ws, name);
+
+    if (toLower(name) == "back") {
+        currentLevel = BusinessStep::ENTER_ABN;
+        return false;
+    }
+    std::cout << std::endl;
+    userBusiness.businessName = name;
+    currentLevel = BusinessStep::ENTER_ADDRESS;
+    return true;
 }
 
 bool BusinessDetails::acnInput() {
-	cout << "Enter your 9-digit ACN (or type 'back' to cancel): ";
-	string acn;
-	cin >> acn;
+    std::cout << "Please enter your ACN (leave blank if not applicable): ";
+    std::string acn;
+    std::cin >> acn;
 
-	if (toLower(acn) == "back"){
-		return false; // the main loop can choose to restart or change the step
-	}
-	currentLevel = BusinessStep::CONFIRM;
-	userBusiness.ACN = acn;
-	return true; // continue to next step
+    if (toLower(acn) == "back") {
+        return false;
+    }
+    currentLevel = BusinessStep::CONFIRM;
+    userBusiness.ACN = acn;
+    return true;
 }
 
 bool BusinessDetails::confirmInfo() {
-	cout << "Take a moment to verify your information: \n";
+    std::cout << "Take a moment to verify your information: \n";
 
-	cout << "ABN: " << userBusiness.ABN << endl;
-	cout << "Business Name: " << userBusiness.businessName << endl;
-	cout << "Address: " << userBusiness.businessAddress.streetAddress
-		<< ", " << userBusiness.businessAddress.postcode << ", \n" <<
-		userBusiness.businessAddress.city << ", " << userBusiness.businessAddress.stateOrProvince << ", "
-		<< userBusiness.businessAddress.country << endl;
-	cout << "ACN: " << userBusiness.ACN << endl;
-	string input;
-	while (true) {
-		cout << "Type to redo: <ABN>, <Name>, <Address>, <ACN>. or <done> to finish setup";
-		cin >> input;
-		if (toLower(input) == "done") {
-			currentLevel = BusinessStep::DONE;
-			return true;
-		}
-		else if (toLower(input) == "abn") {
-			currentLevel = BusinessStep::ENTER_ABN;
-			return false;
-		}
-		else if (toLower(input) == "name") {
-			currentLevel = BusinessStep::ENTER_NAME;
-			return false;
-		}
-		else if (toLower(input) == "address") {
-			currentLevel = BusinessStep::ENTER_ADDRESS;
-			return false;
-		}
-		else if (toLower(input) == "acn") {
-			currentLevel = BusinessStep::ENTER_ACN;
-			return true;
-		}
-		else {
-			cout << "Invalid input, try again";
-		}
-	}
-	return false;
+    std::cout << "ABN: " << userBusiness.ABN << std::endl;
+    std::cout << "Business Name: " << userBusiness.businessName << std::endl;
+    std::cout << "Address: " << userBusiness.businessAddress.streetAddress
+        << ", " << userBusiness.businessAddress.postcode << ", " <<
+        userBusiness.businessAddress.city << ", " << userBusiness.businessAddress.stateOrProvince << ", "
+        << userBusiness.businessAddress.country << std::endl;
+    std::cout << "ACN: " << userBusiness.ACN << std::endl;
+    std::string input;
+    while (true) {
+        std::cout << "Type to redo: <ABN>, <Name>, <Address>, <ACN>. or <done> to finish setup: ";
+        std::cin >> input;
+        if (toLower(input) == "done") {
+            currentLevel = BusinessStep::DONE;
+            return true;
+        }
+        else if (toLower(input) == "abn") {
+            currentLevel = BusinessStep::ENTER_ABN;
+            return false;
+        }
+        else if (toLower(input) == "name") {
+            currentLevel = BusinessStep::ENTER_NAME;
+            return false;
+        }
+        else if (toLower(input) == "address") {
+            currentLevel = BusinessStep::ENTER_ADDRESS;
+            return false;
+        }
+        else if (toLower(input) == "acn") {
+            currentLevel = BusinessStep::ENTER_ACN;
+            return true;
+        }
+        else {
+            std::cout << "Invalid input, try again";
+        }
+    }
+    return false;
 }
+
 void BusinessDetails::collectBusinessInfo() {
-	auto thisUser = accountManager.getAccount();
-	while (true) {
-		if (currentLevel == BusinessStep::ENTER_ABN) {
-			std::cout << "Please enter your ABN: ";
-			if (!abnInput()) continue;
-		}
-		else if (currentLevel == BusinessStep::ENTER_NAME) {
-			std::cout << "Please enter your business name: ";
-			if (!nameInput()) continue;
-		}
-		else if (currentLevel == BusinessStep::ENTER_ADDRESS) {
-			std::cout << "Please enter your business address: ";
-			if (!addressInput()) continue;
-		}
-		else if (currentLevel == BusinessStep::ENTER_ACN) {
-			std::cout << "Please enter your ACN (leave blank if not applicable): ";
-			if (!acnInput()) continue;
-		}
-		else if (currentLevel == BusinessStep::CONFIRM) {
-			if (confirmInfo()) return;
-		}
-		createBusinessDoc();
-	}
-
+    while (true) {
+        if (currentLevel == BusinessStep::ENTER_ABN) {
+            if (!abnInput()) continue;
+        }
+        if (currentLevel == BusinessStep::ENTER_NAME) {
+            if (!nameInput()) continue;
+        }
+        if (currentLevel == BusinessStep::ENTER_ADDRESS) {
+            if (!addressInput()) continue;
+        }
+        if (currentLevel == BusinessStep::ENTER_ACN) {
+            if (!acnInput()) continue;
+        }
+        if (currentLevel == BusinessStep::CONFIRM) {
+            if (confirmInfo()) return;
+        }
+        createBusinessDoc();
+    }
 }
 
-void BusinessDetails::updateAccountRequirement() {
-	try {
-		dbManager.updateElement("Users", "AccountSetupNeeded", true, false);
-	}
-	catch (mongocxx::exception e) {
-		cerr << e.what() << endl;
-	}
+void BusinessDetails::updateAccountRequirement(std::string email) {
+    AccountManager accountManager;
+    email = accountManager.getAccount()->getEmail();
+    try {
+        dbManager.updateDoc("Users", make_document(kvp("UserEmail", email)), make_document(kvp("$set", make_document(kvp("AccountSetupNeeded", false)))));
+    }
+    catch (mongocxx::exception e) {
+        std::cerr << e.what() << std::endl;
+    }
 }
 
 bsoncxx::document::value BusinessDetails::createBusinessDoc() {
-	using bsoncxx::builder::stream::document;
-	using bsoncxx::builder::stream::finalize;
+    using bsoncxx::builder::stream::document;
+    using bsoncxx::builder::stream::finalize;
 
-	string address = userBusiness.businessAddress.streetAddress +
-		", " + userBusiness.businessAddress.postcode + ", " +
-		userBusiness.businessAddress.city + ", " + userBusiness.businessAddress.stateOrProvince + ", "
-		+ userBusiness.businessAddress.country;
+    std::string address = userBusiness.businessAddress.streetAddress +
+        ", " + userBusiness.businessAddress.postcode + ", " +
+        userBusiness.businessAddress.city + ", " + userBusiness.businessAddress.stateOrProvince + ", "
+        + userBusiness.businessAddress.country;
 
-	return document{}
-	<< "ABN" << userBusiness.ABN
-	<< "BusinessName" << userBusiness.businessName 
-	<< "BusinessAddress" << address
-	<< "ACN" << userBusiness.ACN
-	<< finalize;
+    return document{}
+        << "ABN" << userBusiness.ABN
+        << "BusinessName" << userBusiness.businessName
+        << "BusinessAddress" << address
+        << "ACN" << userBusiness.ACN
+        << finalize;
 }
 
 void BusinessDetails::insertBusinessDoc(bsoncxx::document::value doc) {
-	try {
-		dbManager.insertDocument("Business", doc);
-		updateAccountRequirement();
-	}
-	catch (mongocxx::exception e) {
-		cerr << e.what() << endl;
-	}
-
+    AccountManager accountManager;
+    std::string email = accountManager.getAccount()->getEmail();
+    try {
+        dbManager.insertDocument("Business", doc);
+        updateAccountRequirement(email);
+    }
+    catch (mongocxx::exception e) {
+        std::cerr << e.what() << std::endl;
+    }
 }
-
