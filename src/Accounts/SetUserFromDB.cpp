@@ -12,6 +12,7 @@ std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const st
     if (result) {
         auto user = std::make_shared<User>(email, password);
         auto view = result->view();
+        auto id = view["UserID"];
         auto first = view["FirstName"];
         auto last = view["LastName"];
         auto email = view["UserEmail"];
@@ -19,10 +20,12 @@ std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const st
         if (!first || first.type() != bsoncxx::type::k_utf8) {
             throw std::runtime_error("FirstName missing or wrong type");
         }
+        std::string userID{ id.get_utf8().value };
         std::string firstName{ first.get_utf8().value };
         std::string lastName{ last.get_utf8().value };
         std::string userEmail{ email.get_utf8().value };
         std::string password{ pass.get_utf8().value };
+        user->setMongoUserID(userID);
         user->setFirstName(firstName);
         user->setLastName(lastName);
         user->setUserEmail(userEmail);
@@ -30,5 +33,5 @@ std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const st
         return user;
     }
 
-    return std::shared_ptr<User>();
+    return nullptr;
 }

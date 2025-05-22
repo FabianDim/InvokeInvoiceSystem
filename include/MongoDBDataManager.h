@@ -12,6 +12,8 @@
 using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::make_document;
 
+using streamDocument = bsoncxx::builder::stream::document;
+
 class MongoDBDataManager {
     friend class AccountManager;
     friend class SetUser;
@@ -30,9 +32,10 @@ public:
 
 private:
     std::optional<bsoncxx::document::value> findOne(const std::string& collectionName, const bsoncxx::document::view_or_value& filter);
-    std::string getUserOID(const std::string& collectionName, std::optional<bsoncxx::document::view_or_value>& view);
+    //std::string getUserOID(const std::string& collectionName, std::optional<bsoncxx::document::view_or_value>& view);
     std::optional<bsoncxx::document::element> findElement(const std::string& collectionName, std::optional<bsoncxx::document::view_or_value> documentName, const std::string& elementName);
     std::optional<std::string> fetchStoredPassword(const std::string& email);
     bool validPassword(const std::string& password, const std::string& hashedPW);
-    void updateDoc(const std::string& collectionName, std::optional<bsoncxx::document::value> filterDoc, std::optional<bsoncxx::document::value> replacementDoc);
+    bool makeDBArray(const std::string& collectionName, streamDocument doc, int nbItems);
+    void updateDoc(const std::string& collectionName, std::optional<streamDocument> filterDoc, std::optional<bsoncxx::document::value> replacementDoc);
 };

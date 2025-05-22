@@ -22,11 +22,13 @@ public:
     std::shared_ptr<User> getAccount();
     bool isLoggedIn();
     void logOut();
+    std::string makeUserID();
 
     bool needsAccountSetup(const std::string& email);
 
     bool hasUppers = false;
 private:
+    MongoDBDataManager dataManager;
     std::unordered_map<std::string, std::shared_ptr<User>> accounts;
-    std::shared_ptr<User> currentUser = nullptr;
+    static std::shared_ptr<User> currentUser;
 };

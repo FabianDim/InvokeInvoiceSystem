@@ -28,9 +28,10 @@ add_executable(${PROJECT_NAME}
   src/System/Menu/MainMenu.cpp
   src/System/Database/MongoDBHandler.cpp
   src/System/Database/MongoDBDataManager.cpp
- src/Accounts/SetUserFromDB.cpp
+  src/Accounts/SetUserFromDB.cpp
+  src/Accounts/UserBusiness/BusinessDetails.cpp
  #include/SetUserFromDB.h
- src/Accounts/UserBusiness/BusinessDetails.cpp)
+)
 
 # 4) Link in fmt, passlib and the MongoDB C++ driver
 target_link_libraries(${PROJECT_NAME}

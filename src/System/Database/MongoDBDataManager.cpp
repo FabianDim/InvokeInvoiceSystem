@@ -8,12 +8,13 @@ bsoncxx::document::value MongoDBDataManager::buildNewUser(const std::shared_ptr<
     using bsoncxx::builder::stream::finalize;
 
     return document{}
-        << "UserEmail" << newUser->getEmail()
-        << "UserPassword" << newUser->getPassword()
-        << "FirstName" << newUser->getFirstName()
-        << "LastName" << newUser->getLastName()
-        << "AccountSetupNeeded" << true
-        << finalize;
+    << "UserID" << newUser->getMongoUserID()
+    << "UserEmail" << newUser->getEmail()
+    << "UserPassword" << newUser->getPassword()
+    << "FirstName" << newUser->getFirstName()
+    << "LastName" << newUser->getLastName()
+    << "AccountSetupNeeded" << true
+    << finalize;
 }
 
 bool MongoDBDataManager::insertDocument(const std::string& collectionName, const bsoncxx::document::view& docView) {
@@ -89,6 +90,10 @@ bool MongoDBDataManager::validPassword(const std::string& password, const std::s
     return true;
 }
 
-void MongoDBDataManager::updateDoc(const std::string& collectionName, std::optional<bsoncxx::document::value> filterDoc, std::optional<bsoncxx::document::value> replacementDoc) {
+bool MongoDBDataManager::makeDBArray(const std::string& collectionName, streamDocument doc, int nbItems) {
+    return false;
+}
+
+void MongoDBDataManager::updateDoc(const std::string& collectionName, std::optional<streamDocument> filterDoc, std::optional<bsoncxx::document::value> replacementDoc) {
     auto result = InvokeDB[collectionName].update_one(filterDoc->view(), replacementDoc->view());
 }

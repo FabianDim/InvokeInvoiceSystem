@@ -1,10 +1,9 @@
 #include "BusinessDetails.h"
-
+#include "AccountManager.h"
 #include <cctype>
 
-BusinessDetails::BusinessDetails() {
-    AccountManager accountManager;
-    thisUser = accountManager.getAccount();
+BusinessDetails::BusinessDetails(AccountManager& accountManager) :accountManager(accountManager) // Initialize reference
+{
 }
 
 std::string BusinessDetails::toLower(std::string text) {
@@ -131,6 +130,10 @@ bool BusinessDetails::abnInput() {
     std::string abn;
     std::cin >> abn;
 
+    if (abn == "mongoid") {
+        std::cout << "here is the mongoid: " << accountManager.getAccount()->getMongoUserID();
+    }
+
     if (toLower(abn) == "back")
         return false;
 
@@ -155,6 +158,23 @@ bool BusinessDetails::nameInput() {
     }
     std::cout << std::endl;
     userBusiness.businessName = name;
+    currentLevel = BusinessStep::ENTER_PHONE;
+    return true;
+}
+
+bool BusinessDetails::phoneInput() {
+    std::cout << "Please enter your main business phone number <(xxx)0000000000: ";
+    std::string phone;
+
+    std::getline(std::cin >> std::ws, phone);
+    //https://github.com/google/libphonenumber for later implementation;
+    if (toLower(phone) == "back") {
+        currentLevel = BusinessStep::ENTER_NAME;
+        return false;
+    }
+
+    std::cout << std::endl;
+    userBusiness.businessPhone = phone;
     currentLevel = BusinessStep::ENTER_ADDRESS;
     return true;
 }
@@ -177,6 +197,7 @@ bool BusinessDetails::confirmInfo() {
 
     std::cout << "ABN: " << userBusiness.ABN << std::endl;
     std::cout << "Business Name: " << userBusiness.businessName << std::endl;
+    std::cout << "Phone Number: " << userBusiness.businessPhone << std::endl;
     std::cout << "Address: " << userBusiness.businessAddress.streetAddress
         << ", " << userBusiness.businessAddress.postcode << ", " <<
         userBusiness.businessAddress.city << ", " << userBusiness.businessAddress.stateOrProvince << ", "
@@ -184,10 +205,12 @@ bool BusinessDetails::confirmInfo() {
     std::cout << "ACN: " << userBusiness.ACN << std::endl;
     std::string input;
     while (true) {
-        std::cout << "Type to redo: <ABN>, <Name>, <Address>, <ACN>. or <done> to finish setup: ";
+        std::cout << "Type to redo: <ABN>, <Name>, <Phone>, <Address>, <ACN>. or <done> to finish setup: ";
         std::cin >> input;
         if (toLower(input) == "done") {
             currentLevel = BusinessStep::DONE;
+            std::cout << std::endl;
+            std::cout << std::endl;
             return true;
         }
         else if (toLower(input) == "abn") {
@@ -198,13 +221,17 @@ bool BusinessDetails::confirmInfo() {
             currentLevel = BusinessStep::ENTER_NAME;
             return false;
         }
+        else if (toLower(input) == "phone") {
+            currentLevel = BusinessStep::ENTER_PHONE;
+            return false;
+        }
         else if (toLower(input) == "address") {
             currentLevel = BusinessStep::ENTER_ADDRESS;
             return false;
         }
         else if (toLower(input) == "acn") {
             currentLevel = BusinessStep::ENTER_ACN;
-            return true;
+            return false;
         }
         else {
             std::cout << "Invalid input, try again";
@@ -224,21 +251,41 @@ void BusinessDetails::collectBusinessInfo() {
         if (currentLevel == BusinessStep::ENTER_ADDRESS) {
             if (!addressInput()) continue;
         }
+        if (currentLevel == BusinessStep::ENTER_PHONE) {
+            if (!phoneInput()) continue;
+        }
         if (currentLevel == BusinessStep::ENTER_ACN) {
             if (!acnInput()) continue;
         }
         if (currentLevel == BusinessStep::CONFIRM) {
-            if (confirmInfo()) return;
+            if (!confirmInfo()) continue;
         }
-        createBusinessDoc();
+        if (currentLevel == BusinessStep::DONE) {
+            insertBusinessDoc(createBusinessDoc());
+            return;
+        }
+        
     }
 }
 
 void BusinessDetails::updateAccountRequirement(std::string email) {
-    AccountManager accountManager;
-    email = accountManager.getAccount()->getEmail();
+    //AccountManager accountManager;
+    if (accountManager.getAccount() != nullptr) {
+        email = accountManager.getAccount()->getEmail();
+    }
+    else {
+        std::cout << "I am meant to output an email: " << email;
+    }
+    
+
     try {
-        dbManager.updateDoc("Users", make_document(kvp("UserEmail", email)), make_document(kvp("$set", make_document(kvp("AccountSetupNeeded", false)))));
+        if (email != "") {
+            dbManager.updateDoc("Users", make_document(kvp("UserEmail", email)), make_document(kvp("$set", make_document(kvp("AccountSetupNeeded", false)))));
+            return;
+        }
+        else {
+            std::cout << "No email initialised";
+        }
     }
     catch (mongocxx::exception e) {
         std::cerr << e.what() << std::endl;
@@ -248,14 +295,15 @@ void BusinessDetails::updateAccountRequirement(std::string email) {
 bsoncxx::document::value BusinessDetails::createBusinessDoc() {
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
-
-    std::string address = userBusiness.businessAddress.streetAddress +
-        ", " + userBusiness.businessAddress.postcode + ", " +
-        userBusiness.businessAddress.city + ", " + userBusiness.businessAddress.stateOrProvince + ", "
-        + userBusiness.businessAddress.country;
-
+    std::string address = userBusiness.businessAddress.streetAddress + " " +
+        userBusiness.businessAddress.postcode + ", " +
+        userBusiness.businessAddress.city + ", " + 
+        userBusiness.businessAddress.stateOrProvince + ", "+ 
+        userBusiness.businessAddress.country;
     return document{}
+        << "UserID" << accountManager.getAccount()->getMongoUserID()
         << "ABN" << userBusiness.ABN
+        << "Phone" << userBusiness.businessPhone
         << "BusinessName" << userBusiness.businessName
         << "BusinessAddress" << address
         << "ACN" << userBusiness.ACN
@@ -263,9 +311,15 @@ bsoncxx::document::value BusinessDetails::createBusinessDoc() {
 }
 
 void BusinessDetails::insertBusinessDoc(bsoncxx::document::value doc) {
-    AccountManager accountManager;
-    std::string email = accountManager.getAccount()->getEmail();
-    try {
+    //AccountManager accountManager;
+    std::string email = "";
+    if (accountManager.getAccount() != nullptr) {
+         email = accountManager.getAccount()->getEmail();
+    }
+    else {
+        std::cout << "I am meant to output an email in insert: " << email;
+    }
+    try {   
         dbManager.insertDocument("Business", doc);
         updateAccountRequirement(email);
     }

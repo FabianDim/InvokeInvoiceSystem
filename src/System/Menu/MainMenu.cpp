@@ -1,4 +1,7 @@
 ﻿#include "MainMenu.h"
+
+MainMenu::MainMenu(){}
+
 void MainMenu::displayMenu(AccountManager& manager) {
     printTitleBox();
     int choice;
@@ -45,7 +48,7 @@ void MainMenu::loggedInMenu(AccountManager& manager) {
 
             std::transform(input.begin(), input.end(), input.begin(), ::tolower);
 
-            BusinessDetails businessDetails;
+            BusinessDetails businessDetails(manager);
             if (input == "yes") {
                 do {
                     businessDetails.collectBusinessInfo();

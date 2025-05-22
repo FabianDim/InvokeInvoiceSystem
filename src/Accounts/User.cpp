@@ -13,6 +13,10 @@ std::string User::getPassword() const {
 	return password;
 }
 
+std::string User::getMongoUserID() const {
+	return mongoUserID;
+}
+
 void User::setUserEmail(const std::string& newEmail) {
 	this->email = newEmail;
 }
@@ -27,6 +31,10 @@ void User::setFirstName(const std::string& firstName) {
 
 void User::setLastName(const std::string& lastName) {
 	this->lastName = lastName;
+}
+
+void User::setMongoUserID(const std::string& mongoID) {
+	this->mongoUserID = mongoID;
 }
 
 std::string User::getFirstName() const {

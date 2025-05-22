@@ -1,12 +1,13 @@
 #pragma once
 #include "pch.h"
-#include "AccountManager.h"
+#include "AccountManager.h" // Ensure this is included before using AccountManager
 #include "MongoDBDataManager.h"
 #include "User.h"
 
 enum class BusinessStep {
 	ENTER_ABN,
 	ENTER_NAME,
+	ENTER_PHONE,
 	ENTER_ADDRESS,
 	ENTER_ACN,
 	CONFIRM,
@@ -34,11 +35,12 @@ class BusinessDetails {
 		};
 		std::string ABN;
 		std::string businessName;
+		std::string businessPhone;
 		Address businessAddress;
 		std::string ACN;
 	};
 public:
-	BusinessDetails();
+	BusinessDetails(AccountManager& accountManager);
 	enum BusinessStep currentLevel = BusinessStep::ENTER_ABN;
 	enum AddressStep current = AddressStep::COUNTRY;
 	std::string toLower(std::string text);
@@ -51,6 +53,7 @@ public:
 	bool addressInput();
 	bool abnInput();
 	bool nameInput();
+	bool phoneInput();
 	bool acnInput();
 	bool confirmInfo();
 	void collectBusinessInfo();
@@ -62,4 +65,5 @@ public:
 private:
 	business userBusiness;
 	MongoDBDataManager dbManager;
+	AccountManager& accountManager;
 };

@@ -1,10 +1,8 @@
 #include "InvoiceSystem.h"
 
 
-
 void InvoiceSystem::startSystem() {
-	MainMenu mainMenu;
+    MainMenu mainMenu;
     AccountManager accountManager;
-
     mainMenu.isLoggedIn(accountManager);
 }

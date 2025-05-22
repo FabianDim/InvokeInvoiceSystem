@@ -2,9 +2,9 @@
 #include <iostream>
 #include <iso646.h>
 #include <cctype> 
+std::shared_ptr<User> AccountManager::currentUser = nullptr;
 
 AccountManager::AccountManager() {
-	// Constructor logic
 }
 
 bool AccountManager::validEmail(std::string& email) {
@@ -31,7 +31,6 @@ bool AccountManager::validName(std::string& name) {
 }
 
 bool AccountManager::doesAccountExist(const std::string& email) {
-	MongoDBDataManager dataManager;
 	auto document = dataManager.findOne("Users", make_document(kvp("UserEmail", email)));
 	if (document) {
 		std::cout << "An account with that email exists already. Try again: " << std::endl;
@@ -114,9 +113,10 @@ void AccountManager::createAccount() {
 		}
 	}
 
-	MongoDBDataManager dataManager;
-	auto user = std::make_shared<User>(User(userEmail, userPassword));
+	
 
+	auto user = std::make_shared<User>(User(userEmail, userPassword));
+	user->setMongoUserID(makeUserID());
 	user->setUserEmail(userEmail);
 	user->setPassword(storedHash);
 	user->setFirstName(firstName);
@@ -158,11 +158,10 @@ void AccountManager::login() {
 			break;
 		}
 
-		MongoDBDataManager dataManager;
 		if (dataManager.validPassword(userPassword, userEmail)) {
 			SetUser setuser;
-			currentUser = setuser.setUserOnLogin(userEmail, userPassword);
-			accounts[userEmail] = currentUser;
+			this->currentUser = setuser.setUserOnLogin(userEmail, userPassword);
+			accounts[userEmail] = this->currentUser;
 			return;
 		}
 		else {
@@ -187,8 +186,33 @@ void AccountManager::logOut() {
 	std::cout << "Successfully logged out.\n";
 }
 
+std::string AccountManager::makeUserID() {
+
+	auto uID = dataManager.findOne("counters",
+	make_document(kvp("_id", make_document(
+		kvp("db", "InvokeInvoiceSystem"),
+		kvp("coll", "Users")
+	))));
+
+	int thisUserID = 0;
+	if (uID->view()["user_value"] && uID->view()["user_value"].type() == bsoncxx::type::k_int64) {
+		thisUserID = static_cast<int>(uID->view()["user_value"].get_int64().value+1);
+		//std::cout << thisUserID;
+	}
+	else {
+		std::cerr << "Something went wrong." << std::endl;
+	}//make 8 digits
+	std::string prefix = "USR";
+	if (std::to_string(thisUserID).size() < 8) {
+		int zerosNeeded = 8 - std::to_string(thisUserID).size();
+
+		prefix += std::string(zerosNeeded, '0') += std::to_string(thisUserID);
+		
+	}
+	return prefix;
+}
+
 bool AccountManager::needsAccountSetup(const std::string& email) {
-	MongoDBDataManager dataManager;
 	auto document = dataManager.findOne("Users", make_document(kvp("UserEmail", email)));
 
 	if (document) {

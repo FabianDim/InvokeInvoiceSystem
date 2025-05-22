@@ -8,7 +8,7 @@ private:
 	std::string password;
 	std::string firstName;
 	std::string lastName;
-	std::string mongoUserOID;
+	std::string mongoUserID;
 
 public:
 	User(const std::string& email, const std::string& password);
