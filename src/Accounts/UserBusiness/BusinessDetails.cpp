@@ -14,27 +14,30 @@ std::string BusinessDetails::toLower(std::string text) {
 bool BusinessDetails::addressInput() {
     std::cout << "Please enter your business address: \n";
     while (true) {
-        if (current == AddressStep::COUNTRY) {
+        switch (current) {
+        case AddressStep::COUNTRY:
             if (!getCountry()) continue;
-        }
-        if (current == AddressStep::STATE) {
+            break;
+        case AddressStep::STATE:
             if (!getState()) continue;
-        }
-        if (current == AddressStep::CITY) {
+            break;
+        case AddressStep::CITY:
             if (!getCity()) continue;
-        }
-        if (current == AddressStep::POST_CODE) {
+            break;
+        case AddressStep::POST_CODE:
             if (!getPostCode()) continue;
-        }
-        if (current == AddressStep::STREET) {
+            break;
+        case AddressStep::STREET:
             if (!getStreetAddress()) continue;
-        }
-        if (current == AddressStep::DONE) {
+            break;
+        case AddressStep::DONE:
             currentLevel = BusinessStep::ENTER_ACN;
+            return true;
+        default:
+            // Optionally handle error state
             break;
         }
     }
-    return true;
 }
 
 bool BusinessDetails::getCountry() {
@@ -130,10 +133,6 @@ bool BusinessDetails::abnInput() {
     std::string abn;
     std::cin >> abn;
 
-    if (abn == "mongoid") {
-        std::cout << "here is the mongoid: " << accountManager.getAccount()->getMongoUserID();
-    }
-
     if (toLower(abn) == "back")
         return false;
 
@@ -198,10 +197,13 @@ bool BusinessDetails::confirmInfo() {
     std::cout << "ABN: " << userBusiness.ABN << std::endl;
     std::cout << "Business Name: " << userBusiness.businessName << std::endl;
     std::cout << "Phone Number: " << userBusiness.businessPhone << std::endl;
-    std::cout << "Address: " << userBusiness.businessAddress.streetAddress
-        << ", " << userBusiness.businessAddress.postcode << ", " <<
-        userBusiness.businessAddress.city << ", " << userBusiness.businessAddress.stateOrProvince << ", "
-        << userBusiness.businessAddress.country << std::endl;
+    std::cout << "Address: " << 
+        userBusiness.businessAddress.streetAddress << ", " << 
+        userBusiness.businessAddress.postcode << ", " <<
+        userBusiness.businessAddress.city << ", " << 
+        userBusiness.businessAddress.stateOrProvince << ", " << 
+        userBusiness.businessAddress.country << std::endl;
+
     std::cout << "ACN: " << userBusiness.ACN << std::endl;
     std::string input;
     while (true) {
@@ -242,29 +244,32 @@ bool BusinessDetails::confirmInfo() {
 
 void BusinessDetails::collectBusinessInfo() {
     while (true) {
-        if (currentLevel == BusinessStep::ENTER_ABN) {
+        switch (currentLevel) {
+        case BusinessStep::ENTER_ABN:
             if (!abnInput()) continue;
-        }
-        if (currentLevel == BusinessStep::ENTER_NAME) {
+            break;
+        case BusinessStep::ENTER_NAME:
             if (!nameInput()) continue;
-        }
-        if (currentLevel == BusinessStep::ENTER_ADDRESS) {
+            break;
+        case BusinessStep::ENTER_ADDRESS:
             if (!addressInput()) continue;
-        }
-        if (currentLevel == BusinessStep::ENTER_PHONE) {
+            break;
+        case BusinessStep::ENTER_PHONE:
             if (!phoneInput()) continue;
-        }
-        if (currentLevel == BusinessStep::ENTER_ACN) {
+            break;
+        case BusinessStep::ENTER_ACN:
             if (!acnInput()) continue;
-        }
-        if (currentLevel == BusinessStep::CONFIRM) {
+            break;
+        case BusinessStep::CONFIRM:
             if (!confirmInfo()) continue;
-        }
-        if (currentLevel == BusinessStep::DONE) {
+            break;
+        case BusinessStep::DONE:
             insertBusinessDoc(createBusinessDoc());
             return;
+        default:
+            std::cout << "Unexpected input" << std::endl;
+            break;
         }
-        
     }
 }
 
@@ -276,7 +281,6 @@ void BusinessDetails::updateAccountRequirement(std::string email) {
     else {
         std::cout << "I am meant to output an email: " << email;
     }
-    
 
     try {
         if (email != "") {
@@ -295,13 +299,17 @@ void BusinessDetails::updateAccountRequirement(std::string email) {
 bsoncxx::document::value BusinessDetails::createBusinessDoc() {
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
+
+    bsoncxx::builder::basic::array UserIDs;
+    //for now we will initially push just the first users ID and later be able to add user ID's.
+    UserIDs.append(accountManager.getAccount()->getMongoUserID());
     std::string address = userBusiness.businessAddress.streetAddress + " " +
         userBusiness.businessAddress.postcode + ", " +
         userBusiness.businessAddress.city + ", " + 
         userBusiness.businessAddress.stateOrProvince + ", "+ 
         userBusiness.businessAddress.country;
     return document{}
-        << "UserID" << accountManager.getAccount()->getMongoUserID()
+    << "UserID" << UserIDs
         << "ABN" << userBusiness.ABN
         << "Phone" << userBusiness.businessPhone
         << "BusinessName" << userBusiness.businessName

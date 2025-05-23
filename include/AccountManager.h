@@ -25,10 +25,10 @@ public:
     std::string makeUserID();
 
     bool needsAccountSetup(const std::string& email);
-
+    static std::shared_ptr<User> currentUser;
     bool hasUppers = false;
 private:
     MongoDBDataManager dataManager;
     std::unordered_map<std::string, std::shared_ptr<User>> accounts;
-    static std::shared_ptr<User> currentUser;
+
 };

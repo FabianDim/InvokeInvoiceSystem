@@ -33,33 +33,8 @@ void MainMenu::loggedInMenu(AccountManager& manager) {
     auto user = manager.getAccount();
     int choice;
     do {
-        if (manager.needsAccountSetup(user->getEmail())) {
-            std::string input;
-            std::cout << "\n🔔 In order to start using the Invoke Invoice System, your account needs to be fully set up.\n";
-            std::cout << "These details will help us autofill your invoices and make your workflow smoother.\n\n";
 
-            std::cout << "👋 First, we need to get to know your business a little better.\n";
-            std::cout << "Let's go through a few quick questions about your ABN, business name, and contact info.\n";
-            std::cout << "Don't worry — you'll only need to do this once.\n\n";
-
-            std::cout << "Type 'Yes' to begin or 'No' to logout: ";
-
-            std::cin >> input;
-
-            std::transform(input.begin(), input.end(), input.begin(), ::tolower);
-
-            BusinessDetails businessDetails(manager);
-            if (input == "yes") {
-                do {
-                    businessDetails.collectBusinessInfo();
-                } while (manager.needsAccountSetup(user->getEmail()));
-            }
-            else if (input == "no") {
-                manager.logOut();
-                break;
-            }
-        }
-
+        if (!accountSetup(manager)) break;
 
         std::cout << "Welcome back to the Invoke Invoice System, " << user->getFirstName() << std::endl;
         std::cout << "\n1. Create a new Invoice\n2. Invoice Management\n3. Stock Management\
@@ -123,8 +98,34 @@ void MainMenu::isLoggedIn(AccountManager& accountManager) {
     }
 }
 
-void MainMenu::accountSetup(AccountManager& manager) {
+bool MainMenu::accountSetup(AccountManager& manager) {
     auto user = manager.getAccount();
+    if (manager.needsAccountSetup(user->getEmail())) {
+        std::string input;
+        std::cout << "\nIn order to start using the Invoke Invoice System, your account needs to be fully set up.\n";
+        std::cout << "These details will help us autofill your invoices and make your workflow smoother.\n\n";
 
+        std::cout << "First, we need to get to know your business a little better.\n";
+        std::cout << "Let's go through a few quick questions about your ABN, business name, and contact info.\n";
+        std::cout << "Don't worry — you'll only need to do this once.\n\n";
 
+        std::cout << "Type 'Yes' to begin or 'No' to logout: ";
+
+        std::cin >> input;
+
+        std::transform(input.begin(), input.end(), input.begin(), ::tolower);
+
+        BusinessDetails businessDetails(manager);
+        if (input == "yes") {
+            do {
+                businessDetails.collectBusinessInfo();
+            } while (manager.needsAccountSetup(user->getEmail()));
+        }
+        else if (input == "no") {
+            manager.logOut();
+            std::cout << std::endl;
+            return false;
+        }
+    }
+    return true;
 }

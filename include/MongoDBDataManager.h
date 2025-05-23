@@ -12,7 +12,7 @@
 using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::make_document;
 
-using streamDocument = bsoncxx::builder::stream::document;
+using bsoncxx::builder::basic::array;
 
 class MongoDBDataManager {
     friend class AccountManager;
@@ -36,6 +36,6 @@ private:
     std::optional<bsoncxx::document::element> findElement(const std::string& collectionName, std::optional<bsoncxx::document::view_or_value> documentName, const std::string& elementName);
     std::optional<std::string> fetchStoredPassword(const std::string& email);
     bool validPassword(const std::string& password, const std::string& hashedPW);
-    bool makeDBArray(const std::string& collectionName, streamDocument doc, int nbItems);
-    void updateDoc(const std::string& collectionName, std::optional<streamDocument> filterDoc, std::optional<bsoncxx::document::value> replacementDoc);
+    array makeDBArray(const bsoncxx::document::view_or_value& initDoc);
+    void updateDoc(const std::string& collectionName, std::optional<bsoncxx::v_noabi::document::value> filterDoc, std::optional<bsoncxx::document::value> replacementDoc);
 };

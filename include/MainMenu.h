@@ -25,7 +25,7 @@ private:
 	void createAccount();
 	void login();
 	void isLoggedIn(AccountManager& manager);
-	void accountSetup(AccountManager& manager);
+	bool accountSetup(AccountManager& manager);
 
 
 };

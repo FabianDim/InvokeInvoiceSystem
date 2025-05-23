@@ -90,10 +90,6 @@ bool MongoDBDataManager::validPassword(const std::string& password, const std::s
     return true;
 }
 
-bool MongoDBDataManager::makeDBArray(const std::string& collectionName, streamDocument doc, int nbItems) {
-    return false;
-}
-
-void MongoDBDataManager::updateDoc(const std::string& collectionName, std::optional<streamDocument> filterDoc, std::optional<bsoncxx::document::value> replacementDoc) {
+void MongoDBDataManager::updateDoc(const std::string& collectionName, std::optional<bsoncxx::document::value> filterDoc, std::optional<bsoncxx::document::value> replacementDoc) {
     auto result = InvokeDB[collectionName].update_one(filterDoc->view(), replacementDoc->view());
 }

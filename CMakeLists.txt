@@ -17,6 +17,7 @@ add_library(passlib STATIC
 target_include_directories(passlib PUBLIC
   src/Accounts/PasswordHashing
   ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )
 
 # 3) Your executable and MongoDB support
@@ -30,8 +31,7 @@ add_executable(${PROJECT_NAME}
   src/System/Database/MongoDBDataManager.cpp
   src/Accounts/SetUserFromDB.cpp
   src/Accounts/UserBusiness/BusinessDetails.cpp
- #include/SetUserFromDB.h
-)
+ tests/InvoiceMenuTests.cpp)
 
 # 4) Link in fmt, passlib and the MongoDB C++ driver
 target_link_libraries(${PROJECT_NAME}
@@ -50,6 +50,14 @@ target_link_libraries(${PROJECT_NAME}
        mongo::mongocxx_shared>
 )
 
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+)
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
 
 # 5) Optional precompiled header
 target_precompile_headers(${PROJECT_NAME} PRIVATE include/pch.h)
