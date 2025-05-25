@@ -4,6 +4,7 @@
   "dependencies": [
     "fmt",
     "mongo-cxx-driver",
-    "libharu"
+    "libharu",
+    "gtest"
   ]
 }

@@ -1,7 +1,8 @@
 #include "InvoiceSystem.h"
+#include "../../tests/InvoiceMenuTests.cpp"
 
 
-void InvoiceSystem::startSystem() {
+void System::startSystem() {
     MainMenu mainMenu;
     AccountManager accountManager;
     mainMenu.isLoggedIn(accountManager);

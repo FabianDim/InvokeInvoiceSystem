@@ -242,6 +242,45 @@ bool BusinessDetails::confirmInfo() {
     return false;
 }
 
+bool BusinessDetails::validateBusiness(std::string businessID) {
+
+    businessID[0] = toupper(businessID[0]);
+    businessID[1] = toupper(businessID[1]);
+    businessID[2] = toupper(businessID[2]);
+    auto filter = dbManager.findOne("Business", make_document(kvp("BusinessID", businessID)));
+    if (!filter) {
+        return false;
+    }
+    return true;
+}
+
+bool BusinessDetails::addUserExistingBusiness(std::string businessID) {
+    businessID[0] = toupper(businessID[0]);
+    businessID[1] = toupper(businessID[1]);
+    businessID[2] = toupper(businessID[2]);
+    try {
+        auto filter = dbManager.findOne("Business", make_document(kvp("BusinessID", businessID)));
+        if(!filter){
+            return false;
+        }
+        bsoncxx::builder::basic::array businessIDs;
+        auto update = make_document(kvp("$push", make_document(kvp("UserID", accountManager.getAccount()->getMongoUserID()))));
+        auto collection = dbManager.getCollection("Business");
+        businessIDs.append(businessID);
+        dbManager.getCollection("Users")->find_one_and_update(make_document(kvp("UserID", accountManager.getAccount()->getMongoUserID())).view(),
+            make_document(kvp("$set", make_document(kvp("BusinessIDs", businessIDs)).view())));
+        collection->update_one(filter->view(), update.view());
+        updateAccountRequirement(accountManager.getAccount()->getEmail());
+        return true;
+
+    }
+    catch (const std::exception& e) {
+            std::cerr << e.what() << std::endl;
+            return false;
+        }
+    return false;
+}
+
 void BusinessDetails::collectBusinessInfo() {
     while (true) {
         switch (currentLevel) {
@@ -296,19 +335,48 @@ void BusinessDetails::updateAccountRequirement(std::string email) {
     }
 }
 
+std::string BusinessDetails::makeBusinessID() {
+    auto bID = dbManager.findOne("counters",
+        make_document(kvp("_id", make_document(
+            kvp("db", "InvokeInvoiceSystem"),
+            kvp("coll", "Business")
+        ))));
+    if (bID->view()["business_value"] && bID->view()["business_value"].type() == bsoncxx::type::k_int64) {
+        thisBusID = static_cast<int>(bID->view()["business_value"].get_int64().value + 1);
+        //std::cout << thisUserID;
+    }
+    else {
+        std::cerr << "Something went wrong." << std::endl;
+    }//make 8 digits
+    std::string prefix = "BUS";
+    if (std::to_string(thisBusID).size() < 8) {
+        int zerosNeeded = 8 - std::to_string(thisBusID).size();
+
+        prefix += std::string(zerosNeeded, '0') += std::to_string(thisBusID);
+
+    }
+    return prefix;
+}
+
 bsoncxx::document::value BusinessDetails::createBusinessDoc() {
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
 
     bsoncxx::builder::basic::array UserIDs;
+    bsoncxx::builder::basic::array businessIDs;
     //for now we will initially push just the first users ID and later be able to add user ID's.
     UserIDs.append(accountManager.getAccount()->getMongoUserID());
+    
+    businessIDs.append(makeBusinessID());
+    dbManager.getCollection("Users")->find_one_and_update(make_document( kvp("UserID", accountManager.getAccount()->getMongoUserID())).view(),
+    make_document(kvp("$set", make_document(kvp("BusinessIDs", businessIDs)).view())));
     std::string address = userBusiness.businessAddress.streetAddress + " " +
         userBusiness.businessAddress.postcode + ", " +
         userBusiness.businessAddress.city + ", " + 
         userBusiness.businessAddress.stateOrProvince + ", "+ 
         userBusiness.businessAddress.country;
     return document{}
+    << "BusinessID" << makeBusinessID()
     << "UserID" << UserIDs
         << "ABN" << userBusiness.ABN
         << "Phone" << userBusiness.businessPhone

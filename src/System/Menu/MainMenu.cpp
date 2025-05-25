@@ -109,7 +109,7 @@ bool MainMenu::accountSetup(AccountManager& manager) {
         std::cout << "Let's go through a few quick questions about your ABN, business name, and contact info.\n";
         std::cout << "Don't worry — you'll only need to do this once.\n\n";
 
-        std::cout << "Type 'Yes' to begin or 'No' to logout: ";
+        std::cout << "Type 'Yes' to begin, 'No' to logout or the ID of an existing business to enter the business: \n**Businesses will be notified and permission needs to be granted** \n \nEnter your input:";
 
         std::cin >> input;
 
@@ -125,6 +125,19 @@ bool MainMenu::accountSetup(AccountManager& manager) {
             manager.logOut();
             std::cout << std::endl;
             return false;
+        }
+        else if (input.size() > 3 && input.substr(0, 3) == "bus") {
+            while (true) {
+                if (businessDetails.validateBusiness(input)) {
+                    businessDetails.addUserExistingBusiness(input);
+                    break;
+                }
+                else {
+                    std::cout << "Invalid business ID. Please enter a valid business (* to exit): ";
+                    std::cin >> input;
+                    if (input == "*") break;
+                }
+            }
         }
     }
     return true;

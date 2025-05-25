@@ -23,6 +23,7 @@ public:
     bool isLoggedIn();
     void logOut();
     std::string makeUserID();
+    
 
     bool needsAccountSetup(const std::string& email);
     static std::shared_ptr<User> currentUser;

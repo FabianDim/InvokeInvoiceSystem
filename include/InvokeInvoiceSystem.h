@@ -15,5 +15,5 @@ public:
         invoiceSystem.startSystem();
     }
 private:
-    InvoiceSystem invoiceSystem;
+    System invoiceSystem;
 };

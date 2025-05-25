@@ -93,3 +93,14 @@ bool MongoDBDataManager::validPassword(const std::string& password, const std::s
 void MongoDBDataManager::updateDoc(const std::string& collectionName, std::optional<bsoncxx::document::value> filterDoc, std::optional<bsoncxx::document::value> replacementDoc) {
     auto result = InvokeDB[collectionName].update_one(filterDoc->view(), replacementDoc->view());
 }
+
+std::optional<mongocxx::collection> MongoDBDataManager::getCollection(const std::string& collectionName) {
+    try {
+        return InvokeDB[collectionName];
+    }
+    catch (const mongocxx::exception& e) {
+        std::cerr << e.what() << std::endl;
+        std::cerr << "collection probably does not exist" << std::endl;
+        return std::nullopt;
+    }
+}

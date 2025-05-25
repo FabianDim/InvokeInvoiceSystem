@@ -13,7 +13,7 @@
 
 class MainMenu {
 	friend class AccountManager;
-	friend class InvoiceSystem;// Allow AccountManager to access private members of MainMenu
+	friend class System;// Allow AccountManager to access private members of MainMenu
 public:
 
 	void displayMenu(AccountManager& manager);

@@ -38,4 +38,5 @@ private:
     bool validPassword(const std::string& password, const std::string& hashedPW);
     array makeDBArray(const bsoncxx::document::view_or_value& initDoc);
     void updateDoc(const std::string& collectionName, std::optional<bsoncxx::v_noabi::document::value> filterDoc, std::optional<bsoncxx::document::value> replacementDoc);
+    std::optional<mongocxx::collection> getCollection(const std::string& collectionName);
 };
