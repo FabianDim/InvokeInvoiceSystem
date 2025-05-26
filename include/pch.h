@@ -31,3 +31,8 @@
 #include <cctype>
 #include <set>
 #include <unordered_set>
+
+std::string toLower(std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(), ::tolower);
+    return text;
+}

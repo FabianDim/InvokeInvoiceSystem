@@ -18,6 +18,8 @@ class MongoDBDataManager {
     friend class AccountManager;
     friend class SetUser;
     friend class BusinessDetails;
+    friend class BusinessRepository;
+    friend class InvoiceMenu;
     MongoDBHandler dbHandler;
     const mongocxx::database InvokeDB;
 

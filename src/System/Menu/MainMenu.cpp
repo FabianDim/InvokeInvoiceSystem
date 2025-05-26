@@ -37,8 +37,8 @@ void MainMenu::loggedInMenu(AccountManager& manager) {
         if (!accountSetup(manager)) break;
 
         std::cout << "Welcome back to the Invoke Invoice System, " << user->getFirstName() << std::endl;
-        std::cout << "\n1. Create a new Invoice\n2. Invoice Management\n3. Stock Management\
-                       \n4. Account Management\n5. See invoices\n6. Logout\n7. Exit!\nPlease select an option: ";
+        std::cout << "\n1. Invoice Menu\n2. Stock Management\
+                       \n3. Account Management\n4. See invoices\n5. Logout\n6. Exit!\nPlease select an option: ";
         std::cin >> choice;
         std::cin.ignore();
 
@@ -60,14 +60,10 @@ void MainMenu::loggedInMenu(AccountManager& manager) {
             std::this_thread::sleep_for(std::chrono::seconds(2));
             continue;
         case 5:
-            std::cout << "This feature is in development! Stay Tuned!\n\n";
-            std::this_thread::sleep_for(std::chrono::seconds(2));
-            continue;
-        case 6:
             std::cout << "Logging out\n\n";
             manager.logOut();
             return;
-        case 7:
+        case 6:
             std::cout << "Goodbye!";
             std::this_thread::sleep_for(std::chrono::seconds(2));
             shouldExit = true;

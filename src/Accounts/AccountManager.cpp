@@ -212,6 +212,10 @@ std::string AccountManager::makeUserID() {
 	return prefix;
 }
 
+void AccountManager::setTestUser(std::shared_ptr<User> user) {
+	currentUser = user;
+}
+
 bool AccountManager::needsAccountSetup(const std::string& email) {
 	auto document = dataManager.findOne("Users", make_document(kvp("UserEmail", email)));
 

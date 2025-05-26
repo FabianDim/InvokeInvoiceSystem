@@ -6,16 +6,16 @@
 int main() {
 
 	/*Main Executable*/
-    InvokeInvoiceSystem iis;
-    iis.run();
+    //InvokeInvoiceSystem iis;
+    //iis.run();
 
 	/*Invoice Menu*/
-    //auto user = std::make_shared<User>("test@email.com", "password123");
-
-    //InvoiceMenu invoiceMenu;
-    //invoiceMenu.setCurrentUser(user);
-
-    //invoiceMenu.displayMenu();
+    auto user = std::make_shared<User>("test@email.com", "password123");
+    user->setMongoUserID("USR00000001");
+    AccountManager accManager;
+    accManager.setTestUser(user);         // Set this FIRST
+    InvoiceMenu invoiceMenu;              // Now safe to construct
+    invoiceMenu.chooseBusiness();
 
     return 0;
 

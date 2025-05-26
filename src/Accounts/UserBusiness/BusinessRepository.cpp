@@ -1,6 +1,10 @@
 #include "BusinessRepository.h"
 
-std::vector<std::string> BusinessRepository::retrieveUsersBusinessIDs() {
 
-	return std::vector<std::string>();
+BusinessRepository::BusinessRepository(std::string bizID) : currentUser(AccountManager::currentUser) {
+	this->bizID = bizID;
 }
+
+
+//getters and setters;
+

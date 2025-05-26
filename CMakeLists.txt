@@ -33,7 +33,9 @@ add_executable(${PROJECT_NAME}
   src/System/Database/MongoDBDataManager.cpp
   src/Accounts/SetUserFromDB.cpp
   src/Accounts/UserBusiness/BusinessDetails.cpp
- src/InvoiceSystem/PDF/InvoicePdfGenerator.cpp "src/Accounts/UserBusiness/BusinessRepository.cpp")
+ src/InvoiceSystem/PDF/InvoicePdfGenerator.cpp 
+ src/Accounts/UserBusiness/BusinessRepository.cpp
+ src/System/Menu/InvoiceMenu.cpp)
 
 target_link_libraries(${PROJECT_NAME}
   PRIVATE
@@ -61,8 +63,19 @@ FetchContent_MakeAvailable(googletest)
 # 5) Test Executable (ONLY test files)
 add_executable(InvoiceMenuTests
   tests/InvoiceMenuTests.cpp
-  # add other test files here as neede "include/CreateInvoice.h"d
- "src/InvoiceSystem/PDF/InvoicePdfGenerator.cpp" "src/Accounts/UserBusiness/BusinessRepository.cpp")
+  src/Accounts/AccountManager.cpp
+  src/Accounts/User.cpp
+  src/System/Database/MongoDBHandler.cpp
+  src/System/Database/MongoDBDataManager.cpp
+  src/Accounts/SetUserFromDB.cpp
+  src/Accounts/UserBusiness/BusinessDetails.cpp
+  src/InvoiceSystem/PDF/InvoicePdfGenerator.cpp
+  src/Accounts/UserBusiness/BusinessRepository.cpp
+  src/System/InvoiceSystem.cpp
+  src/System/Menu/MainMenu.cpp
+  src/InvokeInvoiceSystem.cpp
+  # add other .cpps your tests use
+)
 target_include_directories(InvoiceMenuTests PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/tests
@@ -71,6 +84,7 @@ target_link_libraries(InvoiceMenuTests
   PRIVATE
     passlib
     fmt::fmt
+    GTest::gtest
     GTest::gtest_main
     unofficial::libharu::hpdf
     $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,

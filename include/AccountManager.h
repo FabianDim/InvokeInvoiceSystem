@@ -24,6 +24,7 @@ public:
     void logOut();
     std::string makeUserID();
     
+    void setTestUser(std::shared_ptr<User> user);
 
     bool needsAccountSetup(const std::string& email);
     static std::shared_ptr<User> currentUser;
