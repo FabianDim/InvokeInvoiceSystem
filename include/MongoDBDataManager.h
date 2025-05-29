@@ -20,6 +20,7 @@ class MongoDBDataManager {
     friend class BusinessDetails;
     friend class BusinessRepository;
     friend class InvoiceMenu;
+    friend class SetBusiness;
     MongoDBHandler dbHandler;
     const mongocxx::database InvokeDB;
 

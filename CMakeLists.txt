@@ -35,7 +35,9 @@ add_executable(${PROJECT_NAME}
   src/Accounts/UserBusiness/BusinessDetails.cpp
  src/InvoiceSystem/PDF/InvoicePdfGenerator.cpp 
  src/Accounts/UserBusiness/BusinessRepository.cpp
- src/System/Menu/InvoiceMenu.cpp)
+ src/System/Menu/InvoiceMenu.cpp 
+ src/Accounts/UserBusiness/SetBusinessFromDB.cpp
+ )
 
 target_link_libraries(${PROJECT_NAME}
   PRIVATE
@@ -75,7 +77,8 @@ add_executable(InvoiceMenuTests
   src/System/Menu/MainMenu.cpp
   src/InvokeInvoiceSystem.cpp
   # add other .cpps your tests use
-)
+ src/Accounts/UserBusiness/SetBusinessFromDB.cpp 
+ )
 target_include_directories(InvoiceMenuTests PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/tests

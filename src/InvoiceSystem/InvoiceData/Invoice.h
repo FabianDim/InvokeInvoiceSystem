@@ -4,5 +4,5 @@
 class Invoice{
 	Invoice() {};
 
-
+	BusinessRepository& businessRepo;
 };

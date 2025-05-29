@@ -14,13 +14,14 @@ public:
 	}
 	void displayMenu();
 	void chooseBusiness();
-	std::set<std::string> retrieveUsersBusinessIDs();
+	std::map<std::string, std::string> retrieveUsersBusinessIDs();
 	std::string getBusinessName(std::string businessID);
-	bool isUserAssociatedWithBusiness(const std::string businessID);
+	bool validateUserBusiness(const std::string businessID);
+	void setBusiness(const std::string businessID);
 private:
 	std::shared_ptr<User> currentUser;
 	std::shared_ptr<User> testUser;
-	BusinessRepository& currentBusiness;
-
+	std::shared_ptr<BusinessRepository> currentBusiness;
+	std::map<std::string, std::string> businessMap;
 	MongoDBDataManager dbManager;
 };

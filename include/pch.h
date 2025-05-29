@@ -19,20 +19,17 @@
 #include "bcrypt.h"  
 
 // Add any other necessary includes here
-#include <iostream>
+
 #include <vector>
-#include <string>
+
 #include <map>
-#include <memory>
+
 #include <algorithm>
-#include <unordered_map>// Resolve ambiguity
 #include <thread>
 #include <fmt/core.h>
 #include <cctype>
 #include <set>
 #include <unordered_set>
 
-std::string toLower(std::string text) {
-    std::transform(text.begin(), text.end(), text.begin(), ::tolower);
-    return text;
-}
+#include "StringUtils.h"
+

@@ -1,9 +1,11 @@
 #include "InvoiceMenu.h"
+#include "SetBusinessFromDB.h"
 void InvoiceMenu::displayMenu() {
 	int choice;
 	do {
-		std::cout << "Welcome to the Invoice Menu";
-		std::cout << "1. Create a new invoice" << std::endl;
+		std::cout << colourBlue("Welcome to the invoice menu") << "\nYou are using " << colourLime(currentBusiness->getBizName()) << std::endl << std::endl <<
+			"1. Create a new invoice\n2. View invoice history\n3. Edit or delete an invoice\n4. Change business \n5.Back to main menu " << std::endl;
+		std::cout << "Please choose an option: ";
 		std::cin >> choice;
 		switch (choice) {
 		case 1:
@@ -13,19 +15,39 @@ void InvoiceMenu::displayMenu() {
 			// Do something
 			break;
 			// etc.
+		case 3:
+			break;
+		case 4:
+			if (businessMap.size() == 1) {
+				std::cout << "You don't have more businesses. Go to the business menu to add more.\n" << std::endl;
+			}
+			break;
 		}
+
 	} while (choice != 5);
+	return;
 }
 
 void InvoiceMenu::chooseBusiness() {
+	 businessMap = retrieveUsersBusinessIDs();
+	if (!businessMap.empty() && businessMap.size() == 1) {
+		const auto& curBiz = *businessMap.begin();
+		if (validateUserBusiness(curBiz.first)) {
+			SetBusiness business;
+			currentBusiness = business.setUpBusiness(curBiz.first);
+		}
+		displayMenu();
+		return;
+	}
+
 	int choice;
 	std::cout << "Please choose the business you'd like to create or manage invoices for: ";
 	int i = 0;
 	std::unordered_map<int, std::string> idMap;
-	for (auto& curBiz : retrieveUsersBusinessIDs()) {
-		if (isUserAssociatedWithBusiness(curBiz)) {
-			std::cout << i+1 << ": " << getBusinessName(curBiz) << std::endl;// make this find the businesses name not the business numbers
-			idMap[i+1] = curBiz;
+	for (auto& curBiz : businessMap) {
+		if (validateUserBusiness(curBiz.first)) {
+			std::cout << i << ": " << curBiz.second << std::endl;// make this find the businesses name not the business numbers
+			idMap[i] = curBiz.first;
 		}
 		i++;
 	}
@@ -36,13 +58,21 @@ void InvoiceMenu::chooseBusiness() {
 		if (std::to_string(choice) == "*") {
 			return;
 		}
-		BusinessRepository* newBus = new BusinessRepository(idMap[choice]);
-		currentBusiness = newBus;//problem
+		if (idMap.contains(choice)) {
+			SetBusiness business;
+			currentBusiness = business.setUpBusiness(idMap[choice]);
+		}
+		else {
+			std::cout << "Invalid choice, choose a valid number from 0 to " << i-1 << ": " << std::endl;
+			continue;
+		}
+		break;
 	}
-
+	displayMenu();
+	return;
 }
 
-std::set<std::string> InvoiceMenu::retrieveUsersBusinessIDs() {
+std::map<std::string, std::string> InvoiceMenu::retrieveUsersBusinessIDs() {
 	try {
 		if (currentUser == nullptr) {
 			std::cerr << "CurrentUser is not INITIALISED" << std::endl;
@@ -55,12 +85,16 @@ std::set<std::string> InvoiceMenu::retrieveUsersBusinessIDs() {
 		}
 		auto doc = result->view();
 		auto arr = doc["BusinessIDs"].get_array().value;
-		std::set<std::string> businesses;
 		for (auto& elem : arr) {
-			std::string business{ std::string(elem.get_utf8().value) };
-			businesses.insert(business);
+            std::string business{ elem.get_utf8().value };
+			auto res = dbManager.findOne("Business", make_document(kvp("BusinessID", business)));
+			if (res) {
+				auto doc = res->view();
+				std::string businessName{ std::string(doc["BusinessName"].get_utf8().value) };
+				businessMap[business] = businessName;
+			}
 		}
-		return businesses;
+		return businessMap;
 	}
 	catch (const mongocxx::exception& e) {
 		std::cerr << e.what() << std::endl;
@@ -70,15 +104,7 @@ std::set<std::string> InvoiceMenu::retrieveUsersBusinessIDs() {
 
 }
 
-std::string InvoiceMenu::getBusinessName(std::string businessID) {
-	auto result = dbManager.findOne("Business", make_document(kvp("BusinessID", businessID)));
-
-	auto doc = result->view();
-	std::string businessName{ std::string(doc["BusinessName"].get_utf8().value) };
-	return businessName;
-}
-
-bool InvoiceMenu::isUserAssociatedWithBusiness(const std::string businessID) {
+bool InvoiceMenu::validateUserBusiness(const std::string businessID) {
 	auto result = dbManager.findOne("Users", make_document(kvp("UserID", AccountManager::currentUser->getMongoUserID()), kvp("BusinessIDs", businessID)));
 	if (result) {
 		return true;

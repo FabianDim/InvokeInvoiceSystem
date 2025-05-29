@@ -5,6 +5,5 @@ BusinessRepository::BusinessRepository(std::string bizID) : currentUser(AccountM
 	this->bizID = bizID;
 }
 
-
 //getters and setters;
 
