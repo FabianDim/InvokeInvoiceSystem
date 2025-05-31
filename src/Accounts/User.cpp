@@ -1,4 +1,4 @@
-#include "User.h"
+#include "Accounts/User.h"
 
 User::User(const std::string& email, const std::string& password) {
 	this->email = email;

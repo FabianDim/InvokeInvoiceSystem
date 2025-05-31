@@ -1,6 +1,6 @@
 #pragma once
-#include "pch.h"
-#include "AccountManager.h"
+#include "../../pch.h"
+#include "Accounts/AccountManager.h"
 #include <hpdf.h>
 #include <setjmp.h>
 class InvoicePdfGenerator{

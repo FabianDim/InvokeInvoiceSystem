@@ -1,10 +1,8 @@
 #pragma once
 
-#include "pch.h"
-#include "User.h"
-#include "MongoDBDataManager.h"
-#include "MongoDBHandler.h"
-#include "AccountManager.h"
+#include "../pch.h"
+#include "Accounts/User.h"
+#include "Accounts/AccountManager.h"
 
 class SetUser {
 

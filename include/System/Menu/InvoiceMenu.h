@@ -1,11 +1,11 @@
 #pragma once  
 #include "pch.h"  
 #include "MainMenu.h"  
-#include "User.h"  
+#include "Accounts/User.h"  
 #include <memory> // Include this header for std::shared_ptr  
-#include <AccountManager.h>
-#include <BusinessRepository.h>
-#include <InvoicePdfGenerator.h>
+#include "Accounts/AccountManager.h"
+#include "Accounts/UserBusiness/BusinessRepository.h"
+#include "InvoiceSystem/PDF/InvoicePdfGenerator.h"
 
 class InvoiceMenu {  
 public:
@@ -19,7 +19,9 @@ public:
 	std::string getBusinessName(std::string businessID);
 	bool validateUserBusiness(const std::string businessID);
 	void setBusiness(const std::string businessID);
+	
 private:
+	void createInvoice();
 	std::shared_ptr<User> currentUser;
 	InvoicePdfGenerator generator;
 	std::shared_ptr<User> testUser;

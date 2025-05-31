@@ -39,7 +39,7 @@
 
 #include "node_blf.h"
 
-#include "bcrypt.h"
+#include "PasswordHashing/bcrypt.h"
 #include "openbsd.h"
 
 #ifdef _WIN32

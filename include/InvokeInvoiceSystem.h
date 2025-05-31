@@ -1,12 +1,7 @@
 ﻿#pragma once
 
 #include "pch.h"
-#include <iostream>
-#include "AccountManager.h"
-#include "User.h"
-#include "MainMenu.h"
-#include <InvokeInvoiceSystem.h>
-#include "InvoiceSystem.h"
+>>>>>>> Stashed changes
 
 class InvokeInvoiceSystem {
     friend class MainMenu;

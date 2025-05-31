@@ -1,10 +1,6 @@
 #pragma once
 #include "pch.h"
 #include "User.h"
-#include "MainMenu.h"
-#include "bcrypt.h"
-#include "MongoDBHandler.h"
-#include "MongoDBDataManager.h"
 #include "SetUserFromDB.h"
 //using namespace std;
 class AccountManager {

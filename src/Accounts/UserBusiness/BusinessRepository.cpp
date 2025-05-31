@@ -1,4 +1,3 @@
-#include "BusinessRepository.h"
 
 
 BusinessRepository::BusinessRepository(std::string bizID) : currentUser(AccountManager::currentUser) {

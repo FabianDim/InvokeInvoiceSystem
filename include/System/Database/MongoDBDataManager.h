@@ -4,10 +4,10 @@
 #include <mongocxx/instance.hpp>  
 #include <mongocxx/uri.hpp>  
 #include <bsoncxx/builder/stream/document.hpp>  
-#include <bsoncxx/builder/basic/kvp.hpp>  
-#include <User.h>
-#include <MongoDBHandler.h>
-#include "bcrypt.h"
+#include "bsoncxx/builder/basic/kvp.hpp"  
+#include "Accounts/User.h"
+#include "MongoDBHandler.h"
+#include "Accounts/PasswordHashing/bcrypt.h"
 
 using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::make_document;

@@ -1,4 +1,3 @@
-#include "SetBusinessFromDB.h"
 
 std::shared_ptr<BusinessRepository> SetBusiness::setUpBusiness(const std::string businessID) {
 	MongoDBDataManager dbManager;

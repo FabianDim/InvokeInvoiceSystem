@@ -1,5 +1,4 @@
-#include "InvoiceMenu.h"
-#include "SetBusinessFromDB.h"
+
 void InvoiceMenu::displayMenu() {
 	int choice;
 	do {
@@ -8,9 +7,9 @@ void InvoiceMenu::displayMenu() {
 		std::cout << "Please choose an option: ";
 		std::cin >> choice;
 		switch (choice) {
-		case 1:
-			// Do something
+		case 1: {
 			break;
+		}
 		case 2:
 			// Do something
 			break;
@@ -20,6 +19,9 @@ void InvoiceMenu::displayMenu() {
 		case 4:
 			if (businessMap.size() == 1) {
 				std::cout << "You don't have more businesses. Go to the business menu to add more.\n" << std::endl;
+			}
+			else {
+				chooseBusiness();
 			}
 			break;
 		}
