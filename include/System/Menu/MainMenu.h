@@ -1,5 +1,6 @@
 #pragma once
-
+#include "Accounts/AccountManager.h" // Ensure AccountManager is included
+#include "Accounts/userbusiness/BusinessDetails.h"
 #include <iostream>
 #include "pch.h"
 #define WIN32_LEAN_AND_MEAN
@@ -7,7 +8,6 @@
 #include <Windows.h>
 #include <io.h>
 #include <fcntl.h>
->>>>>>> Stashed changes:include/System/Menu/MainMenu.h
 
 class MainMenu {
 	friend class AccountManager;

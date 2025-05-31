@@ -2,6 +2,10 @@
 #include "pch.h"
 #include "User.h"
 #include "SetUserFromDB.h"
+#include "System/Menu/MainMenu.h"
+#include "PasswordHashing/bcrypt.h"
+#include "System/Database/MongoDBHandler.h"
+#include "System/Database/MongoDBDataManager.h"
 //using namespace std;
 class AccountManager {
     friend class user;

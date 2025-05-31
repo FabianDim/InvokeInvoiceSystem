@@ -1,4 +1,5 @@
-
+#include "System/Menu/InvoiceMenu.h"
+#include "Accounts/UserBusiness/SetBusinessFromDB.h"
 void InvoiceMenu::displayMenu() {
 	int choice;
 	do {

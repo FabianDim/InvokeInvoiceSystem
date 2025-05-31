@@ -1,4 +1,6 @@
->>>>>>> Stashed changes
+#include "System/Menu/MainMenu.h"
+
+
 void MainMenu::displayMenu(AccountManager& manager) {
     printTitleBox();
     int choice;
