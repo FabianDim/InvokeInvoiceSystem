@@ -1,5 +1,4 @@
->>>>>>> Stashed changes
-
+#include "System/InvoiceSystem.h"
 
 void System::startSystem() {
     MainMenu mainMenu;

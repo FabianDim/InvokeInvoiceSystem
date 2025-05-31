@@ -16,7 +16,7 @@
 #include <bsoncxx/builder/basic/kvp.hpp>  
 
 // Include bcrypt library  
-#include "bcrypt.h"  
+#include "Accounts/PasswordHashing/bcrypt.h"  
 
 // Add any other necessary includes here
 
@@ -31,5 +31,5 @@
 #include <set>
 #include <unordered_set>
 
-#include "StringUtils.h"
+#include "Utils/StringUtils.h"
 
