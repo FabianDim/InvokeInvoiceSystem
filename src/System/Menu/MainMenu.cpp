@@ -1,6 +1,6 @@
 #include "System/Menu/MainMenu.h"
 
-
+MainMenu::MainMenu() {}
 void MainMenu::displayMenu(AccountManager& manager) {
     printTitleBox();
     int choice;
@@ -79,7 +79,7 @@ void MainMenu::printTitleBox() {
         "╒═════════════════════════════════════════════════╕\n"
         "|              INVOKE INVOICE SYSTEM              |\n"
         "╘═════════════════════════════════════════════════╛\n";
-    std::cout << header;
+    std::cout << colourBlue(header);
 }
 
 void MainMenu::isLoggedIn(AccountManager& accountManager) {
