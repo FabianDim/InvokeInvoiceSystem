@@ -6,7 +6,7 @@
 //}
 
 bool ClientDetails::nameInput() {
-    std::cout << "Please enter your client's full name: ";
+    std::cout << "Please enter your client's business name: ";
     std::string name;
     std::getline(std::cin >> std::ws, name);
 
