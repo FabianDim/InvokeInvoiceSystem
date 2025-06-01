@@ -4,7 +4,7 @@
 #include <bsoncxx/builder/stream/helpers.hpp>
 
 std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const std::string& password) {
-    MongoDBDataManager mongoDataManager;
+    
     auto filter = bsoncxx::builder::stream::document{}
     << "UserEmail" << email << bsoncxx::builder::stream::finalize;
     auto result = mongoDataManager.findOne("Users", filter.view());
@@ -34,4 +34,20 @@ std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const st
     }
 
     return nullptr;
+}
+
+bool SetUser::addBusinessToUser(const std::string& userID, const std::string& businessID) {
+    try {
+        auto filter = mongoDataManager.findOne("Users", make_document(kvp("UserID", userID)));
+        auto update = make_document(kvp("$addToSet", make_document(kvp("BusinessIDs", businessID))));
+        if (!filter || !std::make_optional(update)) {
+            std::cerr << "UserID or BusinessID doesn't Exist" << std::endl;
+            return false;
+        }
+        mongoDataManager.getCollection("Users")->update_one(filter->view(), update.view());
+    }
+    catch (mongocxx::exception e) {
+        std::cerr << e.what() << std::endl;
+    }
+    return false;
 }

@@ -1,17 +1,12 @@
 #include "pch.h"  
 #include <gtest/gtest.h>  
 #include <gmock/gmock.h>  
-<<<<<<< Updated upstream
-#include "InvoiceMenu.h"  
-#include <AccountManager.h>
-#include "User.h"  
-#include <BusinessRepository.h>
-=======
+
 #include "System/Menu/InvoiceMenu.h"
 #include "Accounts/AccountManager.h"
 #include "Accounts/User.h"  
 #include "Accounts/UserBusiness/BusinessRepository.h"
->>>>>>> Stashed changes
+
 
 struct InvoiceMenuTestAccount : testing::Test {  
     std::shared_ptr<User> user;  

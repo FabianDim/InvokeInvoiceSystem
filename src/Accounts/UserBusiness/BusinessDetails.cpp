@@ -262,13 +262,14 @@ bool BusinessDetails::addUserExistingBusiness(std::string businessID) {
         if(!filter){
             return false;
         }
-        bsoncxx::builder::basic::array businessIDs;
         auto update = make_document(kvp("$push", make_document(kvp("UserID", accountManager.getAccount()->getMongoUserID()))));
         auto collection = dbManager.getCollection("Business");
-        businessIDs.append(businessID);
-        dbManager.getCollection("Users")->find_one_and_update(make_document(kvp("UserID", accountManager.getAccount()->getMongoUserID())).view(),
-            make_document(kvp("$set", make_document(kvp("BusinessIDs", businessIDs)).view())));
         collection->update_one(filter->view(), update.view());
+        //figure out whats going on here
+        dbManager.getCollection("Users")->find_one_and_update(
+            make_document(kvp("UserID", accountManager.getAccount()->getMongoUserID())).view(),
+            make_document(kvp("$push", make_document(kvp("BusinessIDs", businessID)).view())));
+
         updateAccountRequirement(accountManager.getAccount()->getEmail());
         return true;
 
@@ -362,13 +363,20 @@ bsoncxx::document::value BusinessDetails::createBusinessDoc() {
     using bsoncxx::builder::stream::finalize;
 
     bsoncxx::builder::basic::array UserIDs;
-    bsoncxx::builder::basic::array businessIDs;
+    
     //for now we will initially push just the first users ID and later be able to add user ID's.
     UserIDs.append(accountManager.getAccount()->getMongoUserID());
     
-    businessIDs.append(makeBusinessID());
-    dbManager.getCollection("Users")->find_one_and_update(make_document( kvp("UserID", accountManager.getAccount()->getMongoUserID())).view(),
-    make_document(kvp("$set", make_document(kvp("BusinessIDs", businessIDs)).view())));
+    if (accountManager.needsAccountSetup(accountManager.getAccount()->getEmail())) {
+        bsoncxx::builder::basic::array businessIDs;
+        businessIDs.append(makeBusinessID());
+        dbManager.getCollection("Users")->find_one_and_update(make_document(kvp("UserID", accountManager.getAccount()->getMongoUserID())).view(),
+        make_document(kvp("$addToSet", make_document(kvp("BusinessIDs", businessIDs)).view())));
+    }
+    else {
+        SetUser setUser;
+        setUser.addBusinessToUser(accountManager.getAccount()->getMongoUserID(), makeBusinessID());
+    }
     std::string address = userBusiness.businessAddress.streetAddress + " " +
         userBusiness.businessAddress.postcode + ", " +
         userBusiness.businessAddress.city + ", " + 

@@ -37,7 +37,8 @@ add_executable(${PROJECT_NAME}
   src/Accounts/UserBusiness/BusinessRepository.cpp
   src/System/Menu/InvoiceMenu.cpp 
   src/Accounts/UserBusiness/SetBusinessFromDB.cpp
-  src/InvoiceSystem/InvoiceData/Clients.cpp
+  src/Accounts/UserBusiness/Clients/ClientDetails.cpp
+  src/System/Menu/BusinessMenu.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}
@@ -78,12 +79,15 @@ add_executable(InvoiceMenuTests
   src/System/Menu/MainMenu.cpp
   src/InvokeInvoiceSystem.cpp
   src/Accounts/UserBusiness/SetBusinessFromDB.cpp 
-  src/InvoiceSystem/InvoiceData/Clients.cpp
+  src/Accounts/UserBusiness/Clients/ClientDetails.cpp
+  src/System/Menu/BusinessMenu.cpp
 )
+
 target_include_directories(InvoiceMenuTests PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )
+
 target_link_libraries(InvoiceMenuTests
   PRIVATE
     passlib

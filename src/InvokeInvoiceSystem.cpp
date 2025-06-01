@@ -9,10 +9,12 @@ int main() {
 	/*Invoice Menu*/
     auto user = std::make_shared<User>("test@email.com", "password123");
     user->setMongoUserID("USR00000001");
-    AccountManager accManager;
-    accManager.setTestUser(user);         // Set this FIRST
-    InvoiceMenu invoiceMenu;              // Now safe to construct
-    invoiceMenu.chooseBusiness();
+    AccountManager accountManager;
+    accountManager.setTestUser(user);
+    // Pass it to BusinessMenu
+    BusinessMenu businessMenu(accountManager);
+    businessMenu.setBusiness("BUS00000001");
+    businessMenu.displayBusMenu();
 
     return 0;
 
@@ -22,3 +24,5 @@ int main() {
 //	testing::InitGoogleTest(&argc, argv);
 //	return RUN_ALL_TESTS();
 //}
+
+

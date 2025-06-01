@@ -4,7 +4,7 @@
 #include "Accounts/UserBusiness/BusinessRepository.h"
 
 class SetBusiness {
-	friend class InvoiceMenu;
+	friend class BusinessMenu;
 private:
 	std::shared_ptr<BusinessRepository> setUpBusiness(const std::string businessID);
 };

@@ -64,6 +64,7 @@ public:
 	bsoncxx::document::value createBusinessDoc();
 	bool createBusinessArrayUsers();
 	void insertBusinessDoc(bsoncxx::document::value doc);
+	
 	std::shared_ptr<User> thisUser;
 
 private:
