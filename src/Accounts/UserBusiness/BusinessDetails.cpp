@@ -254,12 +254,17 @@ bool BusinessDetails::validateBusiness(std::string businessID) {
 }
 
 bool BusinessDetails::addUserExistingBusiness(std::string businessID) {
+    if (businessID.size() <= 3) {
+        std::cout << colourRed("Business not found! Try again or type * to exit") << std::endl;
+        return false;
+    }
     businessID[0] = toupper(businessID[0]);
     businessID[1] = toupper(businessID[1]);
     businessID[2] = toupper(businessID[2]);
     try {
         auto filter = dbManager.findOne("Business", make_document(kvp("BusinessID", businessID)));
         if(!filter){
+            std::cout << colourRed("Business not found! Try again or type * to exit") << std::endl;
             return false;
         }
         auto update = make_document(kvp("$push", make_document(kvp("UserID", accountManager.getAccount()->getMongoUserID()))));
@@ -361,7 +366,8 @@ std::string BusinessDetails::makeBusinessID() {
 bsoncxx::document::value BusinessDetails::createBusinessDoc() {
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
-
+    using bsoncxx::builder::stream::open_array;
+    using bsoncxx::builder::stream::close_array;
     bsoncxx::builder::basic::array UserIDs;
     
     //for now we will initially push just the first users ID and later be able to add user ID's.
@@ -390,6 +396,8 @@ bsoncxx::document::value BusinessDetails::createBusinessDoc() {
         << "BusinessName" << userBusiness.businessName
         << "BusinessAddress" << address
         << "ACN" << userBusiness.ACN
+        << "ClientIDs" << open_array << close_array
+        << "StockIDs" << open_array << close_array
         << finalize;
 }
 

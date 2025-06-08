@@ -14,7 +14,7 @@
 #include <mongocxx/uri.hpp>  
 #include <bsoncxx/builder/stream/document.hpp>  
 #include <bsoncxx/builder/basic/kvp.hpp>  
-
+#include "System/Database/MongoDBDataManager.h"
 // Include bcrypt library  
 #include "Accounts/PasswordHashing/bcrypt.h"  
 

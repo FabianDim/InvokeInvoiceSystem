@@ -1,6 +1,7 @@
 #include "Accounts/UserBusiness/Clients/ClientDetails.h"
 #include <iostream>
 #include <algorithm>
+#include <bsoncxx/json.hpp>
 
 //ClientDetails::ClientDetails(AccountManager& manager) : accountManager(manager) {
 //}
@@ -67,6 +68,7 @@ bool ClientDetails::addressInput() {
             break;
         case ClientAddressStep::DONE:
             currentStep = ClientStep::CONFIRM;
+            addressStep = ClientAddressStep::COUNTRY;
             return true;
         default:
             break;
@@ -180,9 +182,12 @@ void ClientDetails::collectClientInfo() {
         case ClientStep::CONFIRM:
             if (!confirmInfo()) continue;
             break;
-        case ClientStep::DONE:
+        case ClientStep::DONE: {
             insertClientDoc(createClientDoc());
-            return;
+            addClientToBusiness();
+        }
+        currentStep = ClientStep::ENTER_NAME;
+        return;
         default:
             break;
         }
@@ -208,23 +213,25 @@ std::string ClientDetails::makeClientID() {
 bsoncxx::document::value ClientDetails::createClientDoc() {
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
-
+    using bsoncxx::builder::stream::open_array;
+    using bsoncxx::builder::stream::close_array;
+    BusinessManager bizManager;
     std::string userID = accountManager.getAccount()->getMongoUserID();
-
     std::string address = currentClient.addr.streetAddress + " " + currentClient.addr.postcode + ", " +
         currentClient.addr.city + ", " + currentClient.addr.stateOrProvince + ", " + currentClient.addr.country;
-
     return document{}
         << "ClientID" << makeClientID()
+        << "BusinessID" << open_array << bizManager.getBusiness()->getBizID() << close_array
         << "UserID" << userID
         << "ClientName" << currentClient.name
         << "Phone" << currentClient.phone
         << "Email" << currentClient.email
         << "Address" << address
+        << "ClientStockIDs" << open_array << close_array
         << finalize;
 }
 
-void ClientDetails::insertClientDoc(bsoncxx::document::value doc) {
+void ClientDetails::insertClientDoc(bsoncxx::document::value doc) {//inserts clients doc into the client collection
     std::string email = accountManager.getAccount() ? accountManager.getAccount()->getEmail() : "";
     try {
         dbManager.insertDocument("Clients", doc);
@@ -232,4 +239,38 @@ void ClientDetails::insertClientDoc(bsoncxx::document::value doc) {
     catch (const mongocxx::exception& e) {
         std::cerr << e.what() << std::endl;
     }
+}
+
+bool ClientDetails::addClientToBusiness() {
+    try {
+        auto business = BusinessManager::getBusiness();
+        if (!business) {
+            std::cout << "rahhhhhhh";
+            return false;
+        }
+
+        std::cout << "This BusinessID:" << business->getBizID() << std::endl;
+        return false;
+        auto filter = dbManager.getCollection("Business")->find_one(make_document(kvp("BusinessID", business->getBizID())));//we need to find the businessID of the business we are in  maybe a static business var in menu
+        //std::cout << bsoncxx::to_json(filter->view()) << std::endl;
+        auto update = make_document(kvp("$addToSet", make_document(kvp("ClientIDs", makeClientID()))));
+        if (!filter) {
+            std::cerr << "BusinessID doesn't exist" << std::endl; // this is hiting for some reason
+            return false;
+        }
+        dbManager.getCollection("Business")->update_one(filter->view(), update.view());
+    }
+    catch (mongocxx::exception e) {
+        std::cerr << e.what() << std::endl;
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Exception caught: " << e.what() << std::endl;
+    }
+    catch (const std::bad_optional_access& e) {
+        std::cerr << "Caught bad_optional_access: " << e.what() << std::endl;
+    }
+    catch (...) {
+        std::cerr << "Caught unknown exception" << std::endl;
+    }
+    return false;
 }

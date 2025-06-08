@@ -1,22 +1,27 @@
 #include "System/Menu/BusinessMenu.h"
+
 void BusinessMenu::displayBusMenu() {
 	int choice;
+
 	do {
-		std::cout << "\n========== '" << colourLime(currentBusiness->getBizName())  << "' Business Menu ==========\n";
-		std::cout << "1. Create a New Business (" << ammountOfUserBusinesses() << " out of max 3)\n"; //one day change this to maximum owned because you might be able to add to more exisitng businesses
+		if (BusinessManager::getBusiness() == nullptr) { //hitting business is not set but it is. because get bizname works
+			chooseBusiness();
+		}
+		std::cout << "\n========== '" << colourLime(BusinessManager::getBusiness()->getBizName())  << "' Business Menu ==========\n";
+		std::cout << "1. Create a New Business (" << userBusinessCount() << " out of max " << maxBusinesses << ")" << std::endl; //one day change this to maximum owned because you might be able to add to more exisitng businesses
 		std::cout << "2. Switch Active Business\n";
 		std::cout << "3. Register Another Business\n";
 		std::cout << "4. Manage Clients\n";
 		std::cout << "5. Manage Business Stock\n";
-		std::cout << "6. Back to Main Menu\n";
+		std::cout << "6. Manage businesses\n";
+		std::cout << "7. Back to Main Menu\n";
 		std::cout << "Please enter your choice: ";
 		std::cin >> choice;
-		
 		std::cout << std::endl;
 
 		switch (choice) {
 		case 1:
-			businessDetails.collectBusinessInfo();
+			if(validateMaxBusinesses())businessDetails.collectBusinessInfo();
 			break;
 		case 2:
 			chooseBusiness();
@@ -25,12 +30,15 @@ void BusinessMenu::displayBusMenu() {
 			addSelfToBusinessID();
 			break;
 		case 4:
-			createClient();
+			clientMenu.displayClientMenu();
 			break;
 		case 5:
 			//manageStock();
 			break;
 		case 6:
+
+			break;
+		case 7:
 			std::cout << "Returning to main menu...\n";
 			break;
 		default:
@@ -45,8 +53,7 @@ void BusinessMenu::displayBusMenu() {
 		if (!businessMap.empty() && businessMap.size() == 1) {
 			const auto& curBiz = *businessMap.begin();
 			if (validateUserBusiness(curBiz.first)) {
-				SetBusiness business;
-				currentBusiness = business.setUpBusiness(curBiz.first);
+				BusinessManager::setBusinessGlobally(curBiz.first);
 			}
 			return;
 		}
@@ -57,11 +64,12 @@ void BusinessMenu::displayBusMenu() {
 		std::unordered_map<int, std::string> idMap;
 		for (auto& curBiz : businessMap) {
 			if (validateUserBusiness(curBiz.first)) {
-				std::cout << i << ": " << curBiz.second << std::endl;// make this find the businesses name not the business numbers
-				idMap[i] = curBiz.first;
+				std::cout << i+1 << ": " << curBiz.second << std::endl;// make this find the businesses name not the business numbers
+				idMap[i+1] = curBiz.first;
 			}
 			i++;
 		}
+		std::cout << i + 1 << ": " << "Create a new business" << std::endl;
 		while (true) {
 			std::cout << "Please choose the number of a business (* to go back): ";
 			std::cin >> choice;
@@ -69,12 +77,16 @@ void BusinessMenu::displayBusMenu() {
 			if (std::to_string(choice) == "*") {
 				return;
 			}
+			if (choice == i + 1) {
+				if (validateMaxBusinesses())businessDetails.collectBusinessInfo();
+				return;
+			}
 			if (idMap.contains(choice)) {
-				SetBusiness business;
-				currentBusiness = business.setUpBusiness(idMap[choice]);
+				
+				BusinessManager::setBusinessGlobally(idMap[choice]);
 			}
 			else {
-				std::cout << "Invalid choice, choose a valid number from 0 to " << i - 1 << ": " << std::endl;
+				std::cout << "Invalid choice, choose a valid number from 0 to " << i << ": " << std::endl;
 				continue;
 			}
 			break;
@@ -123,32 +135,53 @@ void BusinessMenu::displayBusMenu() {
 	}
 
 	bool BusinessMenu::createClient() {
-		clientDetails.collectClientInfo();
+		if (clientDetails) {
+			clientDetails->collectClientInfo();
+			return true;
+		}
+		else {
+			std::cerr << "Error: clientDetails is not initialized.\n";
+		}
 		return false;
 	}
 
 	void BusinessMenu::setBusiness(const std::string businessID) {
-		SetBusiness setBiz;
-		currentBusiness = setBiz.setUpBusiness(businessID);
+		BusinessManager::setBusinessGlobally(businessID);
 	}
 
-	int BusinessMenu::ammountOfUserBusinesses() {
+	size_t BusinessMenu::userBusinessCount() {
 		return retrieveUsersBusinessIDs().size();
 	}
 
-	void BusinessMenu::addSelfToBusinessID() {
+	void BusinessMenu::addSelfToBusinessID() {//adds a user to an existing business. Intergrate the bus number into more stats so the users actually know num
 		std::cout << "Please specify the ID of the business for which you'd like to join (BUSXXXXXXXX): ";
 
 		SetUser setUser;
 		std::string biz;
 		std::cin >> biz;
 
-		while (!businessDetails.addUserExistingBusiness(biz)) {
-			std::cout << colourRed("Business not found! Try again or type * to exit");
-		}
+		bool success = false;
+
+		do {
+			success = businessDetails.addUserExistingBusiness(biz);
+			if (!success) {
+				std::cout << "Type in the ID of an existing business: ";
+				std::cin >> biz;
+				if (biz == "*") break;
+			}
+		} while (!success);
+
 		biz[0] = std::toupper(biz[0]);
 		biz[1] = std::toupper(biz[1]);
 		biz[2] = std::toupper(biz[2]);
-		std::cout << "Added " << currentUser->getFirstName() << " to " << biz << std::endl;
+		std::cout << "Added " << currentUser->getFirstName() << "to " << biz << std::endl;
 		return;
+	}
+
+	bool BusinessMenu::validateMaxBusinesses() {
+		if (userBusinessCount() >= maxBusinesses) {
+			std::cout << colourRed("You have to many businesses, delete a business or upgrade your plan.\n") << std::endl;
+			return false;
+		}
+		return true;
 	}

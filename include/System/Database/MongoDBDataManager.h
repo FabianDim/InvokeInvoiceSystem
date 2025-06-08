@@ -34,6 +34,7 @@ public:
     bsoncxx::document::value buildNewUser(const std::shared_ptr<User>& newUser);
     void updateElement(const std::string& collectionName, const std::string& docparameter, const std::string& email, const std::string& prevVal, const bool updateValue);
     std::optional<bsoncxx::document::value> findOne(const std::string& collectionName, const bsoncxx::document::view_or_value& filter);
+    std::optional<mongocxx::collection> getCollection(const std::string& collectionName);
 private:
     //std::optional<bsoncxx::document::value> findOne(const std::string& collectionName, const bsoncxx::document::view_or_value& filter);
     //std::string getUserOID(const std::string& collectionName, std::optional<bsoncxx::document::view_or_value>& view);
@@ -42,5 +43,5 @@ private:
     bool validPassword(const std::string& password, const std::string& hashedPW);
     array makeDBArray(const bsoncxx::document::view_or_value& initDoc);
     void updateDoc(const std::string& collectionName, std::optional<bsoncxx::v_noabi::document::value> filterDoc, std::optional<bsoncxx::document::value> replacementDoc);
-    std::optional<mongocxx::collection> getCollection(const std::string& collectionName);
+    
 };

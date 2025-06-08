@@ -1,8 +1,10 @@
 #pragma once
 #include "pch.h"
 #include "Accounts/User.h"
-#include "Accounts/AccountManager.h" // Ensure this is included before using AccountManager
+#include "Accounts/AccountManager.h"
 #include "System/Database/MongoDBDataManager.h"
+#include "Accounts/UserBusiness/BusinessRepository.h"
+#include "../BusinessManager.h"
 
 enum class ClientStep {
     ENTER_NAME,
@@ -43,11 +45,12 @@ private:
     client currentClient;
 
     ClientStep currentStep = ClientStep::ENTER_NAME;
-    ClientAddressStep addressStep = ClientAddressStep::COUNTRY;
-
-    AccountManager& accountManager;
     MongoDBDataManager dbManager;
-    int thisClientID;
+    ClientAddressStep addressStep = ClientAddressStep::COUNTRY;
+    BusinessManager& bizManager;
+    AccountManager& accountManager;
+    std::shared_ptr<BusinessRepository> curBusiness;
+    int thisClientID = 0;
 
     // Input steps
     bool nameInput();
@@ -68,12 +71,12 @@ private:
 
     // MongoDB
     bsoncxx::document::value createClientDoc();
-    void insertClientDoc(bsoncxx::document::value doc);
 
-    // Utility
-    //std::string toLower(std::string text);
+    void insertClientDoc(bsoncxx::document::value doc);
+    bool addClientToBusiness();
 
 public:
-    ClientDetails(AccountManager& manager) : accountManager(manager) {};
+    ClientDetails(AccountManager& manager, BusinessManager& busManager)
+        : accountManager(manager), bizManager(busManager) {};
     void collectClientInfo();
 };
