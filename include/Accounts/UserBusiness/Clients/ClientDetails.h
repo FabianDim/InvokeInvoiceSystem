@@ -5,6 +5,7 @@
 #include "System/Database/MongoDBDataManager.h"
 #include "Accounts/UserBusiness/BusinessRepository.h"
 #include "../BusinessManager.h"
+//#include <Accounts/UserBusiness/Clients/ClientManager.h>
 
 enum class ClientStep {
     ENTER_NAME,
@@ -34,7 +35,7 @@ private:
         std::string postcode;
     };
 
-    struct client {
+    struct clientData {
         std::string name;
         std::string phone;
         std::string email;
@@ -42,7 +43,7 @@ private:
     };
 
     address currentAddress;
-    client currentClient;
+    clientData currentCli;
 
     ClientStep currentStep = ClientStep::ENTER_NAME;
     MongoDBDataManager dbManager;
@@ -78,5 +79,6 @@ private:
 public:
     ClientDetails(AccountManager& manager, BusinessManager& busManager)
         : accountManager(manager), bizManager(busManager) {};
+    
     void collectClientInfo();
 };

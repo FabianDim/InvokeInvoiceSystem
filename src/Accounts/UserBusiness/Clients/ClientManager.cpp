@@ -12,7 +12,7 @@ std::unordered_map<std::string, std::string> ClientManager::fetchBizClients() {
 	try {
 		MongoDBDataManager dbManager;
 		if (BusinessManager::getBusiness() == nullptr) {
-			std::cerr << "CurrentUser is not INITIALISED" << std::endl;
+			std::cerr << "Business is not INITIALISED" << std::endl;
 			return {};
 		}
 		auto result = dbManager.findOne("Business", make_document(kvp("BusinessID", BusinessManager::getBusiness()->getBizID())));
@@ -30,9 +30,13 @@ std::unordered_map<std::string, std::string> ClientManager::fetchBizClients() {
 
 		for (const auto& elem : bsonArray) {
 			//error with converting doc to char or something is often about using kvp
-			auto filter = dbManager.findOne("Clients", make_document(kvp("ClientID", static_cast<std::string>(elem.get_string().value))));
-			auto cliName = filter->view()["ClientName"].get_string().value;
-			clients.at(static_cast<std::string>(elem.get_string().value)) = cliName;
+			auto filter = dbManager.findOne("Clients", make_document(kvp("ClientID", static_cast<std::string>(elem.get_utf8().value))));
+			if (!filter) {
+				std::cout << "Can't find clientID" << std::endl;
+				return {};
+			}
+			auto cliName = filter->view()["ClientName"].get_utf8().value;
+			clients[static_cast<std::string>(elem.get_utf8().value)] = cliName;
 		}
 		return clients;
 	}

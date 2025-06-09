@@ -14,11 +14,10 @@ private:
 	MongoDBDataManager dbManager;
 	BusinessDetails businessDetails;
 	AccountManager& manager;
-	std::shared_ptr<ClientDetails> clientDetails;
 	BusinessManager& bizManager;
 	ClientManager cliManager;
+	std::shared_ptr<ClientDetails> clientDetails;
 	ClientMenu clientMenu;
-
 	int maxBusinesses = 3;
 
 
@@ -42,5 +41,6 @@ public:
 		dbManager(),
 		businessDetails(manager),
 		manager(manager),
-		clientDetails(std::make_shared<ClientDetails>(manager, busManager)), bizManager(busManager) {}
+		clientDetails(std::make_shared<ClientDetails>(manager, busManager)),
+		bizManager(busManager), cliManager(dbManager), clientMenu(cliManager, clientDetails) {}
 };

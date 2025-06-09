@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <bsoncxx/json.hpp>
 
+
 //ClientDetails::ClientDetails(AccountManager& manager) : accountManager(manager) {
 //}
 
@@ -13,7 +14,7 @@ bool ClientDetails::nameInput() {
 
     if (toLower(name) == "back") return false;
 
-    currentClient.name = name;
+    currentCli.name = name;
     currentStep = ClientStep::ENTER_PHONE;
     return true;
 }
@@ -28,7 +29,7 @@ bool ClientDetails::phoneInput() {
         return false;
     }
 
-    currentClient.phone = phone;
+    currentCli.phone = phone;
     currentStep = ClientStep::ENTER_EMAIL;
     return true;
 }
@@ -43,7 +44,7 @@ bool ClientDetails::emailInput() {
         return false;
     }
 
-    currentClient.email = email;
+    currentCli.email = email;
     currentStep = ClientStep::ENTER_ADDRESS;
     return true;
 }
@@ -81,7 +82,7 @@ bool ClientDetails::getCountry() {
     std::string country;
     std::getline(std::cin >> std::ws, country);
     if (toLower(country) == "back") return false;
-    currentClient.addr.country = country;
+    currentCli.addr.country = country;
     addressStep = ClientAddressStep::STATE;
     return true;
 }
@@ -91,7 +92,7 @@ bool ClientDetails::getState() {
     std::string state;
     std::getline(std::cin >> std::ws, state);
     if (toLower(state) == "back") return false;
-    currentClient.addr.stateOrProvince = state;
+    currentCli.addr.stateOrProvince = state;
     addressStep = ClientAddressStep::CITY;
     return true;
 }
@@ -101,7 +102,7 @@ bool ClientDetails::getCity() {
     std::string city;
     std::getline(std::cin >> std::ws, city);
     if (toLower(city) == "back") return false;
-    currentClient.addr.city = city;
+    currentCli.addr.city = city;
     addressStep = ClientAddressStep::POST_CODE;
     return true;
 }
@@ -111,7 +112,7 @@ bool ClientDetails::getPostCode() {
     std::string postcode;
     std::getline(std::cin >> std::ws, postcode);
     if (toLower(postcode) == "back") return false;
-    currentClient.addr.postcode = postcode;
+    currentCli.addr.postcode = postcode;
     addressStep = ClientAddressStep::STREET;
     return true;
 }
@@ -121,18 +122,18 @@ bool ClientDetails::getStreetAddress() {
     std::string street;
     std::getline(std::cin >> std::ws, street);
     if (toLower(street) == "back") return false;
-    currentClient.addr.streetAddress = street;
+    currentCli.addr.streetAddress = street;
     addressStep = ClientAddressStep::DONE;
     return true;
 }
 
 bool ClientDetails::confirmInfo() {
     std::cout << "Please confirm client info:\n";
-    std::cout << "Name: " << currentClient.name << std::endl;
-    std::cout << "Phone: " << currentClient.phone << std::endl;
-    std::cout << "Email: " << currentClient.email << std::endl;
-    std::cout << "Address: " << currentClient.addr.streetAddress << ", " << currentClient.addr.postcode << ", "
-        << currentClient.addr.city << ", " << currentClient.addr.stateOrProvince << ", " << currentClient.addr.country << std::endl;
+    std::cout << "Name: " << currentCli.name << std::endl;
+    std::cout << "Phone: " << currentCli.phone << std::endl;
+    std::cout << "Email: " << currentCli.email << std::endl;
+    std::cout << "Address: " << currentCli.addr.streetAddress << ", " << currentCli.addr.postcode << ", "
+        << currentCli.addr.city << ", " << currentCli.addr.stateOrProvince << ", " << currentCli.addr.country << std::endl;
     std::string input;
     while (true) {
         std::cout << "Type to redo: <name>, <phone>, <email>, <address>. or <done> to finish setup: ";
@@ -184,7 +185,7 @@ void ClientDetails::collectClientInfo() {
             break;
         case ClientStep::DONE: {
             insertClientDoc(createClientDoc());
-            addClientToBusiness();
+            if(!addClientToBusiness()) std::cout << "didn't work" << std::endl;
         }
         currentStep = ClientStep::ENTER_NAME;
         return;
@@ -217,15 +218,15 @@ bsoncxx::document::value ClientDetails::createClientDoc() {
     using bsoncxx::builder::stream::close_array;
     BusinessManager bizManager;
     std::string userID = accountManager.getAccount()->getMongoUserID();
-    std::string address = currentClient.addr.streetAddress + " " + currentClient.addr.postcode + ", " +
-        currentClient.addr.city + ", " + currentClient.addr.stateOrProvince + ", " + currentClient.addr.country;
+    std::string address = currentCli.addr.streetAddress + " " + currentCli.addr.postcode + ", " +
+        currentCli.addr.city + ", " + currentCli.addr.stateOrProvince + ", " + currentCli.addr.country;
     return document{}
         << "ClientID" << makeClientID()
         << "BusinessID" << open_array << bizManager.getBusiness()->getBizID() << close_array
         << "UserID" << userID
-        << "ClientName" << currentClient.name
-        << "Phone" << currentClient.phone
-        << "Email" << currentClient.email
+        << "ClientName" << currentCli.name
+        << "Phone" << currentCli.phone
+        << "Email" << currentCli.email
         << "Address" << address
         << "ClientStockIDs" << open_array << close_array
         << finalize;
@@ -249,16 +250,16 @@ bool ClientDetails::addClientToBusiness() {
             return false;
         }
 
-        std::cout << "This BusinessID:" << business->getBizID() << std::endl;
-        return false;
+        //std::cout << "This BusinessID:" << business->getBizID() << std::endl;
         auto filter = dbManager.getCollection("Business")->find_one(make_document(kvp("BusinessID", business->getBizID())));//we need to find the businessID of the business we are in  maybe a static business var in menu
         //std::cout << bsoncxx::to_json(filter->view()) << std::endl;
-        auto update = make_document(kvp("$addToSet", make_document(kvp("ClientIDs", makeClientID()))));
+        auto update  = make_document(kvp("$addToSet", make_document(kvp("ClientIDs", makeClientID()))));
         if (!filter) {
             std::cerr << "BusinessID doesn't exist" << std::endl; // this is hiting for some reason
             return false;
         }
         dbManager.getCollection("Business")->update_one(filter->view(), update.view());
+        return true;
     }
     catch (mongocxx::exception e) {
         std::cerr << e.what() << std::endl;

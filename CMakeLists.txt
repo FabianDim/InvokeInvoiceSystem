@@ -39,7 +39,10 @@ add_executable(${PROJECT_NAME}
   src/Accounts/UserBusiness/SetBusinessFromDB.cpp
   src/Accounts/UserBusiness/Clients/ClientDetails.cpp
   src/System/Menu/BusinessMenu.cpp
- "src/Accounts/UserBusiness/BusinessManager.cpp" "src/Accounts/UserBusiness/Clients/ClientManager.cpp" "src/Accounts/UserBusiness/Clients/ClientMenu.cpp" "src/Stock/StockDetails.cpp")
+ src/Accounts/UserBusiness/BusinessManager.cpp
+ src/Accounts/UserBusiness/Clients/ClientManager.cpp 
+ src/Stock/StockDetails.cpp
+ src/System/Menu/ClientMenu.cpp)
 
 target_link_libraries(${PROJECT_NAME}
   PRIVATE
@@ -81,7 +84,7 @@ add_executable(InvoiceMenuTests
   src/Accounts/UserBusiness/SetBusinessFromDB.cpp 
   src/Accounts/UserBusiness/Clients/ClientDetails.cpp
   src/System/Menu/BusinessMenu.cpp
- "src/Accounts/UserBusiness/BusinessManager.cpp" "src/Accounts/UserBusiness/Clients/ClientManager.cpp" "src/Accounts/UserBusiness/Clients/ClientMenu.cpp" "src/Stock/StockDetails.cpp")
+ "src/Accounts/UserBusiness/BusinessManager.cpp" "src/Accounts/UserBusiness/Clients/ClientManager.cpp"  "src/Stock/StockDetails.cpp")
 
 target_include_directories(InvoiceMenuTests PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include

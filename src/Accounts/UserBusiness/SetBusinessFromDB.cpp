@@ -29,10 +29,10 @@ std::shared_ptr<BusinessRepository> SetBusiness::setUpBusiness(const std::string
 		std::string acn{ acnV.get_utf8().value };
 		
 		for (auto& val : stockV.get_array().value) {
-			stock.push_back(static_cast<std::string>(val.get_string().value));
+			stock.push_back(static_cast<std::string>(val.get_utf8().value));
 		}
 		for (auto& val : clientV.get_array().value) {
-			clients.insert(static_cast<std::string>(val.get_string().value));
+			clients.insert(static_cast<std::string>(val.get_utf8().value));
 		}
 		business->setBizID(bizID);
 		business->setAbn(abn);

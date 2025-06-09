@@ -164,10 +164,13 @@ void BusinessMenu::displayBusMenu() {
 
 		do {
 			success = businessDetails.addUserExistingBusiness(biz);
-			if (!success) {
+			if (!success && biz != "*") {
 				std::cout << "Type in the ID of an existing business: ";
 				std::cin >> biz;
-				if (biz == "*") break;
+				if (biz == "*") return;
+			}
+			else if (biz == "*") {
+				return;
 			}
 		} while (!success);
 
