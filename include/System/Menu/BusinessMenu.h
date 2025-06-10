@@ -6,6 +6,7 @@
 #include "Accounts/UserBusiness/BusinessDetails.h"
 #include "Accounts/UserBusiness/Clients/ClientDetails.h"
 #include "Accounts/UserBusiness/BusinessManager.h"
+#include "StockMenu.h"
 
 class BusinessMenu {
 private:
@@ -18,6 +19,7 @@ private:
 	ClientManager cliManager;
 	std::shared_ptr<ClientDetails> clientDetails;
 	ClientMenu clientMenu;
+	StockMenu stockMenu;
 	int maxBusinesses = 3;
 
 
@@ -30,6 +32,7 @@ private:
 	size_t userBusinessCount();
 	void addSelfToBusinessID();
 	bool validateMaxBusinesses();
+	bool manageStock();
 
 public:
 	void setBusiness(const std::string businessID);
@@ -42,5 +45,6 @@ public:
 		businessDetails(manager),
 		manager(manager),
 		clientDetails(std::make_shared<ClientDetails>(manager, busManager)),
-		bizManager(busManager), cliManager(dbManager), clientMenu(cliManager, clientDetails) {}
+		bizManager(busManager), cliManager(dbManager), 
+		clientMenu(cliManager, clientDetails), stockMenu(busManager, manager){}
 };

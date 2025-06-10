@@ -189,10 +189,10 @@ void AccountManager::logOut() {
 std::string AccountManager::makeUserID() {
 
 	auto uID = dataManager.findOne("counters",
-	make_document(kvp("_id", make_document(
-		kvp("db", "InvokeInvoiceSystem"),
-		kvp("coll", "Users")
-	))));
+		make_document(kvp("_id", make_document(
+			kvp("db", "InvokeInvoiceSystem"),
+			kvp("coll", "Users")
+		))));
 
 	int thisUserID = 0;
 	if (uID->view()["user_value"] && uID->view()["user_value"].type() == bsoncxx::type::k_int64) {

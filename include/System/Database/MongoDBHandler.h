@@ -9,6 +9,7 @@ using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::make_document;
 
 class MongoDBHandler {
+	friend class MongoDBDataManager;
 public:
 	MongoDBHandler();
 	mongocxx::database getDatabase() const;

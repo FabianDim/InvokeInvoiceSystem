@@ -251,7 +251,7 @@ bool ClientDetails::addClientToBusiness() {
         }
 
         //std::cout << "This BusinessID:" << business->getBizID() << std::endl;
-        auto filter = dbManager.getCollection("Business")->find_one(make_document(kvp("BusinessID", business->getBizID())));//we need to find the businessID of the business we are in  maybe a static business var in menu
+        auto filter = dbManager.getCollection("Business")->find_one(make_document(kvp("BusinessID", business->getBizID())));//we need to find the businessID of the business we are in maybe a static business var in menu
         //std::cout << bsoncxx::to_json(filter->view()) << std::endl;
         auto update  = make_document(kvp("$addToSet", make_document(kvp("ClientIDs", makeClientID()))));
         if (!filter) {

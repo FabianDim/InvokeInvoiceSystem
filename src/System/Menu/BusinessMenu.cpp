@@ -33,7 +33,7 @@ void BusinessMenu::displayBusMenu() {
 			clientMenu.displayClientMenu();
 			break;
 		case 5:
-			//manageStock();
+			stockMenu.displayStockMenu();
 			break;
 		case 6:
 
@@ -167,7 +167,6 @@ void BusinessMenu::displayBusMenu() {
 			if (!success && biz != "*") {
 				std::cout << "Type in the ID of an existing business: ";
 				std::cin >> biz;
-				if (biz == "*") return;
 			}
 			else if (biz == "*") {
 				return;
@@ -187,4 +186,8 @@ void BusinessMenu::displayBusMenu() {
 			return false;
 		}
 		return true;
+	}
+
+	bool BusinessMenu::manageStock() {
+		return false;
 	}

@@ -10,7 +10,7 @@ std::string StockDetails::toLower(std::string text) {
 }
 
 bool StockDetails::nameInput() {
-    std::cout << "Enter stock name: ";
+    std::cout << "\nEnter stock name: ";
     std::getline(std::cin >> std::ws, currentStock.name);
     if (toLower(currentStock.name) == "back") return false;
     currentStep = StockStep::ENTER_QUANTITY;
@@ -52,6 +52,24 @@ bool StockDetails::marginInput() {
         return false;
     }
     currentStock.margin = std::stof(input);
+    currentStep = StockStep::ENTER_KEYWORDS;
+    return true;
+}
+
+bool StockDetails::keyWordsInput() {
+    std::cout << "Please enter keywords to facilitate searching for this stock ('done' to continue) " << std::endl;
+    
+    std::string input;
+    do{
+        if (toLower(input) != "done") {
+            std::getline(std::cin >> std::ws, input);
+        }
+        if (toLower(input) == "back") {
+            currentStep = StockStep::ENTER_MARGIN;
+            return false;
+        }
+        currentStock.keyWords.append(input);
+    } while (input != "done");
     currentStep = StockStep::CONFIRM;
     return true;
 }
@@ -90,12 +108,17 @@ void StockDetails::collectStockInfo() {
         case StockStep::ENTER_MARGIN:
             if (!marginInput()) continue;
             break;
+        case StockStep::ENTER_KEYWORDS:
+            if (!keyWordsInput()) continue;
+            break;
         case StockStep::CONFIRM:
             if (!confirmInfo()) continue;
             break;
-        case StockStep::DONE:
+        case StockStep::DONE: {
             insertStockDoc(createStockDoc());
-            return;
+        }
+        currentStep = StockStep::ENTER_NAME;
+        return;
         default:
             break;
         }
@@ -109,6 +132,7 @@ std::string StockDetails::makeStockID() {
     }
     else {
         std::cerr << "Error generating Stock ID\n";
+        return "";
     }
     std::string prefix = "STK";
     if (std::to_string(thisStockID).size() < 8) {
@@ -121,24 +145,28 @@ std::string StockDetails::makeStockID() {
 bsoncxx::document::value StockDetails::createStockDoc() {
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
+    using bsoncxx::builder::stream::open_array;
+    using bsoncxx::builder::stream::close_array;
     BusinessManager bizManager;
     std::string userID = accountManager.getAccount()->getMongoUserID();
     return document{}
         << "StockID" << makeStockID()
         << "BusinessID" << bizManager.getBusiness()->getBizID()
-        << "UserID" << userID
-        << "Name" << currentStock.name
+        << "Name" << currentStock.name 
         << "Quantity" << currentStock.quantity
         << "StdPrice" << currentStock.price
         << "ProfitMargin" << currentStock.margin
+        << "ProductKeyWords" << currentStock.keyWords
         << finalize;
 }
 
 void StockDetails::insertStockDoc(bsoncxx::document::value doc) {
     try {
         dbManager.insertDocument("Stock", doc);
+        return;
     }
     catch (const mongocxx::exception& e) {
         std::cerr << e.what() << std::endl;
+        return;
     }
 }

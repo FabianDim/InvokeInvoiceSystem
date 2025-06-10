@@ -1,6 +1,6 @@
 #pragma once
 #include "pch.h"
-class Stock {
+class StockItem {
 private:
 	std::string profitMargin;
 	std::string name;
