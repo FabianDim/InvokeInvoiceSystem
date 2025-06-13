@@ -46,5 +46,5 @@ public:
 		manager(manager),
 		clientDetails(std::make_shared<ClientDetails>(manager, busManager)),
 		bizManager(busManager), cliManager(dbManager), 
-		clientMenu(cliManager, clientDetails), stockMenu(busManager, manager){}
+		clientMenu(cliManager, clientDetails), stockMenu(busManager, manager, dbManager){}
 };

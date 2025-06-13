@@ -44,6 +44,8 @@ private:
     bsoncxx::document::value createStockDoc();
     void insertStockDoc(bsoncxx::document::value doc);
 
+    bool insertStockIDToBiz();
+
 public:
     StockDetails(AccountManager& manager);
     void collectStockInfo();

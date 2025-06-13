@@ -57,7 +57,7 @@ bool StockDetails::marginInput() {
 }
 
 bool StockDetails::keyWordsInput() {
-    std::cout << "Please enter keywords to facilitate searching for this stock ('done' to continue) " << std::endl;
+    std::cout << "Please enter keywords to facilitate searching for this stock ('Done' to continue) " << std::endl;
     
     std::string input;
     do{
@@ -116,6 +116,7 @@ void StockDetails::collectStockInfo() {
             break;
         case StockStep::DONE: {
             insertStockDoc(createStockDoc());
+            insertStockIDToBiz();
         }
         currentStep = StockStep::ENTER_NAME;
         return;
@@ -169,4 +170,20 @@ void StockDetails::insertStockDoc(bsoncxx::document::value doc) {
         std::cerr << e.what() << std::endl;
         return;
     }
+}
+
+bool StockDetails::insertStockIDToBiz() {
+    try {
+        auto business = BusinessManager::getBusiness();
+        auto filter = dbManager.findOne("Business", make_document(kvp("BusinessID", business->getBizID())));
+        auto update = make_document(kvp("$addToSet", make_document(kvp("StockIDs", makeStockID()))));
+        auto result = dbManager.getCollection("Business")->find_one_and_update(filter->view(), update.view());
+
+        return !result;
+    }
+    catch (const mongocxx::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return false;
+    }
+    return false;
 }
