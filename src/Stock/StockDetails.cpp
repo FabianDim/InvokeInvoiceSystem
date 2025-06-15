@@ -64,15 +64,21 @@ bool StockDetails::keyWordsInput() {
         if (toLower(input) != "done") {
             std::getline(std::cin >> std::ws, input);
         }
+        else {
+            currentStep = StockStep::CONFIRM;
+            return true;
+        }
         if (toLower(input) == "back") {
+            currentStock.keyWords.clear();
             currentStep = StockStep::ENTER_MARGIN;
             return false;
         }
-        currentStock.keyWords.append(input);
+        currentStock.keyWords.append(toLower(input));
     } while (input != "done");
     currentStep = StockStep::CONFIRM;
     return true;
 }
+
 
 bool StockDetails::confirmInfo() {
     std::cout << "\nConfirm Stock Info:\n";
@@ -85,6 +91,10 @@ bool StockDetails::confirmInfo() {
     std::cin >> input;
     if (toLower(input) == "done") {
         currentStep = StockStep::DONE;
+        currentStock.keyWords.append(toLower(currentStock.name));
+        currentStock.keyWords.append(toLower(makeStockID()));
+
+        //function to remove all punctuation from a string for keyword purposes.
         return true;
     }
     else {
@@ -157,7 +167,7 @@ bsoncxx::document::value StockDetails::createStockDoc() {
         << "Quantity" << currentStock.quantity
         << "StdPrice" << currentStock.price
         << "ProfitMargin" << currentStock.margin
-        << "ProductKeyWords" << currentStock.keyWords
+        << "ProductKeywords" << currentStock.keyWords
         << finalize;
 }
 

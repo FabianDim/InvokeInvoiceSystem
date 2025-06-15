@@ -14,4 +14,5 @@ private:
 	StockDetails stockDetails;
 	StockManager stkManager;
 	void stockSearchFunction();
+	void displayItemMenu();
 };

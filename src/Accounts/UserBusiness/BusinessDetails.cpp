@@ -206,7 +206,7 @@ bool BusinessDetails::confirmInfo() {
     std::cout << "ACN: " << userBusiness.ACN << std::endl;
     std::string input;
     while (true) {
-        std::cout << "Type to redo: <ABN>, <Name>, <Phone>, <Address>, <ACN>. or <done> to finish setup: ";
+        std::cout << "Type to redo: <ABN>, <Name>, <Phone>, <Address>, <ACN>. or <Done> to finish setup: ";
         std::cin >> input;
         if (toLower(input) == "done") {
             currentLevel = BusinessStep::DONE;

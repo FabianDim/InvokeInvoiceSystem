@@ -3,6 +3,7 @@
 #include "StockItem.h"
 
 class SetStockItem {
+	friend class StockManager;
 private:
-	void setStockItem();
+	static std::shared_ptr<StockItem> setStockItem(const std::string& stockID);
 };

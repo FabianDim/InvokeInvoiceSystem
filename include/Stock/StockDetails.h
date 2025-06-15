@@ -46,6 +46,7 @@ private:
 
     bool insertStockIDToBiz();
 
+    std::string removePunct();
 public:
     StockDetails(AccountManager& manager);
     void collectStockInfo();
