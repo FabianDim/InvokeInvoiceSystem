@@ -4,6 +4,9 @@ std::shared_ptr<Client> ClientManager::currentClient = nullptr;
 void ClientManager::setClient(std::shared_ptr<Client> client) {
 	currentClient = client;
 }
+std::shared_ptr<Client> ClientManager::getCurClient() {
+	return currentClient;
+}
 void ClientManager::clear() {
 	currentClient = nullptr;
 }
@@ -12,7 +15,7 @@ std::unordered_map<std::string, std::string> ClientManager::fetchBizClients() {
 	try {
 		MongoDBDataManager dbManager;
 		if (BusinessManager::getBusiness() == nullptr) {
-			std::cerr << "Business is not INITIALISED" << std::endl;
+			std::cerr << "Business is not INITIALISED in fetch biz clients" << std::endl;
 			return {};
 		}
 		auto result = dbManager.findOne("Business", make_document(kvp("BusinessID", BusinessManager::getBusiness()->getBizID())));
