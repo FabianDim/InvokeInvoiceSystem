@@ -96,6 +96,7 @@ void StockMenu::displayItemMenu() {
 		case 1:
 			break;
 		case 2:
+			cliStockItem.updateAndAddClientStock();
 			break;
 		case 3:
 			break;
