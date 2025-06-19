@@ -5,7 +5,8 @@
 #include "System/Database/MongoDBDataManager.h"  
 #include "StockItem.h"
 #include "Stock/SetStockFromDB.h"
-
+#include "Accounts/UserBusiness/Clients/ClientManager.h"  
+#include "Accounts/UserBusiness/Clients/SetClientFromDB.h"  
 class ClientStockItem : public StockManager {
 private:
 	float clientPrice;

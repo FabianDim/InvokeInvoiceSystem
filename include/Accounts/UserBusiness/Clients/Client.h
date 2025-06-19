@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 
 class Client {
 private:
@@ -8,6 +9,7 @@ private:
     std::string phoneNumber;
     std::string email;
     std::string address;
+    std::vector<std::string> clientStockIDs;
 
 public:
     // --- Getters ---
@@ -16,6 +18,7 @@ public:
     std::string getPhoneNumber() const { return phoneNumber; }
     std::string getEmail() const { return email; }
     std::string getAddress() const { return address; }
+    const std::vector<std::string>& getClientStockIDs() const { return clientStockIDs; }
 
     // --- Setters ---
     void setClientID(const std::string& id) { clientID = id; }
@@ -23,4 +26,5 @@ public:
     void setPhoneNumber(const std::string& number) { phoneNumber = number; }
     void setEmail(const std::string& newEmail) { email = newEmail; }
     void setAddress(const std::string& newAddress) { address = newAddress; }
+    void setClientStockIDs(const std::vector<std::string>& stockIDs) { clientStockIDs = stockIDs; }
 };

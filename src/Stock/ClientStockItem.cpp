@@ -1,5 +1,5 @@
 #include "Stock/ClientStockItem.h"
-#include "Accounts/UserBusiness/ClientManager.h"  
+
 bool ClientStockItem::updateClientDB(const float& price, const float& profMargin) {
     try {
         MongoDBDataManager dbManager;
@@ -56,14 +56,15 @@ bool ClientStockItem::updateAndAddClientStock() {
     for (auto& client : cliMap) {
         std::cout << count << ": " << client.second << " | " << client.first << std::endl;
         choiceMap[count] = client.first;
+        count++;
     }
     int choice;
     do {
         std::cout << "Choose the client number of the client you'd like to update: ";
         std::cin >> choice;
         if (choiceMap.contains(choice)) {
-            ClientManager::setClient(choiceMap[choice]);//need to get the client obj
-            break;
+            ClientManager::setClient(SetClient::setClientFromDB(choiceMap[choice]));//need to get the client obj
+            break;//setclient from db class
         }
     } while (std::to_string(choice) != "*");
     float input = 0.0f;
