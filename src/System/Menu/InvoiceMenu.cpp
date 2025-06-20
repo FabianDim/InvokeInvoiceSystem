@@ -3,7 +3,7 @@
 void InvoiceMenu::displayMenu() {
 	int choice;
 	do {
-		std::cout << colourBlue("Welcome to the invoice menu") << "\nYou are using " << colourLime(currentBusiness->getBizName()) << std::endl << std::endl <<
+		std::cout << colourBlue("Welcome to the invoice menu") << "\nYou are using " << colourLime(BusinessManager::getBusiness()->getBizName()) << std::endl << std::endl <<
 			"1. Create a new invoice\n2. View invoice history\n3. Edit or delete an invoice\n4. Change business \n5.Back to main menu " << std::endl;
 		std::cout << "Please choose an option: ";
 		std::cin >> choice;

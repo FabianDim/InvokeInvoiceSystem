@@ -9,7 +9,7 @@
 
 class InvoiceMenu {  
 public:
-	InvoiceMenu() : currentUser(AccountManager::currentUser), currentBusiness(currentBusiness) {}
+	InvoiceMenu() : currentUser(AccountManager::currentUser) {}
 	void setTestUser(std::shared_ptr<User> user) {
 		testUser = user;
 	}
@@ -18,7 +18,6 @@ public:
 private:
 	void createInvoice();
 	std::shared_ptr<User> currentUser;
-	std::shared_ptr<BusinessRepository> currentBusiness;
 	std::map<std::string, std::string> businessMap;
 	InvoicePdfGenerator generator;
 	std::shared_ptr<User> testUser;
