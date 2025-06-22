@@ -25,6 +25,12 @@
 // Include bcrypt library  
 #include "Accounts/PasswordHashing/bcrypt.h"  
 
+//include pdf table
+extern "C" {
+#include <hpdf.h>    
+}
+#include <cstring>
+#include <cstdlib>
 // Add any other necessary includes here
 
 #include <vector>

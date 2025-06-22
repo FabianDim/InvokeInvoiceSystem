@@ -1,5 +1,9 @@
 #include "System/Menu/InvoiceMenu.h"
 #include "Accounts/UserBusiness/SetBusinessFromDB.h"
+#include "pch.h"
+#include "Accounts/AccountManager.h"
+#include <hpdf.h>
+#include <setjmp.h>
 void InvoiceMenu::displayMenu() {
 	int choice;
 	do {
@@ -9,6 +13,7 @@ void InvoiceMenu::displayMenu() {
 		std::cin >> choice;
 		switch (choice) {
 		case 1: {
+			createInvoice();
 			break;
 		}
 		case 2:
@@ -26,6 +31,13 @@ void InvoiceMenu::displayMenu() {
 
 	} while (choice != 5);
 	return;
+}
+
+void InvoiceMenu::createInvoice() {
+	auto testPdf = generator.createPDF("Courier");
+	generator.addPage(testPdf);
+	HPDF_Page page = HPDF_AddPage(testPdf);
+	generator.createTestPDF(testPdf, page);
 }
 
 

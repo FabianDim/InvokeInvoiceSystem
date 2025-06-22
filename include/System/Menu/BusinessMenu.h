@@ -9,6 +9,7 @@
 #include "StockMenu.h"
 
 class BusinessMenu {
+	friend class BusinessManager;
 private:
 	std::shared_ptr<User> currentUser;
 	std::map<std::string, std::string> businessMap;

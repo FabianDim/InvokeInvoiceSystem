@@ -12,6 +12,7 @@ enum class StockStep {
     ENTER_PRICE,
     ENTER_MARGIN,
     ENTER_KEYWORDS,
+    ENTER_UNIT,
     CONFIRM,
     DONE
 };
@@ -24,6 +25,7 @@ private:
         float price = 0.0f;
         float margin = 0.0f;
         bsoncxx::builder::basic::array keyWords;
+        std::string unit; // the medium of the product. box back each.
     } currentStock;
 
     MongoDBDataManager dbManager;
@@ -38,6 +40,7 @@ private:
     bool priceInput();
     bool marginInput();
     bool keyWordsInput();
+    bool unitInput();
     bool confirmInfo();
     std::string makeStockID();
 

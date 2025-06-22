@@ -1,5 +1,5 @@
 #include "Accounts/UserBusiness/Clients/ClientManager.h"
-
+#include "Accounts/UserBusiness/Clients/SetClientFromDB.h"
 std::shared_ptr<Client> ClientManager::currentClient = nullptr;
 void ClientManager::setClient(std::shared_ptr<Client> client) {
 	currentClient = client;
@@ -15,9 +15,10 @@ std::unordered_map<std::string, std::string> ClientManager::fetchBizClients() {
 	try {
 		MongoDBDataManager dbManager;
 		if (BusinessManager::getBusiness() == nullptr) {
-			std::cerr << "Business is not INITIALISED in fetch biz clients" << std::endl;
+			throw std::runtime_error("Business is not initialised");
 			return {};
 		}
+
 		auto result = dbManager.findOne("Business", make_document(kvp("BusinessID", BusinessManager::getBusiness()->getBizID())));
 		auto element = result.value()["ClientIDs"];
 		if (!element || result.value()["ClientIDs"].get_array().value.empty()) {
@@ -47,6 +48,42 @@ std::unordered_map<std::string, std::string> ClientManager::fetchBizClients() {
 		std::cerr << e.what() << std::endl;
 		return{};
 	}
+	catch (const std::runtime_error& e) {
+		std::cerr << "Runtime error: " << e.what() << std::endl;
+		
+	}
 	return {};
 
+}
+
+bool ClientManager::chooseAClient() {
+	try {
+		auto clients = fetchBizClients();
+		if (clients.size() == 0) return false;
+		int count = 1;
+		std::unordered_map<int, std::string> choiceMap;
+		for (auto& client : clients) {
+			choiceMap[count] = client.first;
+			std::cout << colourYellow(client.second) << " | " << client.first << std::endl;
+			count++;
+		}
+		int choice = 0;
+		do {
+			std::cout << "Please choose a client you'd like to use: ";
+			std::cin >> choice;
+		} while (!choiceMap.contains(choice));
+		if (SetClient::setClientFromDB(choiceMap[choice]) != nullptr) {
+			currentClient = SetClient::setClientFromDB(choiceMap[choice]);
+			return true;
+		}
+	}
+	catch (const std::out_of_range& e) {
+		std::cerr << "Out of range error choosing client: " << e.what() << '\n';
+	}
+	catch (const std::exception& e) {
+		std::cerr << "General std exception choosing client: " << e.what() << '\n';
+	}
+	catch (...) {
+		std::cerr << "Unknown error occurred while choosing client.\n";
+	}
 }

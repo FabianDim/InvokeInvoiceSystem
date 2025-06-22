@@ -14,4 +14,6 @@ public:
 	static void clear();
 	static std::unordered_map<std::string, std::string> fetchBizClients();
 	ClientManager(MongoDBDataManager& dbMgr) : dbManager(dbMgr) {}
+
+	bool chooseAClient();
 };

@@ -5,6 +5,7 @@
     "fmt",
     "mongo-cxx-driver",
     "libharu",
-    "gtest"
+    "gtest",
+    "jansson"
   ]
 }

@@ -9,7 +9,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(fmt      CONFIG REQUIRED)
 find_package(bsoncxx CONFIG REQUIRED)
 find_package(mongocxx CONFIG REQUIRED)
-find_package(unofficial-libharu CONFIG REQUIRED) 
+find_package(unofficial-libharu CONFIG REQUIRED)
 
 # 2) Passlib static library
 add_library(passlib STATIC
@@ -39,13 +39,16 @@ add_executable(${PROJECT_NAME}
   src/Accounts/UserBusiness/SetBusinessFromDB.cpp
   src/Accounts/UserBusiness/Clients/ClientDetails.cpp
   src/System/Menu/BusinessMenu.cpp
- src/Accounts/UserBusiness/BusinessManager.cpp
- src/Accounts/UserBusiness/Clients/ClientManager.cpp 
- src/Stock/StockDetails.cpp
- src/System/Menu/ClientMenu.cpp 
- src/Stock/SetStockFromDB.cpp 
- src/System/Menu/StockMenu.cpp  
- src/Stock/StockManager.cpp "src/Stock/ClientStockItem.cpp" "src/Accounts/UserBusiness/Clients/SetClientFromDB.cpp")
+  src/Accounts/UserBusiness/BusinessManager.cpp
+  src/Accounts/UserBusiness/Clients/ClientManager.cpp 
+  src/Stock/StockDetails.cpp
+  src/System/Menu/ClientMenu.cpp 
+  src/Stock/SetStockFromDB.cpp 
+  src/System/Menu/StockMenu.cpp  
+  src/Stock/StockManager.cpp 
+  src/Stock/ClientStockItem.cpp 
+  src/Accounts/UserBusiness/Clients/SetClientFromDB.cpp
+)
 
 target_link_libraries(${PROJECT_NAME}
   PRIVATE
@@ -87,12 +90,15 @@ add_executable(InvoiceMenuTests
   src/Accounts/UserBusiness/SetBusinessFromDB.cpp 
   src/Accounts/UserBusiness/Clients/ClientDetails.cpp
   src/System/Menu/BusinessMenu.cpp
-src/Accounts/UserBusiness/BusinessManager.cpp
-src/Accounts/UserBusiness/Clients/ClientManager.cpp  
-src/Stock/StockDetails.cpp 
-src/Stock/SetStockFromDB.cpp
-src/System/Menu/StockMenu.cpp 
-src/Stock/StockManager.cpp "src/Stock/ClientStockItem.cpp" "src/Accounts/UserBusiness/Clients/SetClientFromDB.cpp")
+  src/Accounts/UserBusiness/BusinessManager.cpp
+  src/Accounts/UserBusiness/Clients/ClientManager.cpp  
+  src/Stock/StockDetails.cpp 
+  src/Stock/SetStockFromDB.cpp
+  src/System/Menu/StockMenu.cpp 
+  src/Stock/StockManager.cpp 
+  src/Stock/ClientStockItem.cpp 
+  src/Accounts/UserBusiness/Clients/SetClientFromDB.cpp
+)
 
 target_include_directories(InvoiceMenuTests PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -103,6 +109,8 @@ target_link_libraries(InvoiceMenuTests
   PRIVATE
     passlib
     fmt::fmt
+    hpdftbl                     # ✅ Link hpdftbl
+         # ✅ Link jansson
     GTest::gtest
     GTest::gtest_main
     unofficial::libharu::hpdf

@@ -65,7 +65,7 @@ bool StockDetails::keyWordsInput() {
             std::getline(std::cin >> std::ws, input);
         }
         else {
-            currentStep = StockStep::CONFIRM;
+            currentStep = StockStep::ENTER_UNIT;
             return true;
         }
         if (toLower(input) == "back") {
@@ -75,10 +75,22 @@ bool StockDetails::keyWordsInput() {
         }
         currentStock.keyWords.append(toLower(input));
     } while (input != "done");
-    currentStep = StockStep::CONFIRM;
+    currentStep = StockStep::ENTER_UNIT;
     return true;
 }
 
+bool StockDetails::unitInput() {
+    std::cout << "Enter the type of unit e.g. box, bottle, each, pair: ";
+    std::string input;
+    std::getline(std::cin >> std::ws, input);
+    if (toLower(input) == "back") {
+        currentStep = StockStep::ENTER_KEYWORDS;
+        return false;
+    }
+    currentStock.unit = input;
+    currentStep = StockStep::CONFIRM;
+    return true;
+}
 
 bool StockDetails::confirmInfo() {
     std::cout << "\nConfirm Stock Info:\n";
@@ -120,6 +132,9 @@ void StockDetails::collectStockInfo() {
             break;
         case StockStep::ENTER_KEYWORDS:
             if (!keyWordsInput()) continue;
+            break;
+        case StockStep::ENTER_UNIT:
+            if (!unitInput()) continue;
             break;
         case StockStep::CONFIRM:
             if (!confirmInfo()) continue;
@@ -168,6 +183,7 @@ bsoncxx::document::value StockDetails::createStockDoc() {
         << "StdPrice" << currentStock.price
         << "ProfitMargin" << currentStock.margin
         << "ProductKeywords" << currentStock.keyWords
+        << "Unit Type" << currentStock.unit
         << finalize;
 }
 

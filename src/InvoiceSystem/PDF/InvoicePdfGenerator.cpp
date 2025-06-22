@@ -50,16 +50,16 @@ void InvoicePdfGenerator::savePDF(HPDF_Doc pdf, const char* name) {
     HPDF_SaveToFile(pdf, name);
 }
 
-void InvoicePdfGenerator::createTestPDF(HPDF_Doc pdf, HPDF_Page page_1) {
-    HPDF_Page_BeginText(page_1);
-    HPDF_Page_TextOut(page_1, 60, 140, "test"); //page, xpos, ypos, text 
-    HPDF_Page_EndText(page_1);
-    savePDF(pdf, "test.pdf");
+void InvoicePdfGenerator::createTestPDF(HPDF_Doc pdf, HPDF_Page page_1) {  
+    HPDF_Page_BeginText(page_1);  
+    HPDF_Page_TextOut(page_1, 60, 140, "test"); // page, xpos, ypos, text  // Corrected invocation  
+    HPDF_Page_EndText(page_1);  
+    savePDF(pdf, "test.pdf");  
 }
-
 
 
 //http://libharu.org/demo/text_demo.c
 //http://libharu.org/demo/line_demo.c
 //https://github.com/libharu/libharu/wiki/Examples#user-content-font_democ
 // https://github.com/libharu/libharu/wiki/Error-handling errors
+// https://johan162.github.io/libhpdftbl/html/index.html
