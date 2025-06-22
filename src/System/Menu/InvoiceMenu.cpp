@@ -34,10 +34,10 @@ void InvoiceMenu::displayMenu() {
 }
 
 void InvoiceMenu::createInvoice() {
-	auto testPdf = generator.createPDF("Courier");
-	generator.addPage(testPdf);
-	HPDF_Page page = HPDF_AddPage(testPdf);
-	generator.createTestPDF(testPdf, page);
+	auto testPdf = generator.createPDF("Helvetica");
+
+	//HPDF_Page page = HPDF_AddPage(testPdf);
+	generator.createTestPDF(testPdf, HPDF_GetCurrentPage(testPdf));
 }
 
 

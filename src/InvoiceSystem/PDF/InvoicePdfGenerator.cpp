@@ -3,6 +3,23 @@
 
 jmp_buf env;
 
+const std::set<std::string> InvoicePdfGenerator::fontList{
+    "Courier",
+    "Courier-Bold",
+    "Courier-Oblique",
+    "Courier-BoldOblique",
+    "Helvetica",
+    "Helvetica-Bold",
+    "Helvetica-Oblique",
+    "Helvetica-BoldOblique",
+    "Times-Roman",
+    "Times-Bold",
+    "Times-Italic",
+    "Times-BoldItalic",
+    "Symbol",
+    "ZapfDingbats"
+};
+
 void error_handler(HPDF_STATUS error_no, HPDF_STATUS detail_no, void* user_data) {
     std::cerr << "Error: " << std::hex << error_no << ", Detail: " << detail_no << std::endl;
 }
@@ -29,15 +46,13 @@ HPDF_Doc InvoicePdfGenerator::createPDF(const char* font) {
     /* set page mode to use outlines. */
     HPDF_SetPageMode(pdf, HPDF_PAGE_MODE_USE_OUTLINE);
 
-    addPage(pdf);
-    HPDF_Page_SetFontAndSize(HPDF_GetCurrentPage(pdf), def_font, 24);
+    HPDF_Page page = addPage(pdf);
+    HPDF_Page_SetFontAndSize(page, def_font, 24);
     return pdf;
 }
 
-void InvoicePdfGenerator::addPage(HPDF_Doc pdf) {
-    HPDF_Page page_1;
-
-    page_1 = HPDF_AddPage(pdf);
+HPDF_Page InvoicePdfGenerator::addPage(HPDF_Doc pdf) {
+    return HPDF_AddPage(pdf);
 }
 
 void InvoicePdfGenerator::addPageBefore(HPDF_Doc pdf, HPDF_Page page_1) {
