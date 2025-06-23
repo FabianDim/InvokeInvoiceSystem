@@ -11,6 +11,7 @@
 class Invoice{
 private:
 	std::string invoiceID;
+
 	std::shared_ptr<BusinessRepository> business;
 	std::shared_ptr<Client> client;
 	std::string currentDate;
@@ -52,9 +53,9 @@ public:
 	float getTotalAmount() const { return totalAmount; }
 	void setTotalAmount(float total) { totalAmount = total; }
 
-	// taxAmount
-	float getTaxAmount() const { return taxAmount; }
-	void setTaxAmount(float tax) { taxAmount = tax; }
+	//// taxAmount
+	//float getTaxAmount() const { return taxAmount; }
+	//void setTaxAmount(float tax) { taxAmount = tax; }
 
 	// UsingGST
 	bool getTaxAmount() const { return gstIncluded; }

@@ -6,10 +6,14 @@
 #include "Accounts/AccountManager.h"
 #include "Accounts/UserBusiness/BusinessRepository.h"
 #include "InvoiceSystem/PDF/InvoicePdfGenerator.h"
+#include "InvoiceSystem/InvoiceData/InvoiceDetails.h"
+#include "Accounts/UserBusiness/Clients/ClientManager.h"
+
 
 class InvoiceMenu {  
 public:
-	InvoiceMenu() : currentUser(AccountManager::currentUser) {}
+	InvoiceMenu(AccountManager& accManager) : currentUser(AccountManager::currentUser), 
+		invoiceDetails(accManager), cliManager(dbManager) {}
 	void setTestUser(std::shared_ptr<User> user) {
 		testUser = user;
 	}
@@ -22,4 +26,6 @@ private:
 	InvoicePdfGenerator generator;
 	std::shared_ptr<User> testUser;
 	MongoDBDataManager dbManager;
+	InvoiceDetails invoiceDetails;
+	ClientManager cliManager;
 };

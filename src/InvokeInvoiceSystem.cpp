@@ -15,7 +15,7 @@ int main() {
     // Pass it to BusinessMenu
     BusinessMenu businessMenu(accountManager, businessManager);
     businessManager.setBusinessGlobally("BUS00000001");
-    InvoiceMenu invoiceMenu;
+    InvoiceMenu invoiceMenu(accountManager);
     invoiceMenu.setTestUser(user);
     invoiceMenu.displayMenu();
     //businessMenu.displayBusMenu();

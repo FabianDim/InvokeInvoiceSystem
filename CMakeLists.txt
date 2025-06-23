@@ -48,7 +48,7 @@ add_executable(${PROJECT_NAME}
   src/Stock/StockManager.cpp 
   src/Stock/ClientStockItem.cpp 
   src/Accounts/UserBusiness/Clients/SetClientFromDB.cpp
-)
+ "src/InvoiceSystem/InvoiceData/InvoiceDetails.cpp")
 
 target_link_libraries(${PROJECT_NAME}
   PRIVATE
@@ -98,7 +98,7 @@ add_executable(InvoiceMenuTests
   src/Stock/StockManager.cpp 
   src/Stock/ClientStockItem.cpp 
   src/Accounts/UserBusiness/Clients/SetClientFromDB.cpp
-)
+ "src/InvoiceSystem/InvoiceData/InvoiceDetails.cpp")
 
 target_include_directories(InvoiceMenuTests PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
