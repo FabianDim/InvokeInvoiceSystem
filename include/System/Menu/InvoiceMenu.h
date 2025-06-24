@@ -12,20 +12,20 @@
 
 class InvoiceMenu {  
 public:
-	InvoiceMenu(AccountManager& accManager) : currentUser(AccountManager::currentUser), 
-		invoiceDetails(accManager), cliManager(dbManager) {}
+	InvoiceMenu(AppContext& appCtx) : appCtx(appCtx), invoiceDetails(appCtx),
+	cliManager(appCtx.dbMgr){}
 	void setTestUser(std::shared_ptr<User> user) {
 		testUser = user;
 	}
 	void displayMenu();
 	
 private:
+	AppContext& appCtx;
 	void createInvoice();
 	std::shared_ptr<User> currentUser;
 	std::map<std::string, std::string> businessMap;
 	InvoicePdfGenerator generator;
 	std::shared_ptr<User> testUser;
-	MongoDBDataManager dbManager;
 	InvoiceDetails invoiceDetails;
 	ClientManager cliManager;
 };

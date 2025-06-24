@@ -4,6 +4,7 @@
 #include "System/Database/MongoDBDataManager.h"
 #include "InvoiceSystem/InvoiceData/Invoice.h"
 #include "Accounts/User.h"
+#include "Stock/StockManager.h"
 
 
 enum class InvoiceStep {
@@ -25,15 +26,17 @@ class InvoiceDetails {
         std::string invoiceDate;
         std::string dueDate;
         std::shared_ptr<Client> client;
-        std::unordered_map<std::string, int> stockQuantities;
+        std::unordered_map<std::shared_ptr<StockItem>, int> stockQuantities;
         bool isPaid = false;
         bool gstIncluded = false;
         std::string notes;
     };
 
 public:
-    InvoiceDetails(AccountManager& accountManager) :
-        cliManager(dbManager), accountManager(accountManager){}
+    InvoiceDetails(AppContext& appctx) : appCtx(appctx),
+    accountManager(appctx.accountMgr),
+    cliManager(cliManager), dbManager(dbManager),
+    stkMgr(stkMgr){}
     std::string toLower(std::string text);
 
     // Input steps
@@ -54,9 +57,10 @@ private:
     int thisInvoiceID;
     InvoiceStep currentStep = InvoiceStep::ENTER_INVOICE_ID;
     InvoiceInput userInvoice;
-    MongoDBDataManager dbManager;
-    ClientManager cliManager;
+    ClientManager& cliManager;
+    MongoDBDataManager& dbManager;
     AccountManager& accountManager;
+    AppContext& appCtx;
     bool setCurrentInvoice();
-    
+    StockManager& stkMgr;
 };

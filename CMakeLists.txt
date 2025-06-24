@@ -109,8 +109,6 @@ target_link_libraries(InvoiceMenuTests
   PRIVATE
     passlib
     fmt::fmt
-    hpdftbl                     # ✅ Link hpdftbl
-         # ✅ Link jansson
     GTest::gtest
     GTest::gtest_main
     unofficial::libharu::hpdf

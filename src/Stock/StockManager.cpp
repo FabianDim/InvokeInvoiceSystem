@@ -51,7 +51,7 @@ std::optional<std::unordered_map<std::string, std::string>> StockManager::stockM
 
 	return std::nullopt;
 }
-
+//search map gives the key word with all of its corresponding stock Items.
 std::optional<std::unordered_map<std::string, std::set<std::string>>> StockManager::createSearchMap() {
 	auto business = BusinessManager::getBusiness();
 	if (!business) {

@@ -1,29 +1,24 @@
 #pragma once
-#include "Accounts/UserBusiness/Clients/ClientManager.h"
+
+#include "pch.h"
 #include "ClientMenu.h"
-#include "Accounts/AccountManager.h"
-#include "Accounts/UserBusiness/SetBusinessFromDB.h"
 #include "Accounts/UserBusiness/BusinessDetails.h"
 #include "Accounts/UserBusiness/Clients/ClientDetails.h"
-#include "Accounts/UserBusiness/BusinessManager.h"
 #include "StockMenu.h"
 
 class BusinessMenu {
 	friend class BusinessManager;
+
 private:
+	AppContext& appCtx;
 	std::shared_ptr<User> currentUser;
 	std::map<std::string, std::string> businessMap;
-	MongoDBDataManager dbManager;
 	BusinessDetails businessDetails;
-	AccountManager& manager;
-	BusinessManager& bizManager;
-	ClientManager cliManager;
 	std::shared_ptr<ClientDetails> clientDetails;
 	ClientMenu clientMenu;
 	StockMenu stockMenu;
+	MongoDBDataManager& dbManager; // moved to end
 	int maxBusinesses = 3;
-
-
 
 	// Internal helpers
 	void chooseBusiness();
@@ -36,16 +31,16 @@ private:
 	bool manageStock();
 
 public:
+	BusinessMenu(AppContext& ctx)
+		: appCtx(ctx),
+		currentUser(ctx.accountMgr.getAccount()),
+		businessDetails(ctx.accountMgr),
+		clientDetails(std::make_shared<ClientDetails>(ctx.accountMgr, ctx.businessMgr)),
+		clientMenu(ctx.cliManager, clientDetails),
+		stockMenu(ctx.businessMgr, ctx.accountMgr, ctx.dbMgr),
+		dbManager(ctx.dbMgr) {
+	}
+
 	void setBusiness(const std::string businessID);
 	void displayBusMenu();
-
-	BusinessMenu(AccountManager& manager, BusinessManager& busManager)
-		: currentUser(AccountManager::currentUser),
-		businessMap(),
-		dbManager(),
-		businessDetails(manager),
-		manager(manager),
-		clientDetails(std::make_shared<ClientDetails>(manager, busManager)),
-		bizManager(busManager), cliManager(dbManager), 
-		clientMenu(cliManager, clientDetails), stockMenu(busManager, manager, dbManager){}
 };

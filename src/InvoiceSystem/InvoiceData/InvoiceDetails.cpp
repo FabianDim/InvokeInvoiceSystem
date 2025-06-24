@@ -39,19 +39,59 @@ bool InvoiceDetails::selectClient() {
 	return true;
 }
 
-bool InvoiceDetails::selectStock() {
-	std::cout << "Enter stock ID and quantity (type 'done' to finish):\n";
-	while (true) {
-		std::string stockID;
-		std::getline(std::cin >> std::ws, stockID);
-		if (toLower(stockID) == "done") break;
-		int quantity;
-		std::cout << "Quantity: ";
-		std::cin >> quantity;
-		userInvoice.stockQuantities[stockID] = quantity;
-	}
-	currentStep = InvoiceStep::ENTER_PAYMENT;
-	return true;
+bool InvoiceDetails::selectStock() {  
+    try {  
+        auto stockMapOpt = stkMgr.stockMap();  
+
+		if (!stockMapOpt.has_value()) {
+			throw std::runtime_error("Failed to create stock map.");
+			return false;
+		}
+
+		auto stockMap = stockMapOpt.value();
+        for (auto& [id, name] : stockMap) {  
+            std::cout << colourYellow(name) << " | " << id << std::endl;  
+        }  
+        auto searchMapOpt = stkMgr.createSearchMap();  
+        if (!searchMapOpt.has_value()) {  
+            throw std::runtime_error("Failed to create search map.");  
+			return false;
+		}  
+        auto searchMap = searchMapOpt.value();  
+
+        std::string search = "";  
+        do {  
+            std::cin >> search;  
+            if (searchMap.contains(search)) {  
+                std::cout << colourLime("Search Results ('Done' to continue, 'Search' to search again, 'Back' to go back):\n");  
+                int count = 0;  
+                int choice = 0;  
+                std::unordered_map<int, std::string> choiceMap;  
+                for (auto& result : searchMap[search]) {  
+                    count++;  
+                    choiceMap[count] = result;  
+                    std::cout << count << ". " << colourYellow(stockMap[result]) << " | " << result << std::endl;  
+                }  
+                std::cout << "Enter a number from 1 - " << count << ": ";  
+                std::cin >> choice;  
+
+                if (toLower(std::to_string(choice)) == "search") {  
+                    continue;  
+                } else if (toLower(std::to_string(choice)) == "back") {  
+                    currentStep = InvoiceStep::ENTER_CLIENT;  
+                    return false;  
+                }  
+                if (isdigit(choice) && choiceMap.contains(choice)) {  
+                    stkMgr.setStockItem(choiceMap[choice]);  
+                    userInvoice.stockQuantities[stkMgr.getCurrentStockItem()] = 1; // Initialize stock quantity to 1  
+                }  
+            }  
+        } while (toLower(search) != "done");  
+    } catch (std::exception& e) {  
+        std::cerr << "Error selecting stock: " << e.what() << std::endl;  
+    }  
+
+    return true;  
 }
 
 bool InvoiceDetails::enterPayment() {
@@ -96,6 +136,7 @@ bool InvoiceDetails::confirmInfo() {
 }
 
 void InvoiceDetails::collectInvoiceInfo() {
+	std::cout << std::endl;
 	while (true) {
 		switch (currentStep) {
 		case InvoiceStep::ENTER_INVOICE_ID:
@@ -154,7 +195,7 @@ bsoncxx::document::value InvoiceDetails::createInvoiceDoc() {
 	bsoncxx::builder::basic::array stockArray;
 	for (auto& [stockID, qty] : userInvoice.stockQuantities) {
 		bsoncxx::builder::basic::document entry;
-		entry.append(kvp("StockID", stockID));
+		entry.append(kvp("StockID", stockID->getStockID()));
 		entry.append(kvp("Quantity", qty));
 		stockArray.append(entry);
 	} //Change this to use stock items.
@@ -206,7 +247,7 @@ bool InvoiceDetails::setCurrentInvoice() {
 	std::unordered_map<std::shared_ptr<StockItem>, int> stockMap;
 	for (const auto& pair : userInvoice.stockQuantities) {
 		auto stockItem = std::make_shared<StockItem>();
-		stockItem->setStockID(pair.first);
+		stockItem->setStockID(pair.first->getStockID());
 		stockMap[stockItem] = pair.second;
 	}
 	newInvoice->setStockQuantityMap(stockMap);

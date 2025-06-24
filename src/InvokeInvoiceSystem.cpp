@@ -7,17 +7,27 @@ int main() {
     //iis.run();
 
 	/*Invoice Menu*/
-    auto user = std::make_shared<User>("test@email.com", "password123");
-    user->setMongoUserID("USR00000001");
     AccountManager accountManager;
     BusinessManager businessManager;
+    MongoDBDataManager dbManager;
+    ClientManager cliManager(dbManager);
+    StockManager stkManager;
+
+    auto user = std::make_shared<User>("test@email.com", "password123");
+    user->setMongoUserID("USR00000001");
     accountManager.setTestUser(user);
-    // Pass it to BusinessMenu
-    BusinessMenu businessMenu(accountManager, businessManager);
     businessManager.setBusinessGlobally("BUS00000001");
-    InvoiceMenu invoiceMenu(accountManager);
+
+    // Create context
+    AppContext ctx{ accountManager, businessManager, dbManager, cliManager, stkManager };
+
+    BusinessMenu businessMenu(ctx);
+    InvoiceMenu invoiceMenu(ctx);
     invoiceMenu.setTestUser(user);
     invoiceMenu.displayMenu();
+
+    
+
     //businessMenu.displayBusMenu();
 
     return 0;

@@ -17,9 +17,10 @@ public:
 	float recalculateProfitMargin(float originalValue, float modifiedValue, float originalProfitMargin);
 	void setPrice(float price);
 	float getPrice();
-	ClientStockItem(std::shared_ptr<Client> client, MongoDBDataManager& dbMgr)
-		: StockManager(dbMgr), // Explicitly call the base class constructor  
-		curClient(client){}
-	bool updateAndAddClientStock();
 
+	bool updateAndAddClientStock();
+	ClientStockItem(std::shared_ptr<Client> client, MongoDBDataManager& dbMgr)
+		: StockManager(), // Explicitly call the base class constructor  
+		curClient(client) {
+	}
 };
