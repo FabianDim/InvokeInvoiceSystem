@@ -1,11 +1,13 @@
 #pragma once
+
 #include "pch.h"
 #include "Accounts/AccountManager.h"
 #include "System/Database/MongoDBDataManager.h"
 #include "InvoiceSystem/InvoiceData/Invoice.h"
 #include "Accounts/User.h"
 #include "Stock/StockManager.h"
-
+#include "Accounts/UserBusiness/Clients/ClientManager.h"
+#include "Accounts/UserBusiness/BusinessManager.h"
 
 enum class InvoiceStep {
     ENTER_INVOICE_ID,
@@ -33,11 +35,18 @@ class InvoiceDetails {
     };
 
 public:
-    InvoiceDetails(AppContext& appctx) : appCtx(appctx),
-    accountManager(appctx.accountMgr),
-    cliManager(cliManager), dbManager(dbManager),
-    stkMgr(stkMgr){}
-    std::string toLower(std::string text);
+    InvoiceDetails(
+        AccountManager& accManager,
+        MongoDBDataManager& dbMgr,
+        BusinessManager& busManager,
+        ClientManager& clientMgr,
+        StockManager& stockManager)
+        : accountManager(accManager),
+        dbManager(dbMgr),
+        bizManager(busManager),
+        cliManager(clientMgr),
+        stkMgr(stockManager) {
+    }
 
     // Input steps
     bool enterInvoiceID();
@@ -53,14 +62,17 @@ public:
     std::string makeInvoiceID();
     bsoncxx::document::value createInvoiceDoc();
     void insertInvoiceDoc(bsoncxx::document::value doc);
+
 private:
-    int thisInvoiceID;
+    int thisInvoiceID = 0;
     InvoiceStep currentStep = InvoiceStep::ENTER_INVOICE_ID;
     InvoiceInput userInvoice;
-    ClientManager& cliManager;
-    MongoDBDataManager& dbManager;
+
     AccountManager& accountManager;
-    AppContext& appCtx;
-    bool setCurrentInvoice();
+    MongoDBDataManager& dbManager;
+    BusinessManager& bizManager;
+    ClientManager& cliManager;
     StockManager& stkMgr;
+
+    bool setCurrentInvoice();
 };

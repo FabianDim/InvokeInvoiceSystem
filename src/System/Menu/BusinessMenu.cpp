@@ -126,7 +126,7 @@ void BusinessMenu::displayBusMenu() {
 
 	}
 
-	bool BusinessMenu::validateUserBusiness(const std::string businessID) {
+	bool BusinessMenu::validateUserBusiness(const std::string& businessID) {
 		auto result = dbManager.findOne("Users", make_document(kvp("UserID", AccountManager::currentUser->getMongoUserID()), kvp("BusinessIDs", businessID)));
 		if (result) {
 			return true;

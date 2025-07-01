@@ -13,16 +13,17 @@ int main() {
     ClientManager cliManager(dbManager);
     StockManager stkManager;
 
+
     auto user = std::make_shared<User>("test@email.com", "password123");
     user->setMongoUserID("USR00000001");
     accountManager.setTestUser(user);
     businessManager.setBusinessGlobally("BUS00000001");
-
+    BusinessRepository bizRepo;
     // Create context
-    AppContext ctx{ accountManager, businessManager, dbManager, cliManager, stkManager };
 
-    BusinessMenu businessMenu(ctx);
-    InvoiceMenu invoiceMenu(ctx);
+    BusinessMenu businessMenu(accountManager, businessManager, cliManager, dbManager);
+    InvoiceMenu invoiceMenu(accountManager, businessManager, 
+        bizRepo, dbManager, cliManager, stkManager);
     invoiceMenu.setTestUser(user);
     invoiceMenu.displayMenu();
 

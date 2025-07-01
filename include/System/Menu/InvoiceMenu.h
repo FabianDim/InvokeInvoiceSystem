@@ -1,31 +1,54 @@
-#pragma once  
-#include "pch.h"  
-#include "MainMenu.h"  
-#include "Accounts/User.h"  
-#include <memory> // Include this header for std::shared_ptr  
+#pragma once
+
+#include "pch.h"
+#include "MainMenu.h"
+#include "Accounts/User.h"
+#include <memory>
 #include "Accounts/AccountManager.h"
+#include "Accounts/UserBusiness/BusinessManager.h"
 #include "Accounts/UserBusiness/BusinessRepository.h"
+#include "System/Database/MongoDBDataManager.h"
+#include "Accounts/UserBusiness/Clients/ClientManager.h"
+#include "Stock/StockManager.h"
 #include "InvoiceSystem/PDF/InvoicePdfGenerator.h"
 #include "InvoiceSystem/InvoiceData/InvoiceDetails.h"
-#include "Accounts/UserBusiness/Clients/ClientManager.h"
 
-
-class InvoiceMenu {  
-public:
-	InvoiceMenu(AppContext& appCtx) : appCtx(appCtx), invoiceDetails(appCtx),
-	cliManager(appCtx.dbMgr){}
-	void setTestUser(std::shared_ptr<User> user) {
-		testUser = user;
-	}
-	void displayMenu();
-	
+class InvoiceMenu {
 private:
-	AppContext& appCtx;
-	void createInvoice();
-	std::shared_ptr<User> currentUser;
-	std::map<std::string, std::string> businessMap;
-	InvoicePdfGenerator generator;
-	std::shared_ptr<User> testUser;
-	InvoiceDetails invoiceDetails;
-	ClientManager cliManager;
+    std::shared_ptr<User> currentUser;
+    BusinessManager& bizManager;
+    BusinessRepository& businessRepo;
+    MongoDBDataManager& dbManager;
+    ClientManager& cliManager;
+    StockManager& stkMgr;
+    InvoicePdfGenerator generator;
+    InvoiceDetails invoiceDetails;
+    std::shared_ptr<User> testUser;
+    std::map<std::string, std::string> businessMap;
+
+public:
+    InvoiceMenu(
+        AccountManager& accountMgr,
+        BusinessManager& bizManager,
+        BusinessRepository& businessRepo,
+        MongoDBDataManager& dbMgr,
+        ClientManager& cliManager,
+        StockManager& stkMgr)
+        : currentUser(accountMgr.getAccount()),
+        bizManager(bizManager),
+        businessRepo(businessRepo),
+        dbManager(dbMgr),
+        cliManager(cliManager),
+        stkMgr(stkMgr),
+        invoiceDetails(accountMgr, dbMgr, bizManager, cliManager, stkMgr) {
+    }
+
+    void setTestUser(std::shared_ptr<User> user) {
+        testUser = user;
+    }
+
+    void displayMenu();
+
+private:
+    void createInvoice();
 };
