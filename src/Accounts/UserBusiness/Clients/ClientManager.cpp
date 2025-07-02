@@ -76,6 +76,7 @@ bool ClientManager::chooseAClient() {
 			currentClient = SetClient::setClientFromDB(choiceMap[choice]);
 			return true;
 		}
+		return false;
 	}
 	catch (const std::out_of_range& e) {
 		std::cerr << "Out of range error choosing client: " << e.what() << '\n';

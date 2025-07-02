@@ -35,9 +35,11 @@ bool InvoiceDetails::enterDueDate() {
 }
 
 bool InvoiceDetails::selectClient() {
-    cliManager.chooseAClient();
-    currentStep = InvoiceStep::ENTER_STOCK;
-    return true;
+    if (cliManager.chooseAClient()) {
+        currentStep = InvoiceStep::ENTER_STOCK;
+        return true;
+    }
+    return false;
 }
 
 bool InvoiceDetails::selectStock() {

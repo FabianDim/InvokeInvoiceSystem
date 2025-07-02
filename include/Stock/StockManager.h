@@ -10,7 +10,7 @@
 
 class StockManager {  
 public:  
-    StockManager() :
+    StockManager(MongoDBDataManager& dbManager, BusinessManager& businessManager) :
         dbManager(dbManager), businessManager(businessManager) {}
     void displayAllStock();  
     std::optional<std::unordered_map<std::string, std::string>> stockMap();  

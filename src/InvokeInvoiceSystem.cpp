@@ -11,11 +11,12 @@ int main() {
     BusinessManager businessManager;
     MongoDBDataManager dbManager;
     ClientManager cliManager(dbManager);
-    StockManager stkManager;
+    StockManager stkManager(dbManager,businessManager);
 
 
     auto user = std::make_shared<User>("test@email.com", "password123");
     user->setMongoUserID("USR00000001");
+
     accountManager.setTestUser(user);
     businessManager.setBusinessGlobally("BUS00000001");
     BusinessRepository bizRepo;
