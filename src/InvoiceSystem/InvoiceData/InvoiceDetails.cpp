@@ -11,8 +11,9 @@
 bool InvoiceDetails::enterInvoiceID() {
     std::cout << "Enter custom invoice ID or type auto for auto-generation: ";
     std::getline(std::cin >> std::ws, userInvoice.invoiceID);
+    userInvoice.invoiceID = makeInvoiceID();
     if (toLower(userInvoice.invoiceID) == "auto") {
-        userInvoice.invoiceID = makeInvoiceID();
+        userInvoice.clientInvoiceID = userInvoice.invoiceID;
         currentStep = InvoiceStep::ENTER_DATE;
         return true;
     }
@@ -35,8 +36,9 @@ bool InvoiceDetails::enterDueDate() {
 }
 
 bool InvoiceDetails::selectClient() {
-    if (cliManager.chooseAClient()) {
+    if (cliManager.chooseAClient()) { // does this set the client correcly?
         currentStep = InvoiceStep::ENTER_STOCK;
+        userInvoice.client = cliManager.getCurClient();
         return true;
     }
     return false;
@@ -44,17 +46,19 @@ bool InvoiceDetails::selectClient() {
 
 bool InvoiceDetails::selectStock() {
     try {
+        std::cout << cliManager.getCurClient()->getClientID();
         auto stockMapOpt = stkMgr.stockMap();
 
         if (!stockMapOpt.has_value()) {
             throw std::runtime_error("Failed to create stock map.");
             return false;
         }
-
+        std::cout << colourLime("\nAll Stock Items:\n");
         auto stockMap = stockMapOpt.value();
         for (auto& [id, name] : stockMap) {
             std::cout << colourYellow(name) << " | " << id << std::endl;
         }
+
         auto searchMapOpt = stkMgr.createSearchMap();
         if (!searchMapOpt.has_value()) {
             throw std::runtime_error("Failed to create search map.");
@@ -64,11 +68,12 @@ bool InvoiceDetails::selectStock() {
 
         std::string search = "";
         do {
+            std::cout << "Please search a stock item by its keyword or name: ";
             std::cin >> search;
             if (searchMap.contains(search)) {
                 std::cout << colourLime("Search Results ('Done' to continue, 'Search' to search again, 'Back' to go back):\n");
                 int count = 0;
-                int choice = 0;
+                std::string choice = "";
                 std::unordered_map<int, std::string> choiceMap;
                 for (auto& result : searchMap[search]) {
                     count++;
@@ -78,24 +83,33 @@ bool InvoiceDetails::selectStock() {
                 std::cout << "Enter a number from 1 - " << count << ": ";
                 std::cin >> choice;
 
-                if (toLower(std::to_string(choice)) == "search") {
+                if (toLower((choice)) == "search") {
                     continue;
                 }
-                else if (toLower(std::to_string(choice)) == "back") {
+                else if (toLower((choice)) == "back") {
                     currentStep = InvoiceStep::ENTER_CLIENT;
                     return false;
                 }
-                if (isdigit(choice) && choiceMap.contains(choice)) {
-                    stkMgr.setStockItem(choiceMap[choice]);
-                    userInvoice.stockQuantities[stkMgr.getCurrentStockItem()] = 1; // Initialize stock quantity to 1
+                else if (toLower((choice)) == "done") {
+                    currentStep = InvoiceStep::ENTER_PAYMENT;
+                    return true;
                 }
+                if ((choice.size() == 1) && isdigit(*choice.c_str()) && choiceMap.contains(stoi(choice))) {
+                    stkMgr.setStockItem(choiceMap[stoi(choice)]);
+
+                    userInvoice.stockQuantities[stkMgr.getCurrentStockItem()] = stockQuantity(); // Initialize stock quantity to 1
+                }
+            }
+            else if(toLower(search) == "back") {
+                currentStep = InvoiceStep::ENTER_CLIENT;
+                return false;
             }
         } while (toLower(search) != "done");
     }
     catch (std::exception& e) {
         std::cerr << "Error selecting stock: " << e.what() << std::endl;
     }
-
+    currentStep = InvoiceStep::ENTER_PAYMENT;
     return true;
 }
 
@@ -221,7 +235,8 @@ bsoncxx::document::value InvoiceDetails::createInvoiceDoc() {
     }
 
     return document{}
-        << "InvoiceID" << (userInvoice.invoiceID.empty() ? makeInvoiceID() : userInvoice.invoiceID)
+        << "InvoiceID" << userInvoice.invoiceID
+        << "ClientInvoiceID" << userInvoice.clientInvoiceID
         << "ClientID" << userInvoice.client->getClientID()
         << "InvoiceDate" << userInvoice.invoiceDate
         << "DueDate" << userInvoice.dueDate
@@ -241,16 +256,18 @@ void InvoiceDetails::insertInvoiceDoc(bsoncxx::document::value doc) {
     }
 }
 
+int InvoiceDetails::stockQuantity() {
+    int amount{};
+    std::cout << "Please enter amount of this item: ";
+    std::cin >> amount;
+    return amount;
+}
+
 bool InvoiceDetails::setCurrentInvoice() {
     auto newInvoice = std::make_shared<Invoice>();
 
-    if (!userInvoice.invoiceID.empty()) {
-        newInvoice->setInvoiceID(userInvoice.invoiceID);
-    }
-    else {
-        newInvoice->setInvoiceID(makeInvoiceID());
-    }
-
+    newInvoice->setCliInvoiceID(userInvoice.clientInvoiceID);
+    newInvoice->setInvoiceID(userInvoice.invoiceID);
     newInvoice->setCurrentDate(userInvoice.invoiceDate);
     newInvoice->setDueDate(userInvoice.dueDate);
     newInvoice->setIsPaid(userInvoice.isPaid);

@@ -72,6 +72,10 @@ void InvoicePdfGenerator::createTestPDF(HPDF_Doc pdf, HPDF_Page page_1) {
     savePDF(pdf, "test.pdf");  
 }
 
+bool InvoicePdfGenerator::peeceTemplate() {
+    return false;
+}
+
 
 //http://libharu.org/demo/text_demo.c
 //http://libharu.org/demo/line_demo.c

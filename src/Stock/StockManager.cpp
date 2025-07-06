@@ -22,7 +22,7 @@ std::optional<std::unordered_map<std::string, std::string>> StockManager::stockM
 	}
 	std::unordered_map<std::string, std::string> stockMap;
 	try {
-		std::cout << "bizID:" << business->getBizID();
+		//std::cout << "bizID:" << business->getBizID();
 		auto filter = dbManager.getCollection("Business")->find_one(make_document(kvp("BusinessID", business->getBizID())));
 		auto array = filter->view()["StockIDs"].get_array().value;
 

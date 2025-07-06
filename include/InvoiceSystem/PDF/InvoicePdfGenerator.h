@@ -11,6 +11,8 @@ public:
 	void addPageBefore(HPDF_Doc pdf, HPDF_Page page_1);
 	void savePDF(HPDF_Doc pdf, const char* name);
 	void createTestPDF(HPDF_Doc pdf, HPDF_Page page_1);
+	
+	bool peeceTemplate();
 private:
 	static const std::set<std::string> fontList;
 

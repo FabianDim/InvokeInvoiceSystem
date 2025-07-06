@@ -11,7 +11,7 @@
 class Invoice{
 private:
 	std::string invoiceID;
-
+	std::string clientInvoiceID;
 	std::shared_ptr<BusinessRepository> business;
 	std::shared_ptr<Client> client;
 	std::string currentDate;
@@ -28,6 +28,10 @@ public:
 	// invoiceID
 	std::string getInvoiceID() const { return invoiceID; }
 	void setInvoiceID(const std::string& id) { invoiceID = id; }
+
+	// clientInvoiceID
+	std::string getCliInvoiceID() const { return clientInvoiceID; }
+	void setCliInvoiceID(const std::string& id) { clientInvoiceID = id; }
 
 	// business
 	std::shared_ptr<BusinessRepository> getBusiness() const { return business; }

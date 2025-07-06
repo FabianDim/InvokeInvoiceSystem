@@ -24,7 +24,8 @@ class InvoiceDetails {
     friend class InvoiceMenu;
 
     struct InvoiceInput {
-        std::string invoiceID; // Optional; user can override
+        std::string invoiceID;
+        std::string clientInvoiceID;
         std::string invoiceDate;
         std::string dueDate;
         std::shared_ptr<Client> client;
@@ -73,6 +74,6 @@ private:
     BusinessManager& bizManager;
     ClientManager& cliManager;
     StockManager& stkMgr;
-
+    int stockQuantity();
     bool setCurrentInvoice();
 };
