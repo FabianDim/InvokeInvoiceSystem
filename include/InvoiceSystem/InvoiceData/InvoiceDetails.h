@@ -48,7 +48,7 @@ public:
         cliManager(clientMgr),
         stkMgr(stockManager) {
     }
-
+    std::shared_ptr<Invoice> currentInvoice;
     // Input steps
     bool enterInvoiceID();
     bool enterDate();

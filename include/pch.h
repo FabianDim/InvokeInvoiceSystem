@@ -32,7 +32,7 @@ extern "C" {
 #include <cstring>
 #include <cstdlib>
 // Add any other necessary includes here
-
+#include <jansson.h>
 #include <vector>
 
 #include <map>

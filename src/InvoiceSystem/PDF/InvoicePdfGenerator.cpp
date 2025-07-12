@@ -73,6 +73,22 @@ void InvoicePdfGenerator::createTestPDF(HPDF_Doc pdf, HPDF_Page page_1) {
 }
 
 bool InvoicePdfGenerator::peeceTemplate() {
+    try {
+       
+       auto peeceInvoicePDF = createPDF("Helvetica");
+
+       auto page = addPage(peeceInvoicePDF);
+       HPDF_Font font = HPDF_Page_GetCurrentFont(page);
+       HPDF_Page_SetTextRenderingMode(page, HPDF_FILL);
+       int h2 = 64;
+       HPDF_Page_SetFontAndSize(page, font, h2);
+       const char* invoiceType = "Invoice";
+       HPDF_Page_TextOut(page, 450, 820, invoiceType);
+       HPDF_Page_EndText(page);
+       savePDF(peeceInvoicePDF, "Peece");
+    }
+    catch (...) 
+        { std::cout << "Error in the peece template\n"; }
     return false;
 }
 

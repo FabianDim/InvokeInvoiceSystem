@@ -3,6 +3,7 @@
 #include "Accounts/AccountManager.h"
 #include <hpdf.h>
 #include <setjmp.h>
+#include "InvoiceSystem/InvoiceData/Invoice.h"
 class InvoicePdfGenerator{
 	friend class InvoiceMenu;
 public:
@@ -13,9 +14,10 @@ public:
 	void createTestPDF(HPDF_Doc pdf, HPDF_Page page_1);
 	
 	bool peeceTemplate();
+	InvoicePdfGenerator(std::shared_ptr<Invoice> curInvoice) : curInvoice(curInvoice){}
 private:
+	std::shared_ptr<Invoice> curInvoice;
 	static const std::set<std::string> fontList;
-
     HPDF_Font def_font;
 };
 

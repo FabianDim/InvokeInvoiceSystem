@@ -6,10 +6,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # 1) Find external libraries
-find_package(fmt      CONFIG REQUIRED)
-find_package(bsoncxx CONFIG REQUIRED)
-find_package(mongocxx CONFIG REQUIRED)
+find_package(fmt       CONFIG REQUIRED)
+find_package(bsoncxx   CONFIG REQUIRED)
+find_package(mongocxx  CONFIG REQUIRED)
 find_package(unofficial-libharu CONFIG REQUIRED)
+find_package(Iconv REQUIRED)
+# find_package(Jansson REQUIRED)  # Uncomment only if jansson is installed manually or via custom vcpkg port
 
 # 2) Passlib static library
 add_library(passlib STATIC
@@ -48,12 +50,14 @@ add_executable(${PROJECT_NAME}
   src/Stock/StockManager.cpp 
   src/Stock/ClientStockItem.cpp 
   src/Accounts/UserBusiness/Clients/SetClientFromDB.cpp
- "src/InvoiceSystem/InvoiceData/InvoiceDetails.cpp")
+  src/InvoiceSystem/InvoiceData/InvoiceDetails.cpp
+ "src/InvoiceSystem/InvoiceManager.cpp" "src/InvoiceSystem/InvoiceData/SetInvoiceFromDB.cpp")
 
 target_link_libraries(${PROJECT_NAME}
   PRIVATE
     passlib
     fmt::fmt
+    Iconv::Iconv
     unofficial::libharu::hpdf
     $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,
        mongo::bsoncxx_static,
@@ -98,7 +102,8 @@ add_executable(InvoiceMenuTests
   src/Stock/StockManager.cpp 
   src/Stock/ClientStockItem.cpp 
   src/Accounts/UserBusiness/Clients/SetClientFromDB.cpp
- "src/InvoiceSystem/InvoiceData/InvoiceDetails.cpp")
+  src/InvoiceSystem/InvoiceData/InvoiceDetails.cpp
+ "src/InvoiceSystem/InvoiceManager.cpp" "src/InvoiceSystem/InvoiceData/SetInvoiceFromDB.cpp")
 
 target_include_directories(InvoiceMenuTests PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -109,6 +114,7 @@ target_link_libraries(InvoiceMenuTests
   PRIVATE
     passlib
     fmt::fmt
+    Iconv::Iconv
     GTest::gtest
     GTest::gtest_main
     unofficial::libharu::hpdf

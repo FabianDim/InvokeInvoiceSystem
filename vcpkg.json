@@ -3,9 +3,10 @@
   "version-string": "0.1.0",
   "dependencies": [
     "fmt",
-    "mongo-cxx-driver",
-    "libharu",
     "gtest",
-    "jansson"
+    "jansson",
+    "libharu",
+    "mongo-cxx-driver",
+    "libiconv"
   ]
 }

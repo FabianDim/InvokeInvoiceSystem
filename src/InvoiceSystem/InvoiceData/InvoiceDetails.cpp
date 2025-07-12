@@ -292,6 +292,6 @@ bool InvoiceDetails::setCurrentInvoice() {
         return false;
     }
     newInvoice->setBusiness(currentBiz);
-
+    currentInvoice = newInvoice;
     return true;
 }
