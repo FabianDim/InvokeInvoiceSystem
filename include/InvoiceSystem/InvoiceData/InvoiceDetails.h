@@ -16,8 +16,13 @@ enum class InvoiceStep {
     ENTER_CLIENT,
     ENTER_STOCK,
     ENTER_PAYMENT,
+    CHOOSE_TEMPLATE,
     CONFIRM,
     DONE
+};
+
+const std::unordered_map<int, std::string> invoiceTemplate{
+    {1, "Peece"}
 };
 
 class InvoiceDetails {
@@ -32,6 +37,7 @@ class InvoiceDetails {
         std::unordered_map<std::shared_ptr<StockItem>, int> stockQuantities;
         bool isPaid = false;
         bool gstIncluded = false;
+        std::string invoiceTemplate;
         std::string notes;
     };
 
@@ -55,6 +61,7 @@ public:
     bool enterDueDate();
     bool selectClient();
     bool selectStock();
+    bool chooseTemplate();
     bool enterPayment();
     bool confirmInfo();
 

@@ -3,5 +3,6 @@
 #include "Accounts/UserBusiness/BusinessManager.h"
 
 class InvoiceManager {
-	
+private:
+
 }

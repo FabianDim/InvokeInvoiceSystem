@@ -21,7 +21,7 @@ private:
     MongoDBDataManager& dbManager;
     ClientManager& cliManager;
     StockManager& stkMgr;
-    InvoicePdfGenerator generator;
+    //InvoicePdfGenerator generator;
     InvoiceDetails invoiceDetails;
     std::shared_ptr<User> testUser;
     std::map<std::string, std::string> businessMap;
@@ -40,7 +40,7 @@ public:
         dbManager(dbMgr),
         cliManager(cliManager),
         stkMgr(stkMgr),
-        invoiceDetails(accountMgr, dbMgr, bizManager, cliManager, stkMgr) {
+        invoiceDetails(accountMgr, dbMgr, bizManager, cliManager, stkMgr){
     }
 
     void setTestUser(std::shared_ptr<User> user) {

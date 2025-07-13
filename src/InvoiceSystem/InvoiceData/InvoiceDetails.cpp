@@ -109,8 +109,28 @@ bool InvoiceDetails::selectStock() {
     catch (std::exception& e) {
         std::cerr << "Error selecting stock: " << e.what() << std::endl;
     }
-    currentStep = InvoiceStep::ENTER_PAYMENT;
+    currentStep = InvoiceStep::CHOOSE_TEMPLATE;
     return true;
+}
+
+bool InvoiceDetails::chooseTemplate() {
+    std::cout << "\nPlease choose a number of the template you want: \n";
+    int templateChoice;
+    for (auto& templates : invoiceTemplate) {
+        std::cout << templates.first << ". " << templates.second << " Template\n";
+    }
+    std::cout << "Choice: ";
+    std::cin >> templateChoice;
+    if (invoiceTemplate.find(templateChoice) != invoiceTemplate.end()) {
+        userInvoice.invoiceTemplate = invoiceTemplate.at(templateChoice);
+        currentStep = InvoiceStep::ENTER_PAYMENT;
+        return true;
+    }
+    else {
+        std::cerr << "Invalid template choice." << std::endl;
+        return false;
+    }
+    return false;
 }
 
 bool InvoiceDetails::enterPayment() {
@@ -140,6 +160,7 @@ bool InvoiceDetails::confirmInfo() {
     for (auto& [itemPtr, qty] : userInvoice.stockQuantities) {
         std::cout << "Stock: " << itemPtr->getStockID() << ", Quantity: " << qty << "\n";
     }
+    std::cout << "Template: " << userInvoice.invoiceTemplate << "\n";
     std::cout << "Paid: " << (userInvoice.isPaid ? "Yes" : "No") << "\n";
     std::cout << "GST: " << (userInvoice.gstIncluded ? "Yes" : "No") << "\n";
     std::cout << "Notes: " << userInvoice.notes << "\n";
@@ -173,6 +194,9 @@ void InvoiceDetails::collectInvoiceInfo() {
             break;
         case InvoiceStep::ENTER_STOCK:
             if (!selectStock()) continue;
+            break;
+        case InvoiceStep::CHOOSE_TEMPLATE:
+            if (!chooseTemplate()) continue;
             break;
         case InvoiceStep::ENTER_PAYMENT:
             if (!enterPayment()) continue;
@@ -242,6 +266,7 @@ bsoncxx::document::value InvoiceDetails::createInvoiceDoc() {
         << "DueDate" << userInvoice.dueDate
         << "IsPaid" << userInvoice.isPaid
         << "GSTIncluded" << userInvoice.gstIncluded
+        << "InvoiceTemplate" << userInvoice.invoiceTemplate
         << "Notes" << userInvoice.notes
         << "StockItems" << stockArray
         << finalize;

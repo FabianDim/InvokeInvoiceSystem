@@ -94,6 +94,17 @@ void MongoDBDataManager::updateDoc(const std::string& collectionName, std::optio
     auto result = InvokeDB[collectionName].update_one(filterDoc->view(), replacementDoc->view());
 }
 
+//std::unordered_map<int, std::string> MongoDBDataManager::listOfAll(std::string collectionName, std::string searchParameter) {
+//    try {
+//        
+//    }
+//    catch (bsoncxx::exception e) {
+//        std::cerr << "BSoncxx error: " << e.what() << std::endl;
+//        return std::unordered_map<int, std::string>();
+//    }
+//    
+//}
+
 std::optional<mongocxx::collection> MongoDBDataManager::getCollection(const std::string& collectionName) {
     try {
         return InvokeDB[collectionName];

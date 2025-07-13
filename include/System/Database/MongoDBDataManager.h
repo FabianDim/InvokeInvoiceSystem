@@ -43,5 +43,5 @@ private:
     bool validPassword(const std::string& password, const std::string& hashedPW);
     array makeDBArray(const bsoncxx::document::view_or_value& initDoc);
     void updateDoc(const std::string& collectionName, std::optional<bsoncxx::v_noabi::document::value> filterDoc, std::optional<bsoncxx::document::value> replacementDoc);
-    
+    std::unordered_map<int, std::string> listOfAll(std::string collectionName, std::string searchParameter);
 };
