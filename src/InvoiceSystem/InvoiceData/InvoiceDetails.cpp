@@ -115,7 +115,7 @@ bool InvoiceDetails::selectStock() {
 
 bool InvoiceDetails::chooseTemplate() {
     std::cout << "\nPlease choose a number of the template you want: \n";
-    int templateChoice;
+    int templateChoice{};
     for (auto& templates : invoiceTemplate) {
         std::cout << templates.first << ". " << templates.second << " Template\n";
     }
@@ -296,6 +296,7 @@ bool InvoiceDetails::setCurrentInvoice() {
     newInvoice->setCurrentDate(userInvoice.invoiceDate);
     newInvoice->setDueDate(userInvoice.dueDate);
     newInvoice->setIsPaid(userInvoice.isPaid);
+    newInvoice->setTemplate(userInvoice.invoiceTemplate);
     newInvoice->setTaxAmount(userInvoice.gstIncluded);
     newInvoice->setNotes(userInvoice.notes);
 
@@ -317,6 +318,6 @@ bool InvoiceDetails::setCurrentInvoice() {
         return false;
     }
     newInvoice->setBusiness(currentBiz);
-    currentInvoice = newInvoice;
+    InvoiceManager::setCurInvoice(newInvoice);
     return true;
 }

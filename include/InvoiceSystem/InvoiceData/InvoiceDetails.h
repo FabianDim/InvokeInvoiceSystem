@@ -8,6 +8,8 @@
 #include "Stock/StockManager.h"
 #include "Accounts/UserBusiness/Clients/ClientManager.h"
 #include "Accounts/UserBusiness/BusinessManager.h"
+#include "../InvoiceManager.h"
+#include <ctime>
 
 enum class InvoiceStep {
     ENTER_INVOICE_ID,
@@ -81,6 +83,7 @@ private:
     BusinessManager& bizManager;
     ClientManager& cliManager;
     StockManager& stkMgr;
+
     int stockQuantity();
     bool setCurrentInvoice();
 };

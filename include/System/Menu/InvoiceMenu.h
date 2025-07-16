@@ -12,6 +12,7 @@
 #include "Stock/StockManager.h"
 #include "InvoiceSystem/PDF/InvoicePdfGenerator.h"
 #include "InvoiceSystem/InvoiceData/InvoiceDetails.h"
+#include "InvoiceSystem/InvoiceManager.h"
 
 class InvoiceMenu {
 private:
@@ -21,7 +22,7 @@ private:
     MongoDBDataManager& dbManager;
     ClientManager& cliManager;
     StockManager& stkMgr;
-    //InvoicePdfGenerator generator;
+    InvoicePdfGenerator generator;
     InvoiceDetails invoiceDetails;
     std::shared_ptr<User> testUser;
     std::map<std::string, std::string> businessMap;
@@ -40,7 +41,7 @@ public:
         dbManager(dbMgr),
         cliManager(cliManager),
         stkMgr(stkMgr),
-        invoiceDetails(accountMgr, dbMgr, bizManager, cliManager, stkMgr){
+        invoiceDetails(accountMgr, dbMgr, bizManager, cliManager, stkMgr), generator(generator){
     }
 
     void setTestUser(std::shared_ptr<User> user) {

@@ -4,6 +4,6 @@
 
 class SetStockItem {
 	friend class StockManager;
-private:
+public:
 	static std::shared_ptr<StockItem> setStockItem(const std::string& stockID);
 };

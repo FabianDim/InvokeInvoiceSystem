@@ -23,6 +23,7 @@ private:
 	bool isPaid = false;
 	bool gstIncluded = false;
 	std::string notes;
+	std::string invoiceTemplate;
 
 public:
 	// invoiceID
@@ -60,6 +61,10 @@ public:
 	//// taxAmount
 	//float getTaxAmount() const { return taxAmount; }
 	//void setTaxAmount(float tax) { taxAmount = tax; }
+
+	// Template
+	std::string getTemplate() const { return invoiceTemplate; }
+	void setTemplate(std::string invTemplate) { invoiceTemplate = invTemplate; }
 
 	// UsingGST
 	bool getTaxAmount() const { return gstIncluded; }

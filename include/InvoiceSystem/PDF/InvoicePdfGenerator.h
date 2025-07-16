@@ -13,10 +13,10 @@ public:
 	void savePDF(HPDF_Doc pdf, const char* name);
 	void createTestPDF(HPDF_Doc pdf, HPDF_Page page_1);
 	
-	bool peeceTemplate();
-	InvoicePdfGenerator(std::shared_ptr<Invoice> curInvoice) : curInvoice(curInvoice){}
+	bool peeceTemplate(std::shared_ptr<Invoice> curInvoice);
+	/*InvoicePdfGenerator(std::shared_ptr<Invoice> curInvoice) : curInvoice(curInvoice){}*/
 private:
-	std::shared_ptr<Invoice> curInvoice;
+	//std::shared_ptr<Invoice> curInvoice;
 	static const std::set<std::string> fontList;
     HPDF_Font def_font;
 };
