@@ -8,28 +8,30 @@
 #include "Stock/StockManager.h"
 #include "Accounts/UserBusiness/Clients/ClientManager.h"
 #include "Accounts/UserBusiness/BusinessManager.h"
-#include "../InvoiceManager.h"
+#include "InvoiceSystem/InvoiceManager.h"
 #include <ctime>
+#include "Accounts/UserBusiness/Clients/SetClientFromDB.h"
+#include "Utils/DateUtil.h"
+#include "Utils/TemplateUtil.h"
+#include "InvoiceTemplateEnum.h"
 
-enum class InvoiceStep {
-    ENTER_INVOICE_ID,
-    ENTER_DATE,
-    ENTER_DUE,
-    ENTER_CLIENT,
-    ENTER_STOCK,
-    ENTER_PAYMENT,
-    CHOOSE_TEMPLATE,
-    CONFIRM,
-    DONE
-};
 
-const std::unordered_map<int, std::string> invoiceTemplate{
-    {1, "Peece"}
-};
 
 class InvoiceDetails {
     friend class InvoiceMenu;
-
+public:
+    enum class InvoiceStep {
+        ENTER_INVOICE_ID,
+        ENTER_DATE,
+        ENTER_DUE,
+        ENTER_CLIENT,
+        ENTER_STOCK,
+        ENTER_PAYMENT,
+        CHOOSE_TEMPLATE,
+        CONFIRM,
+        FILE_NAME,
+        DONE
+    };
     struct InvoiceInput {
         std::string invoiceID;
         std::string clientInvoiceID;
@@ -39,7 +41,7 @@ class InvoiceDetails {
         std::unordered_map<std::shared_ptr<StockItem>, int> stockQuantities;
         bool isPaid = false;
         bool gstIncluded = false;
-        std::string invoiceTemplate;
+        InvoiceTemplateEnum invoiceTemplate;
         std::string notes;
     };
 
@@ -85,5 +87,5 @@ private:
     StockManager& stkMgr;
 
     int stockQuantity();
-    bool setCurrentInvoice();
+    bool setInvoiceToObject();
 };

@@ -46,6 +46,7 @@ extern "C" {
 
 //custom utils
 #include "Utils/StringUtils.h"
+#include "Utils/TemplateUtil.h"
 
 //manager classes
 #include "Accounts/AccountManager.h"

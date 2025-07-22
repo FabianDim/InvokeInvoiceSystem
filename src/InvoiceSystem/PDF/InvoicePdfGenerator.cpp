@@ -72,6 +72,13 @@ void InvoicePdfGenerator::createTestPDF(HPDF_Doc pdf, HPDF_Page page_1) {
     savePDF(pdf, "test.pdf");  
 }
 
+std::string InvoicePdfGenerator::retrieveFileName() {
+    std::string name;
+    std::cout << "\nPlease enter the name of the file: ";
+    std::cin >> name;
+    return name;
+}
+
 bool InvoicePdfGenerator::peeceTemplate(std::shared_ptr<Invoice> curInvoice) {
     try {
        auto peeceInvoicePDF = createPDF("Helvetica");
@@ -84,7 +91,7 @@ bool InvoicePdfGenerator::peeceTemplate(std::shared_ptr<Invoice> curInvoice) {
        HPDF_Page_TextOut(page, 450, 820, invoiceType);
        HPDF_Page_TextOut(page, 450, 750, curInvoice->getBusiness()->getBizName().c_str());
        HPDF_Page_EndText(page);
-       savePDF(peeceInvoicePDF, "Peece");
+       savePDF(peeceInvoicePDF, retrieveFileName().c_str());
 
 
     }

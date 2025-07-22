@@ -1,0 +1,14 @@
+-link -EXPORT:?_OptionsStorage@?1??__local_stdio_printf_options@@9@9,DATA
+-link -EXPORT:DllMain
+-link -EXPORT:_libiconv_version,DATA
+-link -EXPORT:iconv_canonicalize
+-link -EXPORT:libiconv
+-link -EXPORT:libiconv_close
+-link -EXPORT:libiconv_open
+-link -EXPORT:libiconv_open_into
+-link -EXPORT:libiconv_relocate
+-link -EXPORT:libiconv_relocate2
+-link -EXPORT:libiconv_set_relocation_prefix
+-link -EXPORT:libiconvctl
+-link -EXPORT:libiconvlist
+-link -EXPORT:locale_charset

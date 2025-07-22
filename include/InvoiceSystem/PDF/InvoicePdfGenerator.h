@@ -12,7 +12,7 @@ public:
 	void addPageBefore(HPDF_Doc pdf, HPDF_Page page_1);
 	void savePDF(HPDF_Doc pdf, const char* name);
 	void createTestPDF(HPDF_Doc pdf, HPDF_Page page_1);
-	
+	std::string retrieveFileName();
 	bool peeceTemplate(std::shared_ptr<Invoice> curInvoice);
 	/*InvoicePdfGenerator(std::shared_ptr<Invoice> curInvoice) : curInvoice(curInvoice){}*/
 private:

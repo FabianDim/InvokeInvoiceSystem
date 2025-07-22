@@ -8,7 +8,7 @@ class SetInvoice {
 public:
 	SetInvoice(MongoDBDataManager& dbManager) : dbManager(dbManager) {};
 private:
-	std::shared_ptr<Invoice> setInvoice(std::string invoiceID);
+	std::shared_ptr<Invoice> setInvoice(const std::string invoiceID);
 	MongoDBDataManager& dbManager;
 	SetClient setClient;
 };

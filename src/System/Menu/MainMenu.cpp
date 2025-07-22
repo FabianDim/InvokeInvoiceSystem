@@ -74,7 +74,6 @@ void MainMenu::loggedInMenu(AccountManager& manager) {
     } while (choice != 7);
 }
 void MainMenu::printTitleBox() {
-    SetConsoleOutputCP(CP_UTF8);
     std::string header =
         "╒═════════════════════════════════════════════════╕\n"
         "|              INVOKE INVOICE SYSTEM              |\n"

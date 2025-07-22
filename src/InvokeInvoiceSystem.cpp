@@ -1,5 +1,6 @@
 #include "InvokeInvoiceSystem.h"
-
+#include <QApplication>  
+#include <QMainWindow>
 int main() {
 
 	/*Main Executable*/

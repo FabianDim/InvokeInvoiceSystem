@@ -2,14 +2,14 @@ Package: vcpkg-cmake-config
 Version: 2024-05-23
 Architecture: x64-windows
 Multi-Arch: same
-Abi: 0a5692ed6ea8c77906eb44b44b822e9b2502945cc1cd42635ad4e584b725304f
+Abi: c8a6769e823b750cee682230730fd45cea332999d5be558db7469e78af0a1de4
 Status: install ok installed
 
 Package: vcpkg-cmake
 Version: 2024-04-23
 Architecture: x64-windows
 Multi-Arch: same
-Abi: c5dfa77b69a2b1608d06498a00ae165f7d710d193f01fec204cdea34964ef974
+Abi: 3935dda4f4ee613961a4f6a88b99ede3ca75798f64f05c68d4309426dc86bdff
 Status: install ok installed
 
 Package: fmt
@@ -18,7 +18,7 @@ Port-Version: 1
 Depends: vcpkg-cmake, vcpkg-cmake-config
 Architecture: x64-windows
 Multi-Arch: same
-Abi: f15435acc57f1cf2754a8545d30f82f4d80f2d2aff05e384a93eb37f0bc91aa4
+Abi: 1f4e332c18dc45ee0707615df833a21c6dd3b6c3cc615b401ef5c7c7264c9aa3
 Description: {fmt} is an open-source formatting library providing a fast and safe alternative to C stdio and C++ iostreams.
 Status: install ok installed
 
@@ -27,7 +27,7 @@ Version: 1.15.2
 Depends: vcpkg-cmake, vcpkg-cmake-config
 Architecture: x64-windows
 Multi-Arch: same
-Abi: ef2b2c1743ae48d45d940408a1b6fe645705f6280c9d1e2a2e4e4118af842351
+Abi: 77b978eeda39e456cc21480c618c367f01987d589a576699921f9bbece299d2d
 Description: Google Testing and Mocking Framework
 Status: install ok installed
 
@@ -39,14 +39,14 @@ Architecture: x64-windows
 Multi-Arch: same
 Abi: e91cda613763044b68cff60ce95fb6580248e2194006cdf0e6dd9efd93de7c2f
 Description: Jansson is a C library for encoding, decoding and manipulating JSON data
-Status: install ok installed
+Status: purge ok not-installed
 
 Package: zlib
 Version: 1.3.1
 Depends: vcpkg-cmake
 Architecture: x64-windows
 Multi-Arch: same
-Abi: 84f2226fd180f730550bf4e2dd947db339dc7d5524042f37c2d716bd91b7ee4f
+Abi: 7535428f18aa217dabb32112afc924c7cb0a46198f6f6ef91e4e50f3ec4797ce
 Description: A compression library
 Status: install ok installed
 
@@ -55,7 +55,7 @@ Version: 1.6.44
 Depends: vcpkg-cmake, vcpkg-cmake-config, zlib
 Architecture: x64-windows
 Multi-Arch: same
-Abi: 052eb02d5bd4a73f8fdc0ba110a0b45c829f43cdd71b4df0018db53c540cd10a
+Abi: 18f9aceaf95c3726bdbb1733c9564cf5d221ddc12f2240ce14a80b7fd309acc6
 Description: libpng is a library implementing an interface for reading and writing PNG (Portable Network Graphics) format files
 Status: install ok installed
 
@@ -65,7 +65,16 @@ Port-Version: 1
 Depends: libpng, vcpkg-cmake, vcpkg-cmake-config, zlib
 Architecture: x64-windows
 Multi-Arch: same
-Abi: be3f16b30f2da20f619c5c7e9bd779845cb9749b2d1720292f74a4ca16bfafd2
+Abi: 30d3bb616cb12b2c5bbc58816cea34d66a7568c361682ab9133fc71a4858a703
 Description: libharu - free PDF library
+Status: install ok installed
+
+Package: libiconv
+Version: 1.17
+Port-Version: 5
+Architecture: x64-windows
+Multi-Arch: same
+Abi: 05c18d95db0e99955bbbbf1146e632155d61875b434dcc12075dcb832f712e73
+Description: GNU Unicode text conversion
 Status: install ok installed
 

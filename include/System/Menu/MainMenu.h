@@ -3,9 +3,6 @@
 #include "Accounts/userbusiness/BusinessDetails.h"
 #include <iostream>
 #include "pch.h"
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
 #include <io.h>
 #include <fcntl.h>
 

@@ -41,7 +41,8 @@ public:
         dbManager(dbMgr),
         cliManager(cliManager),
         stkMgr(stkMgr),
-        invoiceDetails(accountMgr, dbMgr, bizManager, cliManager, stkMgr), generator(generator){
+        invoiceDetails(accountMgr, dbMgr, bizManager, cliManager, stkMgr), 
+        generator(){
     }
 
     void setTestUser(std::shared_ptr<User> user) {

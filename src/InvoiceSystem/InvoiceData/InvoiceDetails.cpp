@@ -1,12 +1,5 @@
-#pragma once
-
 #include <cctype>
 #include "InvoiceSystem/InvoiceData/InvoiceDetails.h"
-#include "InvoiceSystem/InvoiceData/Invoice.h"
-#include "Accounts/UserBusiness/Clients/ClientManager.h"
-#include "Accounts/UserBusiness/Clients/SetClientFromDB.h"
-#include "Stock/StockManager.h"
-#include "Utils/DateUtil.h"
 
 bool InvoiceDetails::enterInvoiceID() {
     std::cout << "Enter custom invoice ID or type auto for auto-generation: ";
@@ -122,7 +115,7 @@ bool InvoiceDetails::chooseTemplate() {
     std::cout << "Choice: ";
     std::cin >> templateChoice;
     if (invoiceTemplate.find(templateChoice) != invoiceTemplate.end()) {
-        userInvoice.invoiceTemplate = invoiceTemplate.at(templateChoice);
+        userInvoice.invoiceTemplate = to_enum(invoiceTemplate.at(templateChoice));
         currentStep = InvoiceStep::ENTER_PAYMENT;
         return true;
     }
@@ -160,7 +153,7 @@ bool InvoiceDetails::confirmInfo() {
     for (auto& [itemPtr, qty] : userInvoice.stockQuantities) {
         std::cout << "Stock: " << itemPtr->getStockID() << ", Quantity: " << qty << "\n";
     }
-    std::cout << "Template: " << userInvoice.invoiceTemplate << "\n";
+    std::cout << "Template: " << to_string(userInvoice.invoiceTemplate) << "\n";
     std::cout << "Paid: " << (userInvoice.isPaid ? "Yes" : "No") << "\n";
     std::cout << "GST: " << (userInvoice.gstIncluded ? "Yes" : "No") << "\n";
     std::cout << "Notes: " << userInvoice.notes << "\n";
@@ -206,7 +199,7 @@ void InvoiceDetails::collectInvoiceInfo() {
             break;
         case InvoiceStep::DONE:
             insertInvoiceDoc(createInvoiceDoc());
-            setCurrentInvoice();
+            setInvoiceToObject();
             return;
         default:
             std::cout << "Unexpected step" << std::endl;
@@ -266,7 +259,7 @@ bsoncxx::document::value InvoiceDetails::createInvoiceDoc() {
         << "DueDate" << userInvoice.dueDate
         << "IsPaid" << userInvoice.isPaid
         << "GSTIncluded" << userInvoice.gstIncluded
-        << "InvoiceTemplate" << userInvoice.invoiceTemplate
+        << "InvoiceTemplate" << to_string(userInvoice.invoiceTemplate)
         << "Notes" << userInvoice.notes
         << "StockItems" << stockArray
         << finalize;
@@ -288,7 +281,7 @@ int InvoiceDetails::stockQuantity() {
     return amount;
 }
 
-bool InvoiceDetails::setCurrentInvoice() {
+bool InvoiceDetails::setInvoiceToObject() {
     auto newInvoice = std::make_shared<Invoice>();
 
     newInvoice->setCliInvoiceID(userInvoice.clientInvoiceID);

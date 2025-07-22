@@ -37,7 +37,7 @@ void InvoiceMenu::createInvoice() {
 	invoiceDetails.collectInvoiceInfo();
 	//HPDF_Page page = HPDF_AddPage(testPdf);
 	//generator.createTestPDF(testPdf, HPDF_GetCurrentPage(testPdf));
-	if (InvoiceManager::getCurInvoice()->getTemplate() == "Peece") {
+	if (to_string(InvoiceManager::getCurInvoice()->getTemplate()) == "Peece") {
 		generator.peeceTemplate(InvoiceManager::getCurInvoice());
 	}
 }

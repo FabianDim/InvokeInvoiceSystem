@@ -7,7 +7,8 @@
 #include "Stock/StockManager.h"
 #include "Stock/ClientStockItem.h"
 #include "Utils/DateUtil.h"
-#include <ctime> 
+#include "Utils/TemplateUtil.h"
+#include "InvoiceTemplateEnum.h"
 class Invoice{
 private:
 	std::string invoiceID;
@@ -17,13 +18,14 @@ private:
 	std::string currentDate;
 	std::string dueDate;
 	std::unordered_map<std::shared_ptr<StockItem>, int> stockQuantityMap; // stockID to quantity
+	InvoiceTemplateEnum invoiceTemplate;
 	float totalAmount = 0.0f;
 	float taxAmount = 0.0f;
 	float discountAmount = 0.0f;
 	bool isPaid = false;
 	bool gstIncluded = false;
 	std::string notes;
-	std::string invoiceTemplate;
+	//std::string invoiceTemplate;
 
 public:
 	// invoiceID
@@ -63,8 +65,8 @@ public:
 	//void setTaxAmount(float tax) { taxAmount = tax; }
 
 	// Template
-	std::string getTemplate() const { return invoiceTemplate; }
-	void setTemplate(std::string invTemplate) { invoiceTemplate = invTemplate; }
+	InvoiceTemplateEnum getTemplate() const { return invoiceTemplate; }
+	void setTemplate(InvoiceTemplateEnum invTemplate) { invoiceTemplate = invTemplate; }
 
 	// UsingGST
 	bool getTaxAmount() const { return gstIncluded; }

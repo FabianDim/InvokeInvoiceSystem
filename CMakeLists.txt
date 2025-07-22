@@ -5,12 +5,18 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+
 # 1) Find external libraries
 find_package(fmt       CONFIG REQUIRED)
 find_package(bsoncxx   CONFIG REQUIRED)
 find_package(mongocxx  CONFIG REQUIRED)
 find_package(unofficial-libharu CONFIG REQUIRED)
 find_package(Iconv REQUIRED)
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets Gui)
+
+qt_standard_project_setup()
+
+
 # find_package(Jansson REQUIRED)  # Uncomment only if jansson is installed manually or via custom vcpkg port
 
 # 2) Passlib static library
@@ -25,7 +31,7 @@ target_include_directories(passlib PUBLIC
 )
 
 # 3) Main Application Executable (DO NOT add test files here!)
-add_executable(${PROJECT_NAME}
+qt_add_executable(${PROJECT_NAME}
   src/InvokeInvoiceSystem.cpp
   src/Accounts/AccountManager.cpp
   src/Accounts/User.cpp
@@ -51,7 +57,8 @@ add_executable(${PROJECT_NAME}
   src/Stock/ClientStockItem.cpp 
   src/Accounts/UserBusiness/Clients/SetClientFromDB.cpp
   src/InvoiceSystem/InvoiceData/InvoiceDetails.cpp
-  src/InvoiceSystem/InvoiceData/SetInvoiceFromDB.cpp)
+  src/InvoiceSystem/InvoiceData/SetInvoiceFromDB.cpp
+  src/InvoiceSystem/InvoiceManager.cpp  )
 
 target_link_libraries(${PROJECT_NAME}
   PRIVATE
@@ -59,6 +66,8 @@ target_link_libraries(${PROJECT_NAME}
     fmt::fmt
     Iconv::Iconv
     unofficial::libharu::hpdf
+    Qt6::Core
+    Qt6::Widgets
     $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,
        mongo::bsoncxx_static,
        mongo::bsoncxx_shared>
@@ -66,6 +75,11 @@ target_link_libraries(${PROJECT_NAME}
        mongo::mongocxx_static,
        mongo::mongocxx_shared>
 )
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    WIN32_EXECUTABLE ON
+    MACOSX_BUNDLE ON
+)
+
 target_precompile_headers(${PROJECT_NAME} PRIVATE include/pch.h)
 
 # 4) GoogleTest fetch & setup (after app target so build is ready)
@@ -103,7 +117,7 @@ add_executable(InvoiceMenuTests
   src/Stock/ClientStockItem.cpp 
   src/Accounts/UserBusiness/Clients/SetClientFromDB.cpp
   src/InvoiceSystem/InvoiceData/InvoiceDetails.cpp
-  "src/InvoiceSystem/InvoiceData/SetInvoiceFromDB.cpp")
+  src/InvoiceSystem/InvoiceData/SetInvoiceFromDB.cpp)
 
 target_include_directories(InvoiceMenuTests PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include

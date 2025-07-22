@@ -1,6 +1,6 @@
 #include "InvoiceSystem/InvoiceData/SetInvoiceFromDB.h"
 
-std::shared_ptr<Invoice> SetInvoice::setInvoice(std::string invoiceID) {
+std::shared_ptr<Invoice> SetInvoice::setInvoice(const std::string invoiceID) {
     MongoDBDataManager dbManager;
     auto result = dbManager.findOne("Invoices", make_document(kvp("InvoiceID", invoiceID)));
 
@@ -27,7 +27,7 @@ std::shared_ptr<Invoice> SetInvoice::setInvoice(std::string invoiceID) {
             invoice->setDueDate(dueDate);
             invoice->setIsPaid(isPaid);
             invoice->setTaxAmount(gstIncluded);
-            invoice->setTemplate(invoiceTemplate);
+            invoice->setTemplate(to_enum(invoiceTemplate));
             invoice->setNotes(notes);
 
             // Get and set client (via manager)

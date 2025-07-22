@@ -1,9 +1,0 @@
-Package: jansson
-Version: 2.14
-Port-Version: 1
-Depends: vcpkg-cmake, vcpkg-cmake-config
-Architecture: x64-windows
-Multi-Arch: same
-Abi: e91cda613763044b68cff60ce95fb6580248e2194006cdf0e6dd9efd93de7c2f
-Description: Jansson is a C library for encoding, decoding and manipulating JSON data
-Status: purge ok not-installed
