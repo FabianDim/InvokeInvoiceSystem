@@ -7,7 +7,6 @@
     "jansson",
     "libiconv",
     "libharu",
-    "mongo-cxx-driver",
-    "qtbase"
+    "mongo-cxx-driver"
   ]
 }

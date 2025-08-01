@@ -10,7 +10,8 @@
       "cacheVariables": {
         "CMAKE_C_COMPILER": "cl.exe",
         "CMAKE_CXX_COMPILER": "cl.exe",
-        "CMAKE_TOOLCHAIN_FILE": "C:/dev/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        "CMAKE_TOOLCHAIN_FILE": "C:/Users/Fabian/dev/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "CMAKE_PREFIX_PATH": "C:/Users/Fabian/dev/vcpkg/installed/x64-windows/share;C:/Qt/6.9.1/msvc2022_64/lib/cmake"
       },
       "condition": {
         "type": "equals",

@@ -1,23 +1,54 @@
 ﻿cmake_minimum_required(VERSION 3.10...3.24)
-project(InvokeInvoiceSystem LANGUAGES CXX)
 
+if (WIN32)
+    project(InvokeInvoiceSystem LANGUAGES CXX)
+elseif(UNIX)
+    project(InvokeInvoiceSystem)
+endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(CMAKE_PREFIX_PATH
+    "C:/Users/Fabian/dev/vcpkg/installed/x64-windows/share"
+    "C:/Qt/6.9.1/msvc2022_64/lib/cmake"
+    CACHE STRING "Paths to vcpkg installed/share and Qt6 install prefix"
+)
 
-# 1) Find external libraries
-find_package(fmt       CONFIG REQUIRED)
-find_package(bsoncxx   CONFIG REQUIRED)
-find_package(mongocxx  CONFIG REQUIRED)
+set(CMAKE_CONFIGURATION_TYPES "Release;RelWithDebInfo" CACHE STRING "" FORCE)
+
+find_package(fmt                CONFIG REQUIRED)
+find_package(bsoncxx            CONFIG REQUIRED)
+find_package(mongocxx           CONFIG REQUIRED)
 find_package(unofficial-libharu CONFIG REQUIRED)
-find_package(Iconv REQUIRED)
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets Gui)
+find_package(Iconv              REQUIRED)
 
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+find_package(Qt6 COMPONENTS Widgets REQUIRED)
 qt_standard_project_setup()
 
+#=================== INCLUSION OF Project Files ====================#
+set(FORMS_DIR "${CMAKE_SOURCE_DIR}/forms")
+set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
+set(SOURCE_DIR "${CMAKE_SOURCE_DIR}/src")
 
-# find_package(Jansson REQUIRED)  # Uncomment only if jansson is installed manually or via custom vcpkg port
+include_directories(${FORMS_DIR})
+include_directories(${INCLUDE_DIR})
+include_directories(${SOURCE_DIR})
+
+file(GLOB_RECURSE SOURCES
+    "${FORMS_DIR}/*.ui"
+    "${FORMS_DIR}/*.qrc"
+    "${INCLUDE_DIR}/*.h"
+    "${SOURCE_DIR}/*.cpp"
+)
+
+#=================== SETUP EXECTUABLE ====================#
+
+set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS
+    $<$<CONFIG:RELWITHDEBINFO>:QT_MESSAGELOGCONTEXT>
+)
+
+set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_AUTOUIC_SEARCH_PATHS} ${FORMS_DIR})
 
 # 2) Passlib static library
 add_library(passlib STATIC
@@ -25,49 +56,28 @@ add_library(passlib STATIC
   src/Accounts/PasswordHashing/blowfish.cpp
 )
 target_include_directories(passlib PUBLIC
-  src/Accounts/PasswordHashing
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Accounts/PasswordHashing
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )
+# Add the executable
+if (WIN32) 
+    qt_add_executable(${PROJECT_NAME} WIN32 ${SOURCES})
+elseif(UNIX)
+    qt_add_executable(${PROJECT_NAME} ${SOURCES})
+endif()
 
-# 3) Main Application Executable (DO NOT add test files here!)
-qt_add_executable(${PROJECT_NAME}
-  src/InvokeInvoiceSystem.cpp
-  src/Accounts/AccountManager.cpp
-  src/Accounts/User.cpp
-  src/System/InvoiceSystem.cpp
-  src/System/Menu/MainMenu.cpp
-  src/System/Database/MongoDBHandler.cpp
-  src/System/Database/MongoDBDataManager.cpp
-  src/Accounts/SetUserFromDB.cpp
-  src/Accounts/UserBusiness/BusinessDetails.cpp
-  src/InvoiceSystem/PDF/InvoicePdfGenerator.cpp 
-  src/Accounts/UserBusiness/BusinessRepository.cpp
-  src/System/Menu/InvoiceMenu.cpp 
-  src/Accounts/UserBusiness/SetBusinessFromDB.cpp
-  src/Accounts/UserBusiness/Clients/ClientDetails.cpp
-  src/System/Menu/BusinessMenu.cpp
-  src/Accounts/UserBusiness/BusinessManager.cpp
-  src/Accounts/UserBusiness/Clients/ClientManager.cpp 
-  src/Stock/StockDetails.cpp
-  src/System/Menu/ClientMenu.cpp 
-  src/Stock/SetStockFromDB.cpp 
-  src/System/Menu/StockMenu.cpp  
-  src/Stock/StockManager.cpp 
-  src/Stock/ClientStockItem.cpp 
-  src/Accounts/UserBusiness/Clients/SetClientFromDB.cpp
-  src/InvoiceSystem/InvoiceData/InvoiceDetails.cpp
-  src/InvoiceSystem/InvoiceData/SetInvoiceFromDB.cpp
-  src/InvoiceSystem/InvoiceManager.cpp  )
+target_include_directories(${PROJECT_NAME} PRIVATE ${FORMS_DIR})
+target_include_directories(${PROJECT_NAME} PRIVATE ${INCLUDE_DIR})
+target_include_directories(${PROJECT_NAME} PRIVATE ${SOURCE_DIR})
 
 target_link_libraries(${PROJECT_NAME}
   PRIVATE
     passlib
+    Qt6::Widgets
     fmt::fmt
     Iconv::Iconv
     unofficial::libharu::hpdf
-    Qt6::Core
-    Qt6::Widgets
     $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,
        mongo::bsoncxx_static,
        mongo::bsoncxx_shared>
@@ -75,72 +85,9 @@ target_link_libraries(${PROJECT_NAME}
        mongo::mongocxx_static,
        mongo::mongocxx_shared>
 )
+
 set_target_properties(${PROJECT_NAME} PROPERTIES
     WIN32_EXECUTABLE ON
     MACOSX_BUNDLE ON
 )
-
 target_precompile_headers(${PROJECT_NAME} PRIVATE include/pch.h)
-
-# 4) GoogleTest fetch & setup (after app target so build is ready)
-include(FetchContent)
-FetchContent_Declare(
-  googletest
-  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
-)
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
-
-# 5) Test Executable (ONLY test files)
-add_executable(InvoiceMenuTests
-  tests/InvoiceMenuTests.cpp
-  src/Accounts/AccountManager.cpp
-  src/Accounts/User.cpp
-  src/System/Database/MongoDBHandler.cpp
-  src/System/Database/MongoDBDataManager.cpp
-  src/Accounts/SetUserFromDB.cpp
-  src/Accounts/UserBusiness/BusinessDetails.cpp
-  src/InvoiceSystem/PDF/InvoicePdfGenerator.cpp
-  src/Accounts/UserBusiness/BusinessRepository.cpp
-  src/System/InvoiceSystem.cpp
-  src/System/Menu/MainMenu.cpp
-  src/InvokeInvoiceSystem.cpp
-  src/Accounts/UserBusiness/SetBusinessFromDB.cpp 
-  src/Accounts/UserBusiness/Clients/ClientDetails.cpp
-  src/System/Menu/BusinessMenu.cpp
-  src/Accounts/UserBusiness/BusinessManager.cpp
-  src/Accounts/UserBusiness/Clients/ClientManager.cpp  
-  src/Stock/StockDetails.cpp 
-  src/Stock/SetStockFromDB.cpp
-  src/System/Menu/StockMenu.cpp 
-  src/Stock/StockManager.cpp 
-  src/Stock/ClientStockItem.cpp 
-  src/Accounts/UserBusiness/Clients/SetClientFromDB.cpp
-  src/InvoiceSystem/InvoiceData/InvoiceDetails.cpp
-  src/InvoiceSystem/InvoiceData/SetInvoiceFromDB.cpp)
-
-target_include_directories(InvoiceMenuTests PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-  ${CMAKE_CURRENT_SOURCE_DIR}/tests
-)
-
-target_link_libraries(InvoiceMenuTests
-  PRIVATE
-    passlib
-    fmt::fmt
-    Iconv::Iconv
-    GTest::gtest
-    GTest::gtest_main
-    unofficial::libharu::hpdf
-    $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,
-       mongo::bsoncxx_static,
-       mongo::bsoncxx_shared>
-    $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,
-       mongo::mongocxx_static,
-       mongo::mongocxx_shared>
-)
-target_precompile_headers(InvoiceMenuTests PRIVATE include/pch.h)
-
-# 6) Enable test discovery
-include(GoogleTest)
-gtest_discover_tests(InvoiceMenuTests)
