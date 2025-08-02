@@ -1,83 +1,86 @@
-# === OS-specific ===
-.DS_Store
-Thumbs.db
-
-# === CMake ===
+# CMake build directories
+build/
+out/
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 Makefile
-build/
-build-*/
-compile_commands.json
-Testing/
-CTestTestfile.cmake
-_install/
-_install/*
-_install
+install_manifest.txt
 
-# === Visual Studio (.vs, .vcxproj, user data) ===
-.vs/
-*.vcxproj*
+# Visual Studio build
 *.sln
+*.vcxproj*
 *.user
-*.suo
+*.opensdf
+*.sdf
 *.VC.db
-*.VC.opendb
+*.VC.VC.opendb
 ipch/
+.vs/
+*.dbmdl
 
-# === Compiler output ===
-*.obj
-*.o
-*.lo
-*.a
-*.lib
-*.so
-*.dll
-*.dylib
-*.exe
-*.out
-
-# === Debug/Release folders ===
-Debug/
-Release/
-x64/
-x86/
-bin/
-Bin/
-obj/
-Obj/
-
-# === Logs and temp ===
-*.log
-*.tmp
-
-# === Editor/IDE-specific ===
-*.swp
-*~
-*.bak
-*.orig
-
-# === CLion / JetBrains ===
-.idea/
-cmake-build-*/
-
-# === CodeBlocks ===
-*.depend
-*.layout
-*.cbp
-*.layout.save
-
-# === Qt Creator ===
+# Qt generated files
+*.moc
+*.qrc
+*.rcc
+*.qmlc
+*.jsc
+*.qrc.depends
+*.autosave
+*.pro.user*
 *.pro.user
-*.qbs.user
 *.pro.user.*
-*.qbs.user.*
+
+# Qt Creator
+*.pro.user*
+*.qbs.user*
+*.creator.user*
+*.creator*
 *.autosave
 
-# === Backup files ===
-*.old
-*.save
+# vcpkg cache/build directories (but **not** vcpkg.json or installed ports)
+vcpkg_installed/
+vcpkg_buildtrees/
+vcpkg_downloads/
+vcpkg_out/
+vcpkg/packages/
+vcpkg/installed/
+# Do NOT ignore vcpkg.json or vcpkg-configuration.json
 
-# === Custom ===
-# Add your own folders here, e.g. test-generated data, etc.
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and temp
+*.log
+*.tmp
+*.bak
+*.swp
+
+# User/project local config
+*.local
+*.cache
+*.plist
+
+# Test outputs
+Testing/
+test_output/
+
+# Ignore generated docs (optional, uncomment if using Doxygen)
+# docs/
+
+# Ignore binaries and libs
+*.exe
+*.dll
+*.lib
+*.so
+*.a
+*.app
+*.dylib
+*.obj
+*.o
+*.pch
+
+# Ignore generated PDF/HTML (optional)
+*.pdf
+*.html
