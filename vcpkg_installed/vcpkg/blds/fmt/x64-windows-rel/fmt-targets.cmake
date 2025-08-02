@@ -7,7 +7,7 @@ if(CMAKE_VERSION VERSION_LESS "3.0.0")
    message(FATAL_ERROR "CMake >= 3.0.0 required")
 endif()
 cmake_policy(PUSH)
-cmake_policy(VERSION 3.0.0...3.30)
+cmake_policy(VERSION 3.0.0...3.31)
 #----------------------------------------------------------------
 # Generated CMake target import file.
 #----------------------------------------------------------------
@@ -53,7 +53,7 @@ set_target_properties(fmt::fmt PROPERTIES
   INTERFACE_COMPILE_DEFINITIONS "FMT_SHARED"
   INTERFACE_COMPILE_FEATURES "cxx_std_11"
   INTERFACE_COMPILE_OPTIONS "\$<\$<AND:\$<COMPILE_LANGUAGE:CXX>,\$<CXX_COMPILER_ID:MSVC>>:/utf-8>"
-  INTERFACE_INCLUDE_DIRECTORIES "C:/dev/Repos/InvokeInvoiceSystem/vcpkg_installed/vcpkg/blds/fmt/src/11.0.2-c30c0a133f.clean/include"
+  INTERFACE_INCLUDE_DIRECTORIES "C:/Users/Fabian/dev/repos/InvokeInvoiceSystem/vcpkg_installed/vcpkg/blds/fmt/src/11.0.2-c30c0a133f.clean/include"
 )
 
 # Create imported target fmt::fmt-header-only
@@ -63,14 +63,14 @@ set_target_properties(fmt::fmt-header-only PROPERTIES
   INTERFACE_COMPILE_DEFINITIONS "FMT_HEADER_ONLY=1"
   INTERFACE_COMPILE_FEATURES "cxx_std_11"
   INTERFACE_COMPILE_OPTIONS "\$<\$<AND:\$<COMPILE_LANGUAGE:CXX>,\$<CXX_COMPILER_ID:MSVC>>:/utf-8>"
-  INTERFACE_INCLUDE_DIRECTORIES "C:/dev/Repos/InvokeInvoiceSystem/vcpkg_installed/vcpkg/blds/fmt/src/11.0.2-c30c0a133f.clean/include"
+  INTERFACE_INCLUDE_DIRECTORIES "C:/Users/Fabian/dev/repos/InvokeInvoiceSystem/vcpkg_installed/vcpkg/blds/fmt/src/11.0.2-c30c0a133f.clean/include"
 )
 
 # Import target "fmt::fmt" for configuration "Release"
 set_property(TARGET fmt::fmt APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
 set_target_properties(fmt::fmt PROPERTIES
-  IMPORTED_IMPLIB_RELEASE "C:/dev/Repos/InvokeInvoiceSystem/vcpkg_installed/vcpkg/blds/fmt/x64-windows-rel/fmt.lib"
-  IMPORTED_LOCATION_RELEASE "C:/dev/Repos/InvokeInvoiceSystem/vcpkg_installed/vcpkg/blds/fmt/x64-windows-rel/bin/fmt.dll"
+  IMPORTED_IMPLIB_RELEASE "C:/Users/Fabian/dev/repos/InvokeInvoiceSystem/vcpkg_installed/vcpkg/blds/fmt/x64-windows-rel/fmt.lib"
+  IMPORTED_LOCATION_RELEASE "C:/Users/Fabian/dev/repos/InvokeInvoiceSystem/vcpkg_installed/vcpkg/blds/fmt/x64-windows-rel/bin/fmt.dll"
   )
 
 # This file does not depend on other imported targets which have

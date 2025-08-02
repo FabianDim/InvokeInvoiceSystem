@@ -1,8 +1,9 @@
-Package: libiconv
-Version: 1.17
-Port-Version: 5
+Package: libharu
+Version: 2.4.4
+Port-Version: 1
+Depends: libpng, vcpkg-cmake, vcpkg-cmake-config, zlib
 Architecture: x64-windows
 Multi-Arch: same
-Abi: 05c18d95db0e99955bbbbf1146e632155d61875b434dcc12075dcb832f712e73
-Description: GNU Unicode text conversion
+Abi: 30d3bb616cb12b2c5bbc58816cea34d66a7568c361682ab9133fc71a4858a703
+Description: libharu - free PDF library
 Status: purge ok half-installed

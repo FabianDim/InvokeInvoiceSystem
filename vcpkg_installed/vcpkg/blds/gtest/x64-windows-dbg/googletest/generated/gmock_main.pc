@@ -1,5 +1,5 @@
-libdir=C:/dev/Repos/InvokeInvoiceSystem/vcpkg_installed/vcpkg/pkgs/gtest_x64-windows/debug/lib
-includedir=C:/dev/Repos/InvokeInvoiceSystem/vcpkg_installed/vcpkg/pkgs/gtest_x64-windows/debug/include
+libdir=C:/Users/Fabian/dev/repos/InvokeInvoiceSystem/vcpkg_installed/vcpkg/pkgs/gtest_x64-windows/debug/lib
+includedir=C:/Users/Fabian/dev/repos/InvokeInvoiceSystem/vcpkg_installed/vcpkg/pkgs/gtest_x64-windows/debug/include
 
 Name: gmock_main
 Description: GoogleMock (with main() function)
