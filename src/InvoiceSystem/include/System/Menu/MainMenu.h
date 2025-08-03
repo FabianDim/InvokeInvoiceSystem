@@ -1,6 +1,6 @@
 #pragma once
 #include "Accounts/AccountManager.h" // Ensure AccountManager is included
-#include "Accounts/userbusiness/BusinessDetails.h"
+#include "Accounts/UserBusiness/BusinessDetails.h"
 #include <iostream>
 #include "pch.h"
 #include <io.h>
