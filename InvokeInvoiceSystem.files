@@ -3,7 +3,7 @@ CMakeFiles/ShowIncludes/foo.h
 CMakeFiles/ShowIncludes/main.c
 include/.h
 include/Accounts/AccountManager.h
-include/Accounts/PasswordHashing/bcrypt.h
+libs/passlib/include/passlib/bcrypt.h
 include/Accounts/SetUserFromDB.h
 include/Accounts/User.h
 include/Accounts/UserBusiness/BusinessDetails.h
@@ -688,10 +688,10 @@ out/build/x64-debug/vcpkg_installed/x64-windows/src/gtest-typed-test.cc
 out/build/x64-debug/vcpkg_installed/x64-windows/src/gtest.cc
 out/build/x64-debug/vcpkg_installed/x64-windows/src/gtest_main.cc
 src/Accounts/AccountManager.cpp
-src/Accounts/PasswordHashing/bcrypt.cpp
-src/Accounts/PasswordHashing/blowfish.cpp
-src/Accounts/PasswordHashing/node_blf.h
-src/Accounts/PasswordHashing/openbsd.h
+libs/passlib/src/bcrypt.cpp
+libs/passlib/src/blowfish.cpp
+libs/passlib/src/node_blf.h
+libs/passlib/src/openbsd.h
 src/Accounts/SetUserFromDB.cpp
 src/Accounts/User.cpp
 src/Accounts/UserBusiness/BusinessDetails.cpp

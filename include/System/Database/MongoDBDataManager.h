@@ -7,7 +7,7 @@
 #include "bsoncxx/builder/basic/kvp.hpp"  
 #include "Accounts/User.h"
 #include "MongoDBHandler.h"
-#include "Accounts/PasswordHashing/bcrypt.h"
+#include "passlib/bcrypt.h"
 
 using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::make_document;
