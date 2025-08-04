@@ -6,12 +6,16 @@ MainWindow::MainWindow(QWidget* parent)
         fileMenu(nullptr),
         newAct(nullptr),
         openAct(nullptr),
-        saveAct(nullptr)
+        saveAct(nullptr),
+        loginAct(nullptr),
+        logoutAct(nullptr)
 {
+    createActions();
     createMenus();
     setWindowTitle("Invoke Invoice System");
-	setWindowIcon(QIcon("./icons/invoice_icon.jpg"));
-
+    QIcon icon(":/icons/invoice_icon.png");
+    qDebug() << "Icon is null?" << icon.isNull();
+    setWindowIcon(icon);
 }
 
 MainWindow::~MainWindow() {
@@ -22,4 +26,14 @@ void MainWindow::createMenus()
     fileMenu->addAction(newAct);
     fileMenu->addAction(openAct);
     fileMenu->addAction(saveAct);
+    fileMenu->addSeparator();
+    fileMenu->addAction(loginAct);
+    fileMenu->addAction(logoutAct);
+
+}
+
+void MainWindow::createActions(){
+	loginAct = new QAction(tr("&Login"), this);
+	
+    logoutAct = new QAction(tr("&Logout"), this);
 }

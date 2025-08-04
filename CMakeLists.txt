@@ -12,6 +12,7 @@ set(Qt6_DIR "C:/Qt/6.9.1/msvc2022_64/lib/cmake/Qt6")
 
 set(CMAKE_CONFIGURATION_TYPES "Release;RelWithDebInfo" CACHE STRING "" FORCE)
 
+
 find_package(fmt                CONFIG REQUIRED)
 find_package(bsoncxx            CONFIG REQUIRED)
 find_package(mongocxx           CONFIG REQUIRED)
@@ -56,11 +57,15 @@ target_include_directories(passlib PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )
+
+qt_add_resources(INVOICE_RESOURCES "${CMAKE_SOURCE_DIR}/forms/Invoice_Resources.qrc")
+
+
 # Add the executable
 if (WIN32) 
-    qt_add_executable(${PROJECT_NAME} WIN32 ${SOURCES})
+    qt_add_executable(${PROJECT_NAME} WIN32 ${SOURCES} ${INVOICE_RESOURCES})
 elseif(UNIX)
-    qt_add_executable(${PROJECT_NAME} ${SOURCES})
+    qt_add_executable(${PROJECT_NAME} ${SOURCES} ${INVOICE_RESOURCES})
 endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${FORMS_DIR})

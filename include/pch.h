@@ -53,3 +53,14 @@ extern "C" {
 #include "Accounts/UserBusiness/BusinessManager.h"
 #include "Accounts/UserBusiness/Clients/ClientManager.h"   // if you have a ClientManager in that folder
 #include "Stock/StockManager.h"
+
+//QT
+
+#include <QString>
+#include <QApplication>
+#include <QMainWindow>
+#include <QMessageBox>
+#include <QInputDialog>
+#include <QDebug>
+#include <QFileDialog>
+#include <QTableWidget>

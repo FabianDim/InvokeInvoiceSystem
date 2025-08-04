@@ -19,5 +19,9 @@ private:
     QAction* newAct;
     QAction* openAct;
     QAction* saveAct;
+    QAction* logoutAct;
+    QAction* loginAct;
+
     void createMenus();
+    void createActions();
 };
