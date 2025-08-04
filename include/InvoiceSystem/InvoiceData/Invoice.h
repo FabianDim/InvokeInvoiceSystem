@@ -1,13 +1,13 @@
 #pragma once
 #include "pch.h"
-#include "Accounts/UserBusiness/BusinessManager.h"
-#include "Accounts/UserBusiness/BusinessRepository.h"
-#include "Accounts/UserBusiness/Clients/ClientManager.h"
-#include "Accounts/UserBusiness/Clients/Client.h"
-#include "Stock/StockManager.h"
-#include "Stock/ClientStockItem.h"
-#include "Utils/DateUtil.h"
-#include "Utils/TemplateUtil.h"
+#include "InvoiceSystem/Accounts/UserBusiness/BusinessManager.h"
+#include "InvoiceSystem/Accounts/UserBusiness/BusinessRepository.h"
+#include "InvoiceSystem/Accounts/UserBusiness/Clients/ClientManager.h"
+#include "InvoiceSystem/Accounts/UserBusiness/Clients/Client.h"
+#include "InvoiceSystem/InvoiceData/Stock/StockManager.h"
+#include "InvoiceSystem/InvoiceData/Stock/ClientStockItem.h"
+#include "InvoiceSystem/Utils/DateUtil.h"
+#include "InvoiceSystem/Utils/TemplateUtil.h"
 #include "InvoiceTemplateEnum.h"
 class Invoice{
 private:

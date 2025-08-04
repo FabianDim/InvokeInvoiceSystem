@@ -1,4 +1,4 @@
-#include "Accounts/UserBusiness/BusinessManager.h"
+#include "InvoiceSystem/Accounts/UserBusiness/BusinessManager.h"
 
 std::shared_ptr<BusinessRepository> BusinessManager::currentBusiness = nullptr;
 

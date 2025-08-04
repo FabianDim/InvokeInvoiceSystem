@@ -1,4 +1,4 @@
-#include "System/Menu/MainMenu.h"
+#include "InvoiceSystem/System/Menu/MainMenu.h"
 
 MainMenu::MainMenu() {}
 void MainMenu::displayMenu(AccountManager& manager) {

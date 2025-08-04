@@ -1,7 +1,7 @@
 #pragma once
 #include "pch.h"
 #include "Invoice.h"
-#include "Stock/SetStockFromDB.h"
+#include "InvoiceSystem/InvoiceData/Stock/SetStockFromDB.h"
 
 class SetInvoice {
 	friend class InvoiceManager;

@@ -1,5 +1,5 @@
-#include "Accounts/UserBusiness/Clients/ClientManager.h"
-#include "Accounts/UserBusiness/Clients/SetClientFromDB.h"
+#include "InvoiceSystem/Accounts/UserBusiness/Clients/ClientManager.h"
+#include "InvoiceSystem/Accounts/UserBusiness/Clients/SetClientFromDB.h"
 std::shared_ptr<Client> ClientManager::currentClient = nullptr;
 void ClientManager::setClient(std::shared_ptr<Client> client) {
 	currentClient = client;

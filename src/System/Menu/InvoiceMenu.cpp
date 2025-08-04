@@ -1,7 +1,7 @@
-#include "System/Menu/InvoiceMenu.h"
-#include "Accounts/UserBusiness/SetBusinessFromDB.h"
+#include "InvoiceSystem/System/Menu/InvoiceMenu.h"
+#include "InvoiceSystem/Accounts/UserBusiness/SetBusinessFromDB.h"
 #include "pch.h"
-#include "Accounts/AccountManager.h"
+#include "InvoiceSystem/Accounts/AccountManager.h"
 #include <hpdf.h>
 #include <setjmp.h>
 void InvoiceMenu::displayMenu() {

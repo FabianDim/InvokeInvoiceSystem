@@ -1,4 +1,4 @@
-#include "System/Menu/StockMenu.h"
+#include "InvoiceSystem/System/Menu/StockMenu.h"
 
 void StockMenu::displayStockMenu() {
 	//Search business stock

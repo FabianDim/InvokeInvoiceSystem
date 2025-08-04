@@ -21,9 +21,9 @@
 #include <bsoncxx/types/value.hpp>
 #include <bsoncxx/exception/exception.hpp>
 #include <bsoncxx/builder/basic/kvp.hpp>  
-#include "System/Database/MongoDBDataManager.h"
+#include "InvoiceSystem/System/Database/MongoDBDataManager.h"
 // Include bcrypt library  
-#include "Accounts/PasswordHashing/bcrypt.h"  
+#include "InvoiceSystem/Accounts/PasswordHashing/bcrypt.h"  
 
 //include pdf table
 extern "C" {
@@ -45,11 +45,11 @@ extern "C" {
 #include <unordered_set>
 
 //custom utils
-#include "Utils/StringUtils.h"
-#include "Utils/TemplateUtil.h"
+#include "InvoiceSystem/Utils/StringUtils.h"
+#include "InvoiceSystem/Utils/TemplateUtil.h"
 
 //manager classes
-#include "Accounts/AccountManager.h"
-#include "Accounts/UserBusiness/BusinessManager.h"
-#include "Accounts/UserBusiness/Clients/ClientManager.h"   // if you have a ClientManager in that folder
-#include "Stock/StockManager.h"
+#include "InvoiceSystem/Accounts/AccountManager.h"
+#include "InvoiceSystem/Accounts/UserBusiness/BusinessManager.h"
+#include "InvoiceSystem/Accounts/UserBusiness/Clients/ClientManager.h"   // if you have a ClientManager in that folder
+#include "InvoiceSystem/InvoiceData/Stock/StockManager.h"

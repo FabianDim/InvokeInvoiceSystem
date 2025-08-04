@@ -1,18 +1,18 @@
 #pragma once
 
 #include "pch.h"
-#include "Accounts/AccountManager.h"
-#include "System/Database/MongoDBDataManager.h"
+#include "InvoiceSystem/Accounts/AccountManager.h"
+#include "InvoiceSystem/System/Database/MongoDBDataManager.h"
 #include "InvoiceSystem/InvoiceData/Invoice.h"
-#include "Accounts/User.h"
-#include "Stock/StockManager.h"
-#include "Accounts/UserBusiness/Clients/ClientManager.h"
-#include "Accounts/UserBusiness/BusinessManager.h"
+#include "InvoiceSystem/Accounts/User.h"
+#include "InvoiceSystem/InvoiceData/Stock/StockManager.h"
+#include "InvoiceSystem/Accounts/UserBusiness/Clients/ClientManager.h"
+#include "InvoiceSystem/Accounts/UserBusiness/BusinessManager.h"
 #include "InvoiceSystem/InvoiceManager.h"
 #include <ctime>
-#include "Accounts/UserBusiness/Clients/SetClientFromDB.h"
-#include "Utils/DateUtil.h"
-#include "Utils/TemplateUtil.h"
+#include "InvoiceSystem/Accounts/UserBusiness/Clients/SetClientFromDB.h"
+#include "InvoiceSystem/Utils/DateUtil.h"
+#include "InvoiceSystem/Utils/TemplateUtil.h"
 #include "InvoiceTemplateEnum.h"
 
 

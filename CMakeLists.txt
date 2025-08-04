@@ -1,9 +1,9 @@
 ﻿cmake_minimum_required(VERSION 3.10...3.24)
 
 if (WIN32)
-    project(InvokeInvoiceSystem LANGUAGES CXX)
+    project(InvokeInvoiceSystem2 LANGUAGES CXX)
 elseif(UNIX)
-    project(InvokeInvoiceSystem)
+    project(InvokeInvoiceSystem2)
 endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -33,9 +33,10 @@ include_directories(${SOURCE_DIR})
 
 file(GLOB_RECURSE SOURCES
     "${FORMS_DIR}/*.ui"
-    "${FORMS_DIR}/*.qrc"
     "${INCLUDE_DIR}/*.h"
+    "${SOURCE_DIR}/*.h"
     "${SOURCE_DIR}/*.cpp"
+    "${SOURCE_DIR}/*.qrc"
 )
 
 #=================== SETUP EXECTUABLE ====================#
