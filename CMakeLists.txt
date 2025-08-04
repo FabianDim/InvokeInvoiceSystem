@@ -8,11 +8,7 @@ endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_PREFIX_PATH
-    "C:/Users/Fabian/dev/vcpkg/installed/x64-windows/share"
-    "C:/Qt/6.9.1/msvc2022_64/lib/cmake"
-    CACHE STRING "Paths to vcpkg installed/share and Qt6 install prefix"
-)
+set(Qt6_DIR "C:/Qt/6.9.1/msvc2022_64/lib")
 
 set(CMAKE_CONFIGURATION_TYPES "Release;RelWithDebInfo" CACHE STRING "" FORCE)
 
