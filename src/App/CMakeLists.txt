@@ -7,7 +7,7 @@ set(APP_EXECUTABLE_NAME InvoiceSystemGUI)
 
 # Define local paths
 set(APP_FORMS_DIR   "${CMAKE_SOURCE_DIR}/forms")
-set(APP_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/InvoiceSystem/include")
+set(APP_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
 set(APP_SOURCE_DIR  "${CMAKE_SOURCE_DIR}/src/InvoiceSystem" "${CMAKE_SOURCE_DIR}/src/App")
 
 include_directories(${APP_INCLUDE_DIR})

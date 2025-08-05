@@ -21,7 +21,7 @@ find_package(Qt6 COMPONENTS Widgets REQUIRED)
 qt_add_resources(INVOICE_RESOURCES "${CMAKE_SOURCE_DIR}/forms/Invoice_Resources.qrc")
 
 # Define include paths
-set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/InvoiceSystem/include")
+set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
 set(SOURCE_DIR  "${CMAKE_SOURCE_DIR}/src/InvoiceSystem")
 
 include_directories(${INCLUDE_DIR})
