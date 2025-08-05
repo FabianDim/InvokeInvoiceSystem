@@ -25,7 +25,7 @@ qt_standard_project_setup()
 
 #=================== INCLUSION OF Project Files ====================#
 set(FORMS_DIR "${CMAKE_SOURCE_DIR}/forms")
-set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
+set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}src/include")
 set(SOURCE_DIR "${CMAKE_SOURCE_DIR}/src")
 
 include_directories(${FORMS_DIR})
@@ -54,7 +54,7 @@ add_library(passlib STATIC
 )
 target_include_directories(passlib PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Accounts/PasswordHashing
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${CMAKE_CURRENT_SOURCE_DIR}src/include
   ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )
 
