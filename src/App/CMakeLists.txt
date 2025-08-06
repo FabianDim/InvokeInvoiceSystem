@@ -7,7 +7,7 @@ set(APP_EXECUTABLE_NAME InvoiceSystemGUI)
 
 # Define local paths
 set(APP_FORMS_DIR   "${CMAKE_SOURCE_DIR}/forms")
-set(APP_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/InvoiceSystem/include")
+set(APP_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
 set(APP_SOURCE_DIR  "${CMAKE_SOURCE_DIR}/src/InvoiceSystem" "${CMAKE_SOURCE_DIR}/src/App")
 
 include_directories(${APP_INCLUDE_DIR})
@@ -15,7 +15,7 @@ include_directories(${APP_INCLUDE_DIR})
 # GUI Sources
 file(GLOB_RECURSE APP_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/UICode/*.cpp"
-    "${CMAKE_SOURCE_DIR}/src/InvoiceSystem/"
+    "${CMAKE_SOURCE_DIR}/src/InvoiceSystem/*.cpp"
     "${APP_FORMS_DIR}/*.ui"
     "${APP_FORMS_DIR}/*.qrc"
 )
@@ -54,6 +54,7 @@ set_target_properties(${APP_EXECUTABLE_NAME} PROPERTIES
 if(EXISTS "${APP_INCLUDE_DIR}/pch.h")
     target_precompile_headers(${APP_EXECUTABLE_NAME} PRIVATE ${APP_INCLUDE_DIR}/pch.h)
 endif()
+
 set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS
     $<$<CONFIG:RELWITHDEBINFO>:QT_MESSAGELOGCONTEXT>
 )

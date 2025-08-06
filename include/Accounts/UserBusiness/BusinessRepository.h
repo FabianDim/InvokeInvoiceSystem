@@ -1,10 +1,10 @@
-#pragma once
-#include "../../pch.h"
+﻿#pragma once
+#include "pch.h"
 #include "Accounts/User.h"
 #include "Accounts/AccountManager.h"
 class BusinessRepository {
 public:
-    BusinessRepository() : currentUser(AccountManager::currentUser) {}
+    BusinessRepository(MongoDBDataManager& dbManager) : currentUser(AccountManager::currentUser), dbManager(dbManager) {}
     const std::string& getBizID() const { return bizID; }
     const std::unordered_set<std::string>& getClients() const { return clients; }
     const std::vector<std::string>& getStock() const { return stock; }
@@ -38,6 +38,6 @@ private:
 
 	std::shared_ptr<User> currentUser;
 	std::string currentUserID = currentUser->getMongoUserID();
-	MongoDBDataManager dbManager;
+	MongoDBDataManager& dbManager;
 
 };

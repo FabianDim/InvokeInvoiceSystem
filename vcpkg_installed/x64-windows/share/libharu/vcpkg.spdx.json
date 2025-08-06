@@ -3,13 +3,13 @@
   "spdxVersion": "SPDX-2.2",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "documentNamespace": "https://spdx.org/spdxdocs/libharu-x64-windows-2.4.4#1-355b3054-0973-43ee-afbe-eb17fa390578",
-  "name": "libharu:x64-windows@2.4.4#1 30d3bb616cb12b2c5bbc58816cea34d66a7568c361682ab9133fc71a4858a703",
+  "documentNamespace": "https://spdx.org/spdxdocs/libharu-x64-windows-2.4.4#1-9cf42500-5394-4826-8575-95bebbbc1847",
+  "name": "libharu:x64-windows@2.4.4#1 bb36b13aca1f97233f7e019c783b34493232b01f33fcf4b0f487d7f72964ad13",
   "creationInfo": {
     "creators": [
       "Tool: vcpkg-2025-04-01-9c604254140797833b6f76908435c9fcbf09920e"
     ],
-    "created": "2025-07-21T12:32:49Z"
+    "created": "2025-08-03T11:36:52Z"
   },
   "relationships": [
     {
@@ -94,7 +94,7 @@
     {
       "name": "libharu:x64-windows",
       "SPDXID": "SPDXRef-binary",
-      "versionInfo": "30d3bb616cb12b2c5bbc58816cea34d66a7568c361682ab9133fc71a4858a703",
+      "versionInfo": "bb36b13aca1f97233f7e019c783b34493232b01f33fcf4b0f487d7f72964ad13",
       "downloadLocation": "NONE",
       "licenseConcluded": "Zlib",
       "licenseDeclared": "NOASSERTION",
