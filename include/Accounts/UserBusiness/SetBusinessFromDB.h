@@ -1,7 +1,8 @@
 #pragma once
 
 #include "../../pch.h"
-#include "Accounts/UserBusiness/BusinessRepository.h"
+
+class BusinessRepository;
 
 class SetBusiness {
 	friend class BusinessMenu;

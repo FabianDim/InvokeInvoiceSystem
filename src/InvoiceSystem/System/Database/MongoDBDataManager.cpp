@@ -1,4 +1,6 @@
 #include "System/Database/MongoDBDataManager.h"
+#include "Accounts/User.h"
+#include "Accounts/PasswordHashing/bcrypt.h"
 #include <bsoncxx/json.hpp>
 #include <mongocxx/exception/bulk_write_exception.hpp>
 #include <mongocxx/exception/exception.hpp>

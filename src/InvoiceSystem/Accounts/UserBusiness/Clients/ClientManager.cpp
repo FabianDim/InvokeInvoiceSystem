@@ -1,5 +1,8 @@
 #include "Accounts/UserBusiness/Clients/ClientManager.h"
 #include "Accounts/UserBusiness/Clients/SetClientFromDB.h"
+#include "Accounts/UserBusiness/Clients/Client.h"
+#include "Accounts/UserBusiness/BusinessManager.h"
+#include "System/Database/MongoDBDataManager.h"
 std::shared_ptr<Client> ClientManager::currentClient = nullptr;
 void ClientManager::setClient(std::shared_ptr<Client> client) {
 	currentClient = client;

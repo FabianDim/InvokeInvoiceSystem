@@ -1,4 +1,8 @@
 #include "Stock/StockManager.h"
+#include "Accounts/UserBusiness/BusinessManager.h"
+#include "System/Database/MongoDBDataManager.h"
+#include "Stock/StockItem.h"
+#include "Stock/SetStockFromDB.h"
 
 std::shared_ptr<StockItem> StockManager::currentItem = nullptr;
 

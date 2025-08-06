@@ -1,4 +1,5 @@
 #include "Accounts/SetUserFromDB.h"
+#include "Accounts/User.h"
 #include <bsoncxx/document/view_or_value.hpp>
 #include <bsoncxx/builder/stream/document.hpp>
 #include <bsoncxx/builder/stream/helpers.hpp>

@@ -1,5 +1,8 @@
 #include <cctype>
 #include "Accounts/UserBusiness/BusinessDetails.h"
+#include "Accounts/AccountManager.h"
+#include "Accounts/User.h"
+#include "Accounts/SetUserFromDB.h"
 
 BusinessDetails::BusinessDetails(AccountManager& accountManager) :accountManager(accountManager) // Initialize reference
 {

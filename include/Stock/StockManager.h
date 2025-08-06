@@ -1,17 +1,17 @@
 #pragma once  
 #include "pch.h"  
-#include "Accounts/UserBusiness/BusinessManager.h"  
-#include "System/Database/MongoDBDataManager.h"  
-#include "StockItem.h"
-#include <unordered_map>  
-#include <optional>  
-#include <set> 
-#include "Stock/SetStockFromDB.h"
+#include <unordered_map>
+#include <optional>
+#include <set>
+
+class BusinessManager;
+class MongoDBDataManager;
+class StockItem;
 
 class StockManager {  
 public:  
     StockManager(MongoDBDataManager& dbManager, BusinessManager& businessManager) :
-        dbManager(dbManager), businessManager(businessManager) {}
+        businessManager(businessManager), dbManager(dbManager) {}
     void displayAllStock();  
     std::optional<std::unordered_map<std::string, std::string>> stockMap();  
     std::optional<std::unordered_map<std::string, std::set<std::string>>> createSearchMap();

@@ -1,4 +1,8 @@
 #include "Accounts/UserBusiness/BusinessManager.h"
+#include "Accounts/UserBusiness/BusinessRepository.h"
+#include "Accounts/UserBusiness/SetBusinessFromDB.h"
+#include "Accounts/AccountManager.h"
+#include "Accounts/User.h"
 
 std::shared_ptr<BusinessRepository> BusinessManager::currentBusiness = nullptr;
 

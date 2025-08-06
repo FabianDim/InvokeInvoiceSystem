@@ -1,4 +1,7 @@
 #include "Accounts/UserBusiness/SetBusinessFromDB.h"
+#include "Accounts/UserBusiness/BusinessRepository.h"
+#include "System/Database/MongoDBDataManager.h"
+
 std::shared_ptr<BusinessRepository> SetBusiness::setUpBusiness(const std::string businessID) {
 	MongoDBDataManager dbManager;
 	auto result = dbManager.findOne("Business", make_document(kvp("BusinessID", businessID)));

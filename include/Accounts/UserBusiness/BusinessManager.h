@@ -1,8 +1,9 @@
 #pragma once
 #include "pch.h"
-#include "BusinessRepository.h"
-#include "SetBusinessFromDB.h"
 #include "System/Database/MongoDBDataManager.h"
+
+class BusinessRepository;
+
 class BusinessManager{
 public:
 	static void setBusinessGlobally(const std::string bizID);

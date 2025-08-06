@@ -1,7 +1,10 @@
 #include "Accounts/AccountManager.h"
+#include "Accounts/User.h"
+#include "Accounts/SetUserFromDB.h"
+#include "Accounts/PasswordHashing/bcrypt.h"
 #include <iostream>
 #include <iso646.h>
-#include <cctype> 
+#include <cctype>
 std::shared_ptr<User> AccountManager::currentUser = nullptr;
 
 AccountManager::AccountManager() {

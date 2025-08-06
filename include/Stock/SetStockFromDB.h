@@ -1,6 +1,7 @@
 #pragma once
 
-#include "StockItem.h"
+
+class StockItem;
 
 class SetStockItem {
 	friend class StockManager;

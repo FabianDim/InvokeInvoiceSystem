@@ -1,4 +1,7 @@
 #include "Stock/SetStockFromDB.h"
+#include "Stock/StockItem.h"
+#include "System/Database/MongoDBDataManager.h"
+
 std::shared_ptr<StockItem> SetStockItem::setStockItem(const std::string& stockID) {
 	MongoDBDataManager dbManager;
 	auto result = dbManager.findOne("Stock", make_document(kvp("StockID", stockID)));

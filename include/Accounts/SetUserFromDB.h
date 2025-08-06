@@ -1,9 +1,9 @@
 #pragma once
 
 #include "../pch.h"
-#include "Accounts/User.h"
-#include "Accounts/AccountManager.h"
 #include "System/Database/MongoDBDataManager.h"
+
+class User;
 
 class SetUser {
 private:

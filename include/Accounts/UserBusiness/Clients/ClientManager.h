@@ -1,8 +1,8 @@
 #pragma once
-#include "../BusinessManager.h"
 #include "pch.h"
 
-#include "Client.h"
+class Client;
+class MongoDBDataManager;
 
 class ClientManager {
 private:

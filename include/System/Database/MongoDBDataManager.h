@@ -5,9 +5,16 @@
 #include <mongocxx/uri.hpp>  
 #include <bsoncxx/builder/stream/document.hpp>  
 #include "bsoncxx/builder/basic/kvp.hpp"  
-#include "Accounts/User.h"
 #include "MongoDBHandler.h"
-#include "Accounts/PasswordHashing/bcrypt.h"
+
+class User;
+class AccountManager;
+class SetUser;
+class BusinessDetails;
+class BusinessRepository;
+class InvoiceMenu;
+class BusinessMenu;
+class SetBusiness;
 
 using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::make_document;

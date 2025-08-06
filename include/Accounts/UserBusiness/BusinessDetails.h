@@ -1,8 +1,9 @@
 #pragma once
 #include "pch.h"
-#include "Accounts/AccountManager.h" // Ensure this is included before using AccountManager
 #include "System/Database/MongoDBDataManager.h"
-#include "Accounts/User.h"
+
+class AccountManager;
+class User;
 
 enum class BusinessStep {
 	ENTER_ABN,

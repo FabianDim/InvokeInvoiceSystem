@@ -1,4 +1,6 @@
 #include "Accounts/UserBusiness/Clients/SetClientFromDB.h"
+#include "Accounts/UserBusiness/Clients/Client.h"
+#include "System/Database/MongoDBDataManager.h"
 
 std::shared_ptr<Client> SetClient::setClientFromDB(const std::string& clientID) {
     MongoDBDataManager dbManager;

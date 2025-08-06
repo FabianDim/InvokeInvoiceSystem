@@ -1,16 +1,17 @@
 ﻿#root cmake list file for the Invoice System project
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.15)
 
 # Project definition
-project(InvokeInvoiceSystem LANGUAGES CXX)
+project(InvokeInvoiceSystem2 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Prefix paths for vcpkg and Qt
+set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
+find_package(fmt CONFIG REQUIRED)
 set(Qt6_DIR "C:/Qt/6.9.1/msvc2022_64/lib/cmake/Qt6")
 
 # Dependencies
-find_package(fmt CONFIG REQUIRED)
 find_package(bsoncxx CONFIG REQUIRED)
 find_package(mongocxx CONFIG REQUIRED)
 find_package(unofficial-libharu CONFIG REQUIRED)
