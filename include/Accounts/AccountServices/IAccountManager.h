@@ -9,7 +9,7 @@ class IAccountManager : public QObject {
 public:
 	virtual ~IAccountManager() = default;
 private:
-	QString currentUserName() const override;
+	//QString currentUserName() const override;
 
 	bool isLoggedIn = false;
 };

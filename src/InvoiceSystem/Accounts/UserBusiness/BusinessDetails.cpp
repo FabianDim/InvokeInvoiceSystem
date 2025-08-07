@@ -1,9 +1,6 @@
 #include <cctype>
 #include "Accounts/UserBusiness/BusinessDetails.h"
 
-BusinessDetails::BusinessDetails(AccountManager& accountManager) :accountManager(accountManager) // Initialize reference
-{
-}
 
 std::string BusinessDetails::toLower(std::string text) {
     std::transform(text.begin(), text.end(), text.begin(), ::tolower);
@@ -380,7 +377,7 @@ bsoncxx::document::value BusinessDetails::createBusinessDoc() {
         make_document(kvp("$addToSet", make_document(kvp("BusinessIDs", businessIDs)).view())));
     }
     else {
-        SetUser setUser;
+        SetUser setUser(dbManager);
         setUser.addBusinessToUser(accountManager.getAccount()->getMongoUserID(), makeBusinessID());
     }
     std::string address = userBusiness.businessAddress.streetAddress + " " +

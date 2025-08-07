@@ -156,7 +156,7 @@ void BusinessMenu::displayBusMenu() {
 	void BusinessMenu::addSelfToBusinessID() {//adds a user to an existing business. Intergrate the bus number into more stats so the users actually know num
 		std::cout << "Please specify the ID of the business for which you'd like to join (BUSXXXXXXXX): ";
 
-		SetUser setUser;
+		SetUser setUser(dbManager);
 		std::string biz;
 		std::cin >> biz;
 

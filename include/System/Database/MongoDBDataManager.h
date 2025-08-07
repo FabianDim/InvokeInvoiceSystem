@@ -5,7 +5,7 @@
 #include <mongocxx/uri.hpp>  
 #include <bsoncxx/builder/stream/document.hpp>  
 #include "bsoncxx/builder/basic/kvp.hpp"  
-#include "Accounts/User.h"
+
 #include "MongoDBHandler.h"
 #include "Accounts/PasswordHashing/bcrypt.h"
 
@@ -13,6 +13,8 @@ using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::make_document;
 
 using bsoncxx::builder::basic::array;
+
+class User;
 
 class MongoDBDataManager {
     friend class AccountManager;

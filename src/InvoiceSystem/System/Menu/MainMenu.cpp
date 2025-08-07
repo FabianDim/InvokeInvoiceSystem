@@ -108,8 +108,8 @@ bool MainMenu::accountSetup(AccountManager& manager) {
         std::cin >> input;
 
         std::transform(input.begin(), input.end(), input.begin(), ::tolower);
-
-        BusinessDetails businessDetails(manager);
+		MongoDBDataManager dbManager;
+        BusinessDetails businessDetails(manager, dbManager);
         if (input == "yes") {
             do {
                 businessDetails.collectBusinessInfo();

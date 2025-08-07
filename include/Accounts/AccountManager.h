@@ -6,12 +6,15 @@
 #include "PasswordHashing/bcrypt.h"
 #include "System/Database/MongoDBHandler.h"
 #include "System/Database/MongoDBDataManager.h"
-//using namespace std;
+
+
+
 class AccountManager {
-    friend class user;
+    friend class User;
     friend class MongoDBDataManager;
+	friend class BusinessRepository;
 public:
-    AccountManager();
+    AccountManager(MongoDBDataManager& dataManager) : dataManager(dataManager) {};
     bool validEmail(std::string& email);
     bool validName(std::string& name);
     bool doesAccountExist(const std::string& username);
@@ -30,7 +33,7 @@ public:
     static std::shared_ptr<User> currentUser;
     bool hasUppers = false;
 private:
-    MongoDBDataManager dataManager;
+    MongoDBDataManager& dataManager;
     std::unordered_map<std::string, std::shared_ptr<User>> accounts;
 
 };

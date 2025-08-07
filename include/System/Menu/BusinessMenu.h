@@ -36,7 +36,7 @@ public:
         ClientManager& cliManager,
         MongoDBDataManager& dbMgr)
         : currentUser(accountMgr.getAccount()),
-        businessDetails(accountMgr),
+        businessDetails(accountMgr, dbMgr),
         clientDetails(std::make_shared<ClientDetails>(accountMgr, businessMgr)),
         clientMenu(cliManager, clientDetails),
         stockMenu(businessMgr, accountMgr, dbMgr),

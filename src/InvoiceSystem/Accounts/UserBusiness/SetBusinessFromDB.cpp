@@ -4,7 +4,7 @@ std::shared_ptr<BusinessRepository> SetBusiness::setUpBusiness(const std::string
 	auto result = dbManager.findOne("Business", make_document(kvp("BusinessID", businessID)));
 	if (result) {
 		auto view = result->view();
-		auto business = std::make_shared<BusinessRepository>(BusinessRepository());
+		auto business = std::make_shared<BusinessRepository>(BusinessRepository(dbManager));
 
 		std::unordered_set<std::string> clients;
 		std::vector<std::string> stock;

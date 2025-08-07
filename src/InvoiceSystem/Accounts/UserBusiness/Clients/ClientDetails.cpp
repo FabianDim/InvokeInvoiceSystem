@@ -267,9 +267,6 @@ bool ClientDetails::addClientToBusiness() {
     catch (const std::exception& e) {
         std::cerr << "Exception caught: " << e.what() << std::endl;
     }
-    catch (const std::bad_optional_access& e) {
-        std::cerr << "Caught bad_optional_access: " << e.what() << std::endl;
-    }
     catch (...) {
         std::cerr << "Caught unknown exception" << std::endl;
     }

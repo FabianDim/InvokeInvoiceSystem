@@ -8,6 +8,8 @@
 #include <set> 
 #include "Stock/SetStockFromDB.h"
 
+class BusinessManager;
+
 class StockManager {  
 public:  
     StockManager(MongoDBDataManager& dbManager, BusinessManager& businessManager) :

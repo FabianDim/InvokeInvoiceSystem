@@ -40,7 +40,9 @@ class BusinessDetails {
 		std::string ACN;
 	};
 public:
-	BusinessDetails(AccountManager& accountManager);
+    // Fix the constructor initializer list to initialize both dbManager and accountManager
+    BusinessDetails(AccountManager& accManager, MongoDBDataManager& dbManager)
+        : dbManager(dbManager), accountManager(accManager) {}
 	enum BusinessStep currentLevel = BusinessStep::ENTER_ABN;
 	enum AddressStep current = AddressStep::COUNTRY;
 	std::string toLower(std::string text);
@@ -70,6 +72,6 @@ public:
 private:
 	int thisBusID;
 	business userBusiness;
-	MongoDBDataManager dbManager;
+	MongoDBDataManager& dbManager;
 	AccountManager& accountManager;
 };

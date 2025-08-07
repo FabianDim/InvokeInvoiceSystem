@@ -7,8 +7,12 @@
 
 class SetUser {
 private:
-	MongoDBDataManager mongoDataManager;
+	MongoDBDataManager& mongoDataManager;
+
 public:
+
+	SetUser(MongoDBDataManager& dataManager) : mongoDataManager(dataManager) {};
+
 	std::shared_ptr<User> setUserOnLogin(const std::string& email, const std::string& password);
 	bool addBusinessToUser(const std::string& userID, const std::string& businessID);
 };

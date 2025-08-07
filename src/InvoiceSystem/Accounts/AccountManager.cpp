@@ -4,8 +4,6 @@
 #include <cctype> 
 std::shared_ptr<User> AccountManager::currentUser = nullptr;
 
-AccountManager::AccountManager() {
-}
 
 bool AccountManager::validEmail(std::string& email) {
 	for (char& c : email) {
@@ -159,7 +157,7 @@ void AccountManager::login() {
 		}
 
 		if (dataManager.validPassword(userPassword, userEmail)) {
-			SetUser setuser;
+			SetUser setuser(dataManager);
 			this->currentUser = setuser.setUserOnLogin(userEmail, userPassword);
 			accounts[userEmail] = this->currentUser;
 			return;
