@@ -6,25 +6,27 @@
 #include "PasswordHashing/bcrypt.h"
 #include "System/Database/MongoDBHandler.h"
 #include "System/Database/MongoDBDataManager.h"
+#include "Accounts/AccountServices/IAccountManager.h"
 
 
 
-class AccountManager {
+class AccountManager : public IAccountManager {
     friend class User;
     friend class MongoDBDataManager;
 	friend class BusinessRepository;
 public:
     AccountManager(MongoDBDataManager& dataManager) : dataManager(dataManager) {};
-    bool validEmail(std::string& email);
-    bool validName(std::string& name);
+	~AccountManager() override = default;
+    bool validEmail(const std::string& email) override;
+    bool validName(const std::string& name) override;
     bool doesAccountExist(const std::string& username);
-    bool doesPasswordMatch(const std::string& password);
+    bool doesPasswordMatch(const std::string& passweord);
     bool validatePassword(const std::string& password);
-    void createAccount();
-    void login();
+    void createAccount(std::string& userEmail, std::string& userPassword) override;
+    void login() override;
     std::shared_ptr<User> getAccount();
-    bool isLoggedIn();
-    void logOut();
+    bool isLoggedIn() const override;
+    void logOut() override;
     std::string makeUserID();
     
     void setTestUser(std::shared_ptr<User> user);

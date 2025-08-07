@@ -5,8 +5,8 @@
 std::shared_ptr<User> AccountManager::currentUser = nullptr;
 
 
-bool AccountManager::validEmail(std::string& email) {
-	for (char& c : email) {
+bool AccountManager::validEmail(const std::string& email) {
+	for (const char& c : email) {
 		if (std::isspace(c)) {
 			std::cout << "Email cannot include spaces" << std::endl;
 			return false;
@@ -18,8 +18,8 @@ bool AccountManager::validEmail(std::string& email) {
 	return true;
 }
 
-bool AccountManager::validName(std::string& name) {
-	for (char& c : name) {
+bool AccountManager::validName(const std::string& name) {
+	for (const char& c : name) {
 		if (std::isdigit(c) or std::ispunct(c)) {
 			std::cout << "Names cannot include numbers or punctuation" << std::endl;
 			return false;
@@ -63,12 +63,10 @@ bool AccountManager::validatePassword(const std::string& password) {
 	return isDigit && isUpper && isSpecial;
 }
 
-void AccountManager::createAccount() {
-	std::string userEmail;
+void AccountManager::createAccount(std::string& userEmail, std::string& userPassword) {
 
 	while (true) {
 		std::cout << "Please enter your new email (or * to cancel): ";
-		std::getline(std::cin >> std::ws, userEmail);
 		if (hasUppers) std::transform(userEmail.begin(), userEmail.end(), userEmail.begin(), ::tolower);
 		if (userEmail == "*") {
 			std::cout << "Account creation canceled.\n";
@@ -78,12 +76,9 @@ void AccountManager::createAccount() {
 			break;
 		}
 	}
-
-	std::string userPassword;
 	std::string storedHash;
 	while (true) {
 		std::cout << "Please enter your password: ";
-		std::cin >> userPassword;
 		if (validatePassword(userPassword)) {
 			storedHash = bcrypt::generateHash(userPassword);
 			break;
@@ -172,8 +167,8 @@ std::shared_ptr<User> AccountManager::getAccount() {
 	return currentUser ? currentUser : nullptr;
 }
 
-bool AccountManager::isLoggedIn() {
-	return currentUser != nullptr;
+bool AccountManager::isLoggedIn() const {
+    return currentUser != nullptr;
 }
 
 void AccountManager::logOut() {

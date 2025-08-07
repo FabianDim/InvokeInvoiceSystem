@@ -12,10 +12,8 @@
 class InvokeInvoiceSystem {
     friend class MainMenu;
 public:
-    InvokeInvoiceSystem(AccountManager accountManager) {};
-    void run() {
-        invoiceSystem.startSystem();
-    }
+    InvokeInvoiceSystem(){};
 private:
+
     System invoiceSystem;
 };

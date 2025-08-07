@@ -4,28 +4,28 @@ MainMenu::MainMenu() {}
 void MainMenu::displayMenu(AccountManager& manager) {
     printTitleBox();
     int choice;
-    do {
-        std::cout << "Hello, please choose an option below by typing the corresponding number and hitting enter.\n";
-        std::cout << "\n1. Create Account\n2. Login\n3. Exit\nPlease select an option: ";
-        std::cin >> choice;
-        std::cout << std::endl;
-        std::cin.ignore(); // Clear the newline character from the input buffer
+    //do {
+    //    std::cout << "Hello, please choose an option below by typing the corresponding number and hitting enter.\n";
+    //    std::cout << "\n1. Create Account\n2. Login\n3. Exit\nPlease select an option: ";
+    //    std::cin >> choice;
+    //    std::cout << std::endl;
+    //    std::cin.ignore(); // Clear the newline character from the input buffer
 
-        switch (choice) {
-        case 1:
-            manager.createAccount();
-            return;
-        case 2:
-            manager.login();
-            return;
-        case 3:
-            std::cout << "Goodbye!\n";
-            shouldExit = true;
-            break;
-        default:
-            std::cout << "Invalid option. Please try again.\n";
-        }
-    } while (choice != 3);
+    //    switch (choice) {
+    //    case 1:
+    //        manager.createAccount(, );
+    //        return;
+    //    case 2:
+    //        manager.login();
+    //        return;
+    //    case 3:
+    //        std::cout << "Goodbye!\n";
+    //        shouldExit = true;
+    //        break;
+    //    default:
+    //        std::cout << "Invalid option. Please try again.\n";
+    //    }
+    //} while (choice != 3);
 }
 void MainMenu::loggedInMenu(AccountManager& manager) {
     printTitleBox();
