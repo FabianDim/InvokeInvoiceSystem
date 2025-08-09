@@ -10,7 +10,7 @@
 
 
 
-class AccountManager : public IAccountManager {
+class AccountManager : public Invoke::Domain::Accounts::IAccountManager {
     friend class User;
     friend class MongoDBDataManager;
 	friend class BusinessRepository;
@@ -22,7 +22,7 @@ public:
     bool doesAccountExist(const std::string& username);
     bool doesPasswordMatch(const std::string& passweord);
     bool validatePassword(const std::string& password);
-    void createAccount(std::string& userEmail, std::string& userPassword) override;
+    void createAccount( std::string& userEmail,  std::string& userPassword) override;
     void login() override;
     std::shared_ptr<User> getAccount();
     bool isLoggedIn() const override;
@@ -33,7 +33,7 @@ public:
 
     bool needsAccountSetup(const std::string& email);
     static std::shared_ptr<User> currentUser;
-    bool hasUppers = false;
+    mutable bool hasUppers = false;
 private:
     MongoDBDataManager& dataManager;
     std::unordered_map<std::string, std::shared_ptr<User>> accounts;

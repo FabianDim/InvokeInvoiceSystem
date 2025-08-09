@@ -1,7 +1,7 @@
 #pragma once
 
 #include "pch.h"
-#include "Client.h"
+#include "Domain/Business/Clients/Client.h"
 
 class SetClient {
 public:

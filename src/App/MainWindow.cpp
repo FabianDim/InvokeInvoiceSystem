@@ -10,7 +10,7 @@
 #include <QDebug>
 #include <QWidget>
 
-App::Views::MainWindow::MainWindow(IAccountManager& acctMgr, QWidget* parent)
+App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& acctMgr, QWidget* parent)
     : QMainWindow(parent),
     fileMenu(nullptr),
     newAct(nullptr),

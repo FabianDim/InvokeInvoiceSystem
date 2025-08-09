@@ -1,6 +1,6 @@
 #pragma once
 #include "pch.h"
-#include "Invoice.h"
+#include "Domain/Invoices/Invoice.h"
 #include "Application/Stock/SetStockFromDB.h"
 
 class SetInvoice {

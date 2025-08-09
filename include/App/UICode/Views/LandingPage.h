@@ -4,7 +4,7 @@
 #include <QWidget>
 #include <qlayout.h>
 
-class IAccountManager;
+class Invoke::Domain::Accounts::IAccountManager;
 namespace App
 {
 namespace Views 
@@ -12,7 +12,7 @@ namespace Views
 class LandingPage : public QWidget {
 	Q_OBJECT
 public:
-	LandingPage(IAccountManager& accountManager, QWidget* parent = nullptr);
+	LandingPage(Invoke::Domain::Accounts::IAccountManager& accountManager, QWidget* parent = nullptr);
 	~LandingPage() = default;
 private:
 	QWidget* createPageLayout();

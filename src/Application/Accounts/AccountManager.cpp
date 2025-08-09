@@ -5,7 +5,7 @@
 std::shared_ptr<User> AccountManager::currentUser = nullptr;
 
 
-bool AccountManager::validEmail(const std::string& email) {
+bool AccountManager::validEmail( const std::string& email)  {
 	for (const char& c : email) {
 		if (std::isspace(c)) {
 			std::cout << "Email cannot include spaces" << std::endl;
@@ -18,7 +18,7 @@ bool AccountManager::validEmail(const std::string& email) {
 	return true;
 }
 
-bool AccountManager::validName(const std::string& name) {
+bool AccountManager::validName( const std::string& name)  {
 	for (const char& c : name) {
 		if (std::isdigit(c) or std::ispunct(c)) {
 			std::cout << "Names cannot include numbers or punctuation" << std::endl;
@@ -63,7 +63,7 @@ bool AccountManager::validatePassword(const std::string& password) {
 	return isDigit && isUpper && isSpecial;
 }
 
-void AccountManager::createAccount(std::string& userEmail, std::string& userPassword) {
+void AccountManager::createAccount( std::string& userEmail,  std::string& userPassword) {
 
 	while (true) {
 		std::cout << "Please enter your new email (or * to cancel): ";

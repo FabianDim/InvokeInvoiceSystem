@@ -4,7 +4,13 @@
 #include <QStackedWidget>
 #include <qlayout.h>
 
-class IAccountManager;
+namespace Invoke {
+    namespace Domain {
+        namespace Accounts {
+            class IAccountManager;  // correct forward declaration
+        }
+    }
+}
 class LandingPage;
 
 QT_BEGIN_NAMESPACE
@@ -17,7 +23,7 @@ namespace App {
         class MainWindow : public QMainWindow {
             Q_OBJECT
         public:
-            explicit MainWindow(IAccountManager& acctMgr, QWidget* parent = nullptr);
+            explicit MainWindow(Invoke::Domain::Accounts::IAccountManager & acctMgr, QWidget* parent = nullptr);
             ~MainWindow();
 
 
@@ -45,7 +51,7 @@ namespace App {
             void createMenus();
             void createAccountActions();
             void createFileActions();
-            IAccountManager& acctMgr;
+            Invoke::Domain::Accounts::IAccountManager& acctMgr;
 
             /*Landing page*/
         };

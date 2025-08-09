@@ -1,32 +1,34 @@
 #pragma once
-#include <QObject>
 #include <string>
+#include <memory>
 
-class IAccountManager : public QObject {
-    Q_OBJECT
+class User; // global ::User forward-decl to match your AccountManager
 
-public:
-    explicit IAccountManager(QObject* parent = nullptr)
-        : QObject(parent)
-        , m_isLoggedIn(false)
-        , m_needsAccountSetup(false)
-    {
-    }
+namespace Invoke::Domain::Accounts {
 
-    ~IAccountManager() override = default;
+    class IAccountManager {
+    public:
+        virtual ~IAccountManager() = default;
 
-    // public interface for UI
-    virtual bool validEmail(const std::string& email) = 0;
-    virtual bool validName(const std::string& name) = 0;
-    virtual bool doesAccountExist(const std::string& username) = 0;
-    virtual bool doesPasswordMatch(const std::string& password) = 0;
-    virtual void createAccount(std::string & userEmail, std::string & userPassword) = 0;
-    virtual void login() = 0;
-    virtual void logOut() = 0;
-    virtual bool isLoggedIn() const = 0;
-    virtual bool needsAccountSetup(const std::string& email) = 0;
+        // validation / queries
+        virtual bool validEmail(const std::string& email) = 0;
+        virtual bool validName(const std::string& name) = 0;
+        virtual bool doesAccountExist(const std::string& username) = 0;
+        virtual bool doesPasswordMatch(const std::string& password) = 0;
+        virtual bool validatePassword(const std::string& password) = 0;
 
-protected:
-    bool m_isLoggedIn;
-    bool m_needsAccountSetup;
-};
+        // actions
+        virtual void createAccount(std::string& userEmail,
+            std::string& userPassword) = 0;
+        virtual void login() = 0;
+        virtual void logOut() = 0;
+
+        // state
+        virtual bool isLoggedIn() const = 0;
+        virtual bool needsAccountSetup(const std::string& email) = 0;
+
+        // access
+        virtual std::shared_ptr<::User> getAccount() = 0;
+    };
+
+} // namespace Invoke::Domain::Accounts

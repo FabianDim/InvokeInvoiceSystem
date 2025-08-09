@@ -4,7 +4,7 @@
 #include <QPushButton>
 #include "App/StyleSheet.h"
 #include <QGraphicsDropShadowEffect>
-App::Views::LandingPage::LandingPage(IAccountManager& accountManager, QWidget* parent)
+App::Views::LandingPage::LandingPage(Invoke::Domain::Accounts::IAccountManager& accountManager, QWidget* parent)
 {
     titleWidget = new QWidget(this);
     innerLayout = new QVBoxLayout(titleWidget);

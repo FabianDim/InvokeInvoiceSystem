@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../pch.h"
+#include "pch.h"
 #include "Domain/Accounts/User.h"
 #include "Application/Accounts/AccountManager.h"
 #include "Infrastructure/Database/Mongo/MongoDBDataManager.h"

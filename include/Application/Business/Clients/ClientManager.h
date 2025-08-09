@@ -2,7 +2,7 @@
 #include "../BusinessManager.h"
 #include "pch.h"
 
-#include "Client.h"
+#include "Domain/Business/Clients/Client.h"
 
 class ClientManager {
 private:
