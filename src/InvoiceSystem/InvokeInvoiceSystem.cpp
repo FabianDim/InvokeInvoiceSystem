@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
     MongoDBDataManager dataManager;
     AccountManager accountManager(dataManager);
     QApplication app(argc, argv);
-    MainWindow window(accountManager);
+    App::Views::MainWindow window(accountManager);
     window.resize(window.frameSize());
     window.show();
     return app.exec();

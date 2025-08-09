@@ -2,44 +2,52 @@
 
 #include <QMainWindow>
 #include <QStackedWidget>
+#include <qlayout.h>
 
 class IAccountManager;
+class LandingPage;
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }  // forward declaration from the .ui-generated header
 QT_END_NAMESPACE
 
-class MainWindow : public QMainWindow {
-    Q_OBJECT
-public:
-    explicit MainWindow(IAccountManager& acctMgr, QWidget* parent = nullptr);
-    ~MainWindow();
 
-    
-
-private:
-    Ui::MainWindow* ui;
-
-    /*App Setup*/
-
-    QComboBox* pageComboBox;
-    QStackedWidget* pagesStack;
-	QWidget* landingPage;
+namespace App {
+    namespace Views {
+        class MainWindow : public QMainWindow {
+            Q_OBJECT
+        public:
+            explicit MainWindow(IAccountManager& acctMgr, QWidget* parent = nullptr);
+            ~MainWindow();
 
 
-    QMenu* fileMenu;
-    QAction* newAct;
-    QAction* openAct;
-    QAction* saveAct;
-    
-    //Account related actions
-    QMenu* accountMenu;
-    QAction* logoutAct;
-    QAction* loginAct;
 
-    void createMenus();
-    void createAccountActions();
-    void createFileActions();
+        private:
+            Ui::MainWindow* ui;
 
-    IAccountManager& acctMgr;
-};
+            /*App Setup*/
+
+            QComboBox* pageComboBox;
+            QStackedWidget* pagesStack;
+            QWidget* landingPage;
+            QVBoxLayout* mainLayout();
+
+            QMenu* fileMenu;
+            QAction* newAct;
+            QAction* openAct;
+            QAction* saveAct;
+
+            //Account related actions
+            QMenu* accountMenu;
+            QAction* logoutAct;
+            QAction* loginAct;
+
+            void createMenus();
+            void createAccountActions();
+            void createFileActions();
+            IAccountManager& acctMgr;
+
+            /*Landing page*/
+        };
+    }
+}
