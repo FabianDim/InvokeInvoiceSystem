@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/icons">
+        <file>resources/icons/invoice_icon.png</file>
+    </qresource>
+</RCC>

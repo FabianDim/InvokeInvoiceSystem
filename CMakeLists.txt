@@ -1,10 +1,6 @@
-﻿cmake_minimum_required(VERSION 3.10...3.24)
+cmake_minimum_required(VERSION 3.10...3.24)
 
-if (WIN32)
-    project(InvokeInvoiceSystem LANGUAGES CXX)
-elseif(UNIX)
-    project(InvokeInvoiceSystem)
-endif()
+project(InvokeInvoiceSystem LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -22,52 +18,61 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 find_package(Qt6 COMPONENTS Widgets REQUIRED)
 qt_standard_project_setup()
 
-#=================== INCLUSION OF Project Files ====================#
-set(FORMS_DIR "${CMAKE_SOURCE_DIR}/forms")
-set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
-set(SOURCE_DIR "${CMAKE_SOURCE_DIR}/src")
+set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_AUTOUIC_SEARCH_PATHS} ${CMAKE_SOURCE_DIR}/forms)
 
-include_directories(${FORMS_DIR})
-include_directories(${INCLUDE_DIR})
-include_directories(${SOURCE_DIR})
-
-file(GLOB_RECURSE SOURCES
-    "${FORMS_DIR}/*.ui"
-    "${FORMS_DIR}/*.qrc"
-    "${INCLUDE_DIR}/*.h"
-    "${SOURCE_DIR}/*.cpp"
-)
-
-#=================== SETUP EXECTUABLE ====================#
-
-set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS
-    $<$<CONFIG:RELWITHDEBINFO>:QT_MESSAGELOGCONTEXT>
-)
-
-set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_AUTOUIC_SEARCH_PATHS} ${FORMS_DIR})
-
-# 2) Passlib static library
 add_library(passlib STATIC
-  src/InvoiceSystem/Accounts/PasswordHashing/bcrypt.cpp
-  src/InvoiceSystem/Accounts/PasswordHashing/blowfish.cpp
+  src/Infrastructure/Security/PasswordHashing/bcrypt.cpp
+  src/Infrastructure/Security/PasswordHashing/blowfish.cpp
 )
 target_include_directories(passlib PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/InvoiceSystem/Accounts/PasswordHashing
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Infrastructure/Security/PasswordHashing
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )
-# Add the executable
-if (WIN32) 
-    qt_add_executable(${PROJECT_NAME} WIN32 ${SOURCES})
-elseif(UNIX)
-    qt_add_executable(${PROJECT_NAME} ${SOURCES})
-endif()
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${FORMS_DIR})
-target_include_directories(${PROJECT_NAME} PRIVATE ${INCLUDE_DIR})
-target_include_directories(${PROJECT_NAME} PRIVATE ${SOURCE_DIR})
+qt_add_executable(InvokeInvoiceSystem
+  src/App/InvokeInvoiceSystem.cpp
+  src/App/MainWindow.cpp
+  src/App/UICode/Views/LandingPage.cpp
+  src/App/UICode/Widgets/AnimatedButton.cpp
+  src/App/StyleSheet.cpp
+  src/Application/Accounts/AccountManager.cpp
+  src/Application/Accounts/SetUserFromDB.cpp
+  src/Application/Business/BusinessManager.cpp
+  src/Application/Business/SetBusinessFromDB.cpp
+  src/Application/Business/Clients/ClientManager.cpp
+  src/Application/Business/Clients/SetClientFromDB.cpp
+  src/Application/Invoices/InvoiceManager.cpp
+  src/Application/Invoices/SetInvoiceFromDB.cpp
+  src/Application/Stock/StockManager.cpp
+  src/Application/Stock/SetStockFromDB.cpp
+  src/Domain/Accounts/User.cpp
+  src/Domain/Business/BusinessDetails.cpp
+  src/Domain/Business/Clients/ClientDetails.cpp
+  src/Domain/Invoices/InvoiceDetails.cpp
+  src/Domain/Stock/ClientStockItem.cpp
+  src/Domain/Stock/StockDetails.cpp
+  src/Infrastructure/Database/Mongo/MongoDBDataManager.cpp
+  src/Infrastructure/Database/Mongo/MongoDBHandler.cpp
+  src/Infrastructure/Pdf/InvoicePdfGenerator.cpp
+  src/App/LegacyMenus/BusinessMenu.cpp
+  src/App/LegacyMenus/ClientMenu.cpp
+  src/App/LegacyMenus/InvoiceMenu.cpp
+  src/App/LegacyMenus/InvoiceSystem.cpp
+  src/App/LegacyMenus/MainMenu.cpp
+  src/App/LegacyMenus/StockMenu.cpp
+  forms/UI/MainWindow.ui
+)
 
-target_link_libraries(${PROJECT_NAME}
+qt_add_resources(InvokeInvoiceSystem app_resources
+  FILES forms/Invoice_Resources.qrc
+)
+
+target_include_directories(InvokeInvoiceSystem
+  PUBLIC ${CMAKE_SOURCE_DIR}/include
+)
+
+target_link_libraries(InvokeInvoiceSystem
   PRIVATE
     passlib
     Qt6::Widgets
@@ -82,8 +87,9 @@ target_link_libraries(${PROJECT_NAME}
        mongo::mongocxx_shared>
 )
 
-set_target_properties(${PROJECT_NAME} PROPERTIES
+set_target_properties(InvokeInvoiceSystem PROPERTIES
     WIN32_EXECUTABLE ON
     MACOSX_BUNDLE ON
 )
-target_precompile_headers(${PROJECT_NAME} PRIVATE include/pch.h)
+
+target_precompile_headers(InvokeInvoiceSystem PRIVATE include/pch.h)

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "InvoiceSystem/InvoiceData/InvoiceTemplateEnum.h"
+#include "Domain/Invoices/InvoiceTemplateEnum.h"
 
 inline std::string to_string(InvoiceTemplateEnum tmpl) {
     switch (tmpl) {

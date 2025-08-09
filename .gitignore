@@ -21,7 +21,6 @@ ipch/
 
 # Qt generated files
 *.moc
-*.qrc
 *.rcc
 *.qmlc
 *.jsc

@@ -21,9 +21,9 @@
 #include <bsoncxx/types/value.hpp>
 #include <bsoncxx/exception/exception.hpp>
 #include <bsoncxx/builder/basic/kvp.hpp>  
-#include "System/Database/MongoDBDataManager.h"
+#include "Infrastructure/Database/Mongo/MongoDBDataManager.h"
 // Include bcrypt library  
-#include "Accounts/PasswordHashing/bcrypt.h"  
+#include "Infrastructure/Security/PasswordHashing/bcrypt.h"  
 
 //include pdf table
 extern "C" {
@@ -49,10 +49,10 @@ extern "C" {
 #include "Utils/TemplateUtil.h"
 
 //manager classes
-#include "Accounts/AccountManager.h"
-#include "Accounts/UserBusiness/BusinessManager.h"
-#include "Accounts/UserBusiness/Clients/ClientManager.h"   // if you have a ClientManager in that folder
-#include "Stock/StockManager.h"
+#include "Application/Accounts/AccountManager.h"
+#include "Application/Business/BusinessManager.h"
+#include "Application/Business/Clients/ClientManager.h"   // if you have a ClientManager in that folder
+#include "Application/Stock/StockManager.h"
 
 //QT
 
