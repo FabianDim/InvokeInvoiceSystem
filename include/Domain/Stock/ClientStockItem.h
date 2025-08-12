@@ -4,9 +4,13 @@
 #include "Application/Business/BusinessManager.h"  
 #include "Infrastructure/Database/Mongo/MongoDBDataManager.h"  
 #include "Domain/Stock/StockItem.h"
+#include "Application/Stock/StockManager.h"
 #include "Application/Stock/SetStockFromDB.h"
 #include "Application/Business/Clients/ClientManager.h"  
 #include "Application/Business/Clients/SetClientFromDB.h"  
+
+class StockManager;
+
 class ClientStockItem : public StockManager {
 private:
 	float clientPrice;

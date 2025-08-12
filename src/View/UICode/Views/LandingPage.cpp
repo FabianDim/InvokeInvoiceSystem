@@ -1,8 +1,8 @@
-#include "App/UICode/Views/LandingPage.h"
+#include "View/UICode/Views/LandingPage.h"
 #include <qlabel.h>
 #include <QVBoxLayout>
 #include <QPushButton>
-#include "App/StyleSheet.h"
+#include "View/StyleSheet.h"
 #include <QGraphicsDropShadowEffect>
 App::Views::LandingPage::LandingPage(Invoke::Domain::Accounts::IAccountManager& accountManager, QWidget* parent)
 {
@@ -12,7 +12,6 @@ App::Views::LandingPage::LandingPage(Invoke::Domain::Accounts::IAccountManager& 
 	setWindowTitle("Landing Page");
 	createPageLayout();
 	setFixedSize(800, 600);
-
     //wire the actions last
 }
 QWidget* App::Views::LandingPage::createPageLayout() {

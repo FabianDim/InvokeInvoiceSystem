@@ -2,7 +2,7 @@
 #include <gtest/gtest.h>  
 #include <gmock/gmock.h>  
 
-#include "App/LegacyMenus/InvoiceMenu.h"
+#include "View/LegacyMenus/InvoiceMenu.h"
 #include "Application/Accounts/AccountManager.h"
 #include "Domain/Accounts/User.h"  
 #include "Application/Business/BusinessRepository.h"

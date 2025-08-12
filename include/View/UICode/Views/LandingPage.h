@@ -3,6 +3,8 @@
 #include "pch.h"
 #include <QWidget>
 #include <qlayout.h>
+#include <QPushButton>
+#include "Application/Accounts/AccountManager.h"
 
 class Invoke::Domain::Accounts::IAccountManager;
 namespace App

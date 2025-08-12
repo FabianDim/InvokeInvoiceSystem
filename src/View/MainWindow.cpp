@@ -1,6 +1,6 @@
-#include "App/MainWindow.h"
+#include "View/MainWindow.h"
 #include "Domain/Accounts/Interfaces/IAccountManager.h"
-#include "App/UICode/Views/LandingPage.h"   // use forward slashes
+#include "View/UICode/Views/LandingPage.h"   // use forward slashes
 #include <QMenuBar>
 #include <QComboBox>
 #include <QStackedWidget>
@@ -20,26 +20,22 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
     logoutAct(nullptr),
     acctMgr(acctMgr),
     landingPage(new App::Views::LandingPage(acctMgr, this)),
-    pagesStack(new QStackedWidget(this))/*,
-    pageComboBox(new QComboBox(this))*/ {
-    // Central container + layout (required for QMainWindow)
+    pagesStack(new QStackedWidget(this)) {
+  
     auto* central = new QWidget(this);
     auto* vbox = new QVBoxLayout(central);
+	vbox->setAlignment(Qt::AlignCenter);
     vbox->setContentsMargins(0, 0, 0, 0);
     vbox->setSpacing(6);
     setCentralWidget(central);
-
+	
     // Top control(s)
     //pageComboBox->addItem("Landing Page");
     //vbox->addWidget(pageComboBox);
 
     // Pages
     pagesStack->addWidget(landingPage);
-    vbox->addWidget(pagesStack, /*stretch*/ 1);
-
-    // (Optional) switch pages via combo
-    //connect(pageComboBox, &QComboBox::currentIndexChanged,
-    //    pagesStack, &QStackedWidget::setCurrentIndex);
+    vbox->addWidget(pagesStack, /*stretch*/1, Qt::AlignCenter);
 
     // Menus & actions
     createAccountActions();
@@ -48,7 +44,7 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
 
     // Window bits
     setWindowTitle("Invoke Invoice System");
-    QIcon icon(":/icons/invoice_icon.png");
+    QIcon icon(":/icons/invoice_icon.ico");
     qDebug() << "Icon is null?" << icon.isNull();
     setWindowIcon(icon);
 }

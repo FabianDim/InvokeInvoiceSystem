@@ -1,4 +1,4 @@
-#include "App/LegacyMenus/BusinessMenu.h"
+#include "View/LegacyMenus/BusinessMenu.h"
 
 void BusinessMenu::displayBusMenu() {
 	int choice;

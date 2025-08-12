@@ -2,7 +2,7 @@
 #include "pch.h"
 #include "Domain/Accounts/User.h"
 #include "Application/Accounts/SetUserFromDB.h"
-#include "App/LegacyMenus/MainMenu.h"
+#include "View/LegacyMenus/MainMenu.h"
 #include "Infrastructure/Security/PasswordHashing/bcrypt.h"
 #include "Infrastructure/Database/Mongo/MongoDBHandler.h"
 #include "Infrastructure/Database/Mongo/MongoDBDataManager.h"

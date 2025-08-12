@@ -20,7 +20,7 @@ include/Domain/Invoices/InvoiceTemplateEnum.h
 include/Application/Invoices/SetInvoiceFromDB.h
 include/Application/Invoices/InvoiceManager.h
 include/Infrastructure/Pdf/InvoicePdfGenerator.h
-include/App/InvokeInvoiceSystem.h
+include/View/InvokeInvoiceSystem.h
 include/Domain/Stock/ClientStockItem.h
 include/Application/Stock/SetStockFromDB.h
 include/Domain/Stock/StockDetails.h
@@ -28,12 +28,12 @@ include/Domain/Stock/StockItem.h
 include/Application/Stock/StockManager.h
 include/Infrastructure/Database/Mongo/MongoDBDataManager.h
 include/Infrastructure/Database/Mongo/MongoDBHandler.h
-include/App/LegacyMenus/InvoiceSystem.h
-include/App/LegacyMenus/BusinessMenu.h
-include/App/LegacyMenus/ClientMenu.h
-include/App/LegacyMenus/InvoiceMenu.h
-include/App/LegacyMenus/MainMenu.h
-include/App/LegacyMenus/StockMenu.h
+include/View/LegacyMenus/InvoiceSystem.h
+include/View/LegacyMenus/BusinessMenu.h
+include/View/LegacyMenus/ClientMenu.h
+include/View/LegacyMenus/InvoiceMenu.h
+include/View/LegacyMenus/MainMenu.h
+include/View/LegacyMenus/StockMenu.h
 include/Utils/DateUtil.h
 include/Utils/StringUtils.h
 include/Utils/TemplateUtil.h

@@ -2,7 +2,7 @@
 #include <bsoncxx/json.hpp>
 #include <mongocxx/exception/bulk_write_exception.hpp>
 #include <mongocxx/exception/exception.hpp>
-
+#include "Domain/Accounts/User.h"
 bsoncxx::document::value MongoDBDataManager::buildNewUser(const std::shared_ptr<User>& newUser) {
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;

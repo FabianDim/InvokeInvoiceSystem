@@ -1,4 +1,4 @@
-#include "App/StyleSheet.h"
+#include "View/StyleSheet.h"
 
 namespace Styles {
 	const std::unordered_map<std::string, QString> widgetStyles = {

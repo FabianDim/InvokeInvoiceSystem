@@ -1,5 +1,5 @@
 #include "Application/Invoices/SetInvoiceFromDB.h"
-
+#include "bsoncxx/exception/exception.hpp"
 std::shared_ptr<Invoice> SetInvoice::setInvoice(const std::string invoiceID) {
     MongoDBDataManager dbManager;
     auto result = dbManager.findOne("Invoices", make_document(kvp("InvoiceID", invoiceID)));

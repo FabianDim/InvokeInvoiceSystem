@@ -1,7 +1,7 @@
 #pragma once
 
 #include "pch.h"
-#include "App/LegacyMenus/MainMenu.h"
+#include "View/LegacyMenus/MainMenu.h"
 #include "Domain/Accounts/User.h"
 #include <memory>
 #include "Application/Accounts/AccountManager.h"

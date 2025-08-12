@@ -1,5 +1,7 @@
 #include "Domain/Stock/ClientStockItem.h"
-
+#include "Application/Stock/StockManager.h"
+#include "bsoncxx/exception/exception.hpp"
+#include "bsoncxx/builder/stream/document.hpp"
 bool ClientStockItem::updateClientDB(const float& price, const float& profMargin) {
     try {
         MongoDBDataManager dbManager;
@@ -25,11 +27,11 @@ bool ClientStockItem::updateClientDB(const float& price, const float& profMargin
         dbManager.getCollection("Clients")->update_one(result->view(), update.view());
     }
     catch(mongocxx::exception e){
-        std::cout << "Mongo error in UpdateClient" << e.what() << std::endl;
+        std::cerr << "Mongo error in UpdateClient" << e.what() << std::endl;
         return false;
     }
     catch (bsoncxx::exception e) {
-        std::cout << "BSon error in UpdateClient" << e.what() << std::endl;
+        std::cerr << "BSon error in UpdateClient" << e.what() << std::endl;
         return false;
     }
     return false;

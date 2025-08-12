@@ -1,10 +1,10 @@
 #pragma once
 
 #include "pch.h"
-#include "App/LegacyMenus/ClientMenu.h"
+#include "View/LegacyMenus/ClientMenu.h"
 #include "Domain/Business/BusinessDetails.h"
 #include "Domain/Business/Clients/ClientDetails.h"
-#include "App/LegacyMenus/StockMenu.h"
+#include "View/LegacyMenus/StockMenu.h"
 
 class BusinessMenu {
     friend class BusinessManager;

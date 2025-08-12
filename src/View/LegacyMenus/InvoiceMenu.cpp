@@ -1,4 +1,4 @@
-#include "App/LegacyMenus/InvoiceMenu.h"
+#include "View/LegacyMenus/InvoiceMenu.h"
 #include "Application/Business/SetBusinessFromDB.h"
 #include "pch.h"
 #include "Application/Accounts/AccountManager.h"

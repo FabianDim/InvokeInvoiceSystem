@@ -1,6 +1,6 @@
 #include <cctype>
 #include "Domain/Invoices/InvoiceDetails.h"
-
+#include "bsoncxx/exception/exception.hpp"
 bool InvoiceDetails::enterInvoiceID() {
     std::cout << "Enter custom invoice ID or type auto for auto-generation: ";
     std::getline(std::cin >> std::ws, userInvoice.invoiceID);

@@ -2,11 +2,11 @@
 
 #include "pch.h"
 #include "Domain/Accounts/User.h"
-#include "App/LegacyMenus/InvoiceSystem.h"
-#include "App/LegacyMenus/InvoiceMenu.h"
-#include "App/LegacyMenus/BusinessMenu.h"
+#include "View/LegacyMenus/InvoiceSystem.h"
+#include "View/LegacyMenus/InvoiceMenu.h"
+#include "View/LegacyMenus/BusinessMenu.h"
 #include <QApplication>
-#include "App/MainWindow.h"
+#include "View/MainWindow.h"
 #include <QMainWindow>
 
 class InvokeInvoiceSystem {

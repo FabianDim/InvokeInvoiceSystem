@@ -1,4 +1,4 @@
-#include "App/LegacyMenus/StockMenu.h"
+#include "View/LegacyMenus/StockMenu.h"
 
 void StockMenu::displayStockMenu() {
 	//Search business stock

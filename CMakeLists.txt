@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10...3.24)
+﻿cmake_minimum_required(VERSION 3.10...3.24)
 
 project(InvokeInvoiceSystem LANGUAGES CXX)
 
@@ -38,79 +38,46 @@ target_include_directories(passlib PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )
 
+# ---------- Auto file pickup ----------
+# Define globs FIRST
+file(GLOB_RECURSE PROJECT_CPP CONFIGURE_DEPENDS
+    ${CMAKE_SOURCE_DIR}/src/*.cpp
+)
+file(GLOB_RECURSE PROJECT_HDR CONFIGURE_DEPENDS
+    ${CMAKE_SOURCE_DIR}/include/*.h
+)
+file(GLOB_RECURSE PROJECT_UI CONFIGURE_DEPENDS
+    ${CMAKE_SOURCE_DIR}/forms/*.ui
+)
+
+
 # ---------- App executable ----------
-qt_add_executable(InvokeInvoiceSystem
-  # Sources
-  src/App/InvokeInvoiceSystem.cpp
-  src/App/MainWindow.cpp
-  src/App/UICode/Views/LandingPage.cpp
-  #src/App/UICode/Widgets/AnimatedButton.cpp
-  src/App/StyleSheet.cpp
-
-  src/Application/Accounts/AccountManager.cpp
-  src/Application/Accounts/SetUserFromDB.cpp
-  src/Application/Business/BusinessManager.cpp
-  src/Application/Business/SetBusinessFromDB.cpp
-  src/Application/Business/Clients/ClientManager.cpp
-  src/Application/Business/Clients/SetClientFromDB.cpp
-  src/Application/Invoices/InvoiceManager.cpp
-  src/Application/Invoices/SetInvoiceFromDB.cpp
-  src/Application/Stock/StockManager.cpp
-  src/Application/Stock/SetStockFromDB.cpp
-
-  src/Domain/Accounts/User.cpp
-  src/Domain/Business/BusinessDetails.cpp
-  src/Domain/Business/Clients/ClientDetails.cpp
-  src/Domain/Invoices/InvoiceDetails.cpp
-  src/Domain/Stock/ClientStockItem.cpp
-  src/Domain/Stock/StockDetails.cpp
-
-  src/Infrastructure/Database/Mongo/MongoDBDataManager.cpp
-  src/Infrastructure/Database/Mongo/MongoDBHandler.cpp
-  src/Infrastructure/Pdf/InvoicePdfGenerator.cpp
-
-  # legacy console menus (kept)
-  src/App/LegacyMenus/BusinessMenu.cpp
-  src/App/LegacyMenus/ClientMenu.cpp
-  src/App/LegacyMenus/InvoiceMenu.cpp
-  src/App/LegacyMenus/InvoiceSystem.cpp
-  src/App/LegacyMenus/MainMenu.cpp
-  src/App/LegacyMenus/StockMenu.cpp
-
-  # UI files
-  forms/UI/MainWindow.ui
+qt_add_executable(InvokeInvoiceSystem MANUAL_FINALIZATION
+    ${PROJECT_CPP}         # must include src/View/InvokeInvoiceSystem.cpp with main()
+    ${PROJECT_UI}
 )
 
-# IMPORTANT: headers with Q_OBJECT so AUTOMOC generates moc_*.cpp
+# Register headers so IntelliSense and AUTOMOC can see them
 target_sources(InvokeInvoiceSystem PRIVATE
-  include/App/MainWindow.h
-  include/App/UICode/Views/LandingPage.h
-  include/App/UICode/Widgets/AnimatedButton.h
+    ${PROJECT_HDR}
 )
 
-# Qt resources (compile the .qrc that refers to icons etc.)
+# Qt resources
 qt_add_resources(InvokeInvoiceSystem app_resources
   FILES forms/Invoice_Resources.qrc
 )
 
-# Public include root (so #include "Domain/..." works)
-target_include_directories(InvokeInvoiceSystem
-  PUBLIC ${CMAKE_SOURCE_DIR}/include
-)
+# Public include root
+target_include_directories(InvokeInvoiceSystem PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
-target_link_libraries(InvokeInvoiceSystem
-  PRIVATE
+target_link_libraries(InvokeInvoiceSystem PRIVATE
     passlib
     Qt6::Widgets
     fmt::fmt
     Iconv::Iconv
     unofficial::libharu::hpdf
-    $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,
-       mongo::bsoncxx_static,
-       mongo::bsoncxx_shared>
-    $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,
-       mongo::mongocxx_static,
-       mongo::mongocxx_shared>
+    $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
+    $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
 )
 
 set_target_properties(InvokeInvoiceSystem PROPERTIES
@@ -118,8 +85,5 @@ set_target_properties(InvokeInvoiceSystem PROPERTIES
   MACOSX_BUNDLE   ON
 )
 
-# Precompiled header
 target_precompile_headers(InvokeInvoiceSystem PRIVATE include/pch.h)
-
-# Finalize Qt app (Qt6 best practice)
 qt_finalize_executable(InvokeInvoiceSystem)

@@ -3,11 +3,12 @@
 #include <QMainWindow>
 #include <QStackedWidget>
 #include <qlayout.h>
+#include <QComboBox>
 
 namespace Invoke {
     namespace Domain {
         namespace Accounts {
-            class IAccountManager;  // correct forward declaration
+            class IAccountManager;
         }
     }
 }

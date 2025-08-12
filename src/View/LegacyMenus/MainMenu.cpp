@@ -1,4 +1,4 @@
-#include "App/LegacyMenus/MainMenu.h"
+#include "View/LegacyMenus/MainMenu.h"
 
 MainMenu::MainMenu() {}
 void MainMenu::displayMenu(AccountManager& manager) {
