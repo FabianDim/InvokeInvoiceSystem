@@ -1,6 +1,6 @@
 #include "View/MainWindow.h"
 #include "Domain/Accounts/Interfaces/IAccountManager.h"
-#include "View/UICode/Views/LandingPage.h"   // use forward slashes
+#include "View/UICode/Views/LandingPage.h" // use forward slashes
 #include <QMenuBar>
 #include <QComboBox>
 #include <QStackedWidget>
@@ -11,31 +11,24 @@
 #include <QWidget>
 
 App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& acctMgr, QWidget* parent)
-    : QMainWindow(parent),
-    fileMenu(nullptr),
-    newAct(nullptr),
-    openAct(nullptr),
-    saveAct(nullptr),
-    loginAct(nullptr),
-    logoutAct(nullptr),
-    acctMgr(acctMgr),
-    landingPage(new App::Views::LandingPage(acctMgr, this)),
-    pagesStack(new QStackedWidget(this)) {
-  
+    : QMainWindow(parent), fileMenu(nullptr), newAct(nullptr), openAct(nullptr), saveAct(nullptr), loginAct(nullptr),
+      logoutAct(nullptr), acctMgr(acctMgr), landingPage(new App::Views::LandingPage(acctMgr, this)),
+      pagesStack(new QStackedWidget(this)) {
+
     auto* central = new QWidget(this);
     auto* vbox = new QVBoxLayout(central);
-	vbox->setAlignment(Qt::AlignCenter);
+    vbox->setAlignment(Qt::AlignCenter);
     vbox->setContentsMargins(0, 0, 0, 0);
     vbox->setSpacing(6);
     setCentralWidget(central);
-	
+
     // Top control(s)
-    //pageComboBox->addItem("Landing Page");
-    //vbox->addWidget(pageComboBox);
+    // pageComboBox->addItem("Landing Page");
+    // vbox->addWidget(pageComboBox);
 
     // Pages
     pagesStack->addWidget(landingPage);
-    vbox->addWidget(pagesStack, /*stretch*/1, Qt::AlignCenter);
+    vbox->addWidget(pagesStack, /*stretch*/ 1, Qt::AlignCenter);
 
     // Menus & actions
     createAccountActions();
@@ -60,8 +53,7 @@ void App::Views::MainWindow::createMenus() {
     accountMenu = menuBar()->addMenu(tr("&Account"));
     if (acctMgr.isLoggedIn()) {
         accountMenu->addAction(logoutAct);
-    }
-    else {
+    } else {
         accountMenu->addAction(loginAct);
     }
 }
