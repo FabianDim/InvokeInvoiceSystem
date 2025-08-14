@@ -1,20 +1,25 @@
 #pragma once
+
 #include "pch.h"
 #include <any>
+#include <string>
 
 namespace Invoke::Infrastructure::Auth {
+
     class ISessionManager {
       public:
         virtual ~ISessionManager() = default;
 
-        virtual void startSession(const std::string& rUserId) = 0;
-        virtual void endSession() = 0;
+        virtual void start_session(const std::string& user_id) = 0;
+        virtual void end_session() = 0;
 
-        virtual std::string getCurrentUserId() const = 0;
+        virtual std::string get_session_token() const = 0;
+        virtual std::string get_current_user_id() const = 0;
 
-        virtual bool isSessionActive() const = 0;
+        virtual bool is_session_active() const = 0;
 
-        virtual void setSessionData(const std::string& rKey, const std::any& rValue) = 0;
-        virtual std::any getSessionData(const std::string& rKey) const = 0;
+        virtual void set_session_data(const std::string& key, const std::any& value) = 0;
+        virtual std::any get_session_data(const std::string& key) const = 0;
     };
+
 } // namespace Invoke::Infrastructure::Auth
