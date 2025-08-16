@@ -1,6 +1,13 @@
 #include "Application/Auth/QSettingsSessionManager.h"
 #include <ctime>
+#include <QStandardPaths>
+#include <QDir>
+#include <Infrastructure/Security/PasswordHashing/bcrypt.h>
+#include <qt6keychain/keychain.h>
+using namespace QKeychain;
 namespace Invoke::Application::Auth {
+    QSettingsSessionManager::QSettingsSessionManager(QApplication* main_app_)
+        : settings_(new QSettings), session_active_(false), app_(main_app_) {}
 
     void QSettingsSessionManager::start_session(const std::string& user_id) {
         try {
@@ -16,11 +23,20 @@ namespace Invoke::Application::Auth {
             return;
         }
     }
-    std::string QSettingsSessionManager::createToken(const std::string& user_id) {
+    std::string QSettingsSessionManager::create_token(const std::string& user_id) {
         std::time_t time = std::time(nullptr);
         std::tm* local_time = std::localtime(&time);
-        return user_id.substr(2, user_id.size()) + std::to_string(local_time->tm_hour) +
-               std::to_string(local_time->tm_min) + std::to_string(local_time->tm_sec);
+        return hash_token(user_id.substr(2, user_id.size()) + std::to_string(local_time->tm_hour) +
+                          std::to_string(local_time->tm_min) + std::to_string(local_time->tm_sec));
+    }
+
+    std::string QSettingsSessionManager::hash_token(const std::string& token) {
+        return bcrypt::generateHash(token);
+    }
+    void QSettingsSessionManager::save_secture_token(const QString& token) {
+        auto* job = new WritePasswordJob("InvokeInvoiceSystem");
+        job->setKey("session_token");
+        job->setTextData(token);
     }
 
     void QSettingsSessionManager::end_session() {}

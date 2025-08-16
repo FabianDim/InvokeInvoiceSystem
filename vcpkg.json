@@ -5,8 +5,9 @@
     "fmt",
     "gtest",
     "jansson",
-    "libiconv",
     "libharu",
-    "mongo-cxx-driver"
+    "libiconv",
+    "mongo-cxx-driver",
+    "qtkeychain-qt6"
   ]
 }

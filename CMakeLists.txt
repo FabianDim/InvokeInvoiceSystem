@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # If Qt isn't found via PATH/CMAKE_PREFIX_PATH, keep this hint:
-set(Qt6_DIR "C:/Qt/6.9.1/msvc2022_64/lib/cmake/Qt6")
+# set(Qt6_DIR "C:/Qt/6.9.1/msvc2022_64/lib/cmake/Qt6")
 
 # Release configs you use
 set(CMAKE_CONFIGURATION_TYPES "Release;RelWithDebInfo" CACHE STRING "" FORCE)
@@ -17,8 +17,8 @@ find_package(bsoncxx            CONFIG REQUIRED)
 find_package(mongocxx           CONFIG REQUIRED)
 find_package(unofficial-libharu CONFIG REQUIRED)
 find_package(Iconv              REQUIRED)
-
 find_package(Qt6 COMPONENTS Widgets REQUIRED)
+find_package(Qt6Keychain CONFIG REQUIRED)
 qt_standard_project_setup()  # enables AUTOMOC/AUTORCC/AUTOUIC
 
 # Let AUTOUIC find ui files under /forms
@@ -73,11 +73,12 @@ target_include_directories(InvokeInvoiceSystem PUBLIC ${CMAKE_SOURCE_DIR}/includ
 target_link_libraries(InvokeInvoiceSystem PRIVATE
     passlib
     Qt6::Widgets
-    fmt::fmt
+    fmt::fmt 
     Iconv::Iconv
     unofficial::libharu::hpdf
     $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
     $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
+    Qt6Keychain::Qt6Keychain
 )
 
 set_target_properties(InvokeInvoiceSystem PROPERTIES
@@ -87,3 +88,5 @@ set_target_properties(InvokeInvoiceSystem PROPERTIES
 
 target_precompile_headers(InvokeInvoiceSystem PRIVATE include/pch.h)
 qt_finalize_executable(InvokeInvoiceSystem)
+
+

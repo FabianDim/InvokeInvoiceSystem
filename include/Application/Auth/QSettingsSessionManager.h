@@ -7,6 +7,7 @@
 #include <string>
 #include <unordered_map>
 #include <any>
+#include <QUuid>
 
 namespace Invoke::Application::Auth {
 
@@ -19,10 +20,18 @@ namespace Invoke::Application::Auth {
 
         ~QSettingsSessionManager() override = default;
 
-        std::string createToken(const std::string& user_id);
+        std::string create_token(const std::string& user_id);
+
+        std::string hash_token(const std::string& token);
+
+        void save_secture_token(const QString& token);
+
+        QString settings_file_;
+
+        QApplication* app_;
 
       public:
-        explicit QSettingsSessionManager() : settings_(new QSettings), session_active_(false) {}
+        QSettingsSessionManager(QApplication* main_app_);
 
         void start_session(const std::string& user_id) override;
         void end_session() override;

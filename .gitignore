@@ -83,4 +83,3 @@ test_output/
 # Ignore generated PDF/HTML (optional)
 *.pdf
 *.html
-.clang-format
