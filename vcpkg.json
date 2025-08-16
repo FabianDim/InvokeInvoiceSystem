@@ -8,6 +8,8 @@
     "libharu",
     "libiconv",
     "mongo-cxx-driver",
-    "qtkeychain-qt6"
+    "qtkeychain-qt6",
+    "qtbase",
+    "qttools"
   ]
 }
