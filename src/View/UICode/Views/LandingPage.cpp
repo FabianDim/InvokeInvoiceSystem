@@ -4,9 +4,10 @@
 #include <QPushButton>
 #include "View/StyleSheet.h"
 #include <QGraphicsDropShadowEffect>
-App::Views::LandingPage::LandingPage(Invoke::Domain::Accounts::IAccountManager& accountManager, QWidget* parent) {
-    titleWidget = new QWidget(this);
-    innerLayout = new QVBoxLayout(titleWidget);
+App::Views::LandingPage::LandingPage(Invoke::Domain::Accounts::IAccountManager& account_manager, QWidget* parent) {
+    title_widget_ = new QWidget(this);
+    button_layout_ = new QWidget(title_widget_);
+    inner_layout_ = new QVBoxLayout(title_widget_);
     setParent(parent);
     setWindowTitle("Landing Page");
     createPageLayout();
@@ -14,31 +15,45 @@ App::Views::LandingPage::LandingPage(Invoke::Domain::Accounts::IAccountManager& 
     // wire the actions last
 }
 QWidget* App::Views::LandingPage::createPageLayout() {
-    QLabel* titleLabel = new QLabel("Welcome to the Invoke Invoice System", titleWidget);
-    titleLabel->setAlignment(Qt::AlignCenter);
-    loginButton = new QPushButton("Login", titleWidget);
-    registerButton = new QPushButton("Register", titleWidget);
-    loginButton->setObjectName("loginButton");
-    registerButton->setObjectName("registerButton");
-    titleLabel->setObjectName("titleLabel");
+    // Title
+    auto* title_label = new QLabel(title_widget_);
+    title_label->setTextFormat(Qt::RichText);
+    title_label->setText(
+        R"(<span style="color: white;">Welcome to the </span>
+           <span style="color: #9c27b0; font-weight: 700;">Invoke Invoice System</span>)");
+    title_label->setObjectName("titleLabel"); // matches Styles::widgetStyles key + QSS #titleLabel
+    title_label->setAlignment(Qt::AlignCenter);
+
+    // Buttons
+    login_button_ = new QPushButton("Login", button_layout_);
+    register_button_ = new QPushButton("Register", button_layout_);
+    login_button_->setObjectName("login_button_");       // matches QSS: QPushButton#login_button_
+    register_button_->setObjectName("register_button_"); // matches QSS: QPushButton#register_button_
 
     // Styles
-    QGraphicsDropShadowEffect* effect = new QGraphicsDropShadowEffect(titleWidget);
+    auto* effect = new QGraphicsDropShadowEffect(title_widget_);
     effect->setBlurRadius(16);
     effect->setOffset(0, 6);
     effect->setColor(QColor(0, 0, 0, 90));
+    title_label->setGraphicsEffect(effect); // apply the drop shadow
 
-    loginButton->setStyleSheet(Styles::widgetStyles.at("loginButton") + Styles::widgetStyles.at("button"));
-    registerButton->setStyleSheet(Styles::widgetStyles.at("registerButton") + Styles::widgetStyles.at("button"));
-    titleLabel->setStyleSheet(Styles::widgetStyles.at("titleLabel"));
+    title_label->setStyleSheet(Styles::widgetStyles.at("titleLabel"));
+    login_button_->setStyleSheet(Styles::widgetStyles.at("login_button_") + Styles::widgetStyles.at("button"));
+    register_button_->setStyleSheet(Styles::widgetStyles.at("register_button_") + Styles::widgetStyles.at("button"));
 
-    QHBoxLayout* buttonLayout = new QHBoxLayout;
-    buttonLayout->addWidget(loginButton);
-    buttonLayout->addWidget(registerButton);
+    // Button row container + layout
+    auto* buttons_hbox = new QHBoxLayout(button_layout_);
+    buttons_hbox->setContentsMargins(0, 0, 0, 0);
+    buttons_hbox->setSpacing(12);
+    buttons_hbox->addWidget(login_button_);
+    buttons_hbox->addWidget(register_button_);
+    button_layout_->setLayout(buttons_hbox);
 
-    // Layout for the titleWidget itself
-    innerLayout->addWidget(titleLabel, 0, Qt::AlignCenter);
-    innerLayout->addLayout(buttonLayout);
+    // Stack everything vertically
+    inner_layout_->setContentsMargins(24, 24, 24, 24);
+    inner_layout_->setSpacing(16);
+    inner_layout_->addWidget(title_label, 0, Qt::AlignCenter);
+    inner_layout_->addWidget(button_layout_, 0, Qt::AlignCenter);
 
-    return titleWidget;
+    return title_widget_;
 }

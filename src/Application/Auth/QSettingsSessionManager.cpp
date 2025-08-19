@@ -4,8 +4,14 @@
 #include <QDir>
 #include <Infrastructure/Security/PasswordHashing/bcrypt.h>
 #include <qt6keychain/keychain.h>
+#include <qeventloop.h>
 using namespace QKeychain;
 namespace Invoke::Application::Auth {
+
+    static constexpr auto SERVICE = "InvokeInvoiceSystem";
+    static constexpr auto KEY_TOKEN = "invoke_session_token";
+    static constexpr auto KEY_ISSUED_AT = "invoke_session_token_issued_at";
+
     QSettingsSessionManager::QSettingsSessionManager(QApplication* main_app_)
         : settings_(new QSettings), session_active_(false), app_(main_app_) {}
 
@@ -19,31 +25,57 @@ namespace Invoke::Application::Auth {
                 throw std::invalid_argument("User ID cannot be empty.");
             }
         } catch (const std::exception& e) {
-            qWarning() << "Failed to start session:" << e.what();
+            qWarning() << "Failed to start session: " << e.what();
             return;
         }
     }
-    std::string QSettingsSessionManager::create_token(const std::string& user_id) {
-        std::time_t time = std::time(nullptr);
-        std::tm* local_time = std::localtime(&time);
-        return hash_token(user_id.substr(2, user_id.size()) + std::to_string(local_time->tm_hour) +
-                          std::to_string(local_time->tm_min) + std::to_string(local_time->tm_sec));
+    std::string QSettingsSessionManager::create_token(const std::string&) {
+        const auto uuid = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        return uuid.toStdString();
     }
-
-    std::string QSettingsSessionManager::hash_token(const std::string& token) {
-        return bcrypt::generateHash(token);
-    }
-    void QSettingsSessionManager::save_secture_token(const QString& token) {
-        auto* job = new WritePasswordJob("InvokeInvoiceSystem");
-        job->setKey("session_token");
+    bool QSettingsSessionManager::save_secure_token(const QString& token) {
+        auto* job = new WritePasswordJob(SERVICE);
+        job->setAutoDelete(false);
+        job->setKey(KEY_TOKEN);
         job->setTextData(token);
+
+        QEventLoop loop;
+
+        QObject::connect(job,                       // 1) sender
+                         &QKeychain::Job::finished, // 2) signal
+                         &loop,                     // 3) receiver
+                         &QEventLoop::quit          // 4) slot (method to call)
+        );
+
+        const bool ok = (job->error() == QKeychain::NoError);
+
+        if (ok) {
+            settings_->setValue(KEY_ISSUED_AT, QDateTime::currentDateTimeUtc().toSecsSinceEpoch());
+            settings_->sync();
+        } else {
+            qWarning() << "Keychain write error:" << job->errorString();
+        }
+        delete job;
+        return ok;
     }
 
     void QSettingsSessionManager::end_session() {}
 
     std::string QSettingsSessionManager::get_session_token() const {
         // Placeholder – implement actual token retrieval if required
-        return {};
+        auto* job = new ReadPasswordJob(SERVICE);
+        job->setAutoDelete(false);
+        job->setKey(KEY_TOKEN);
+
+        QEventLoop loop;
+
+        QObject::connect(job,                       // 1) sender
+                         &QKeychain::Job::finished, // 2) signal
+                         &loop,                     // 3) receiver
+                         &QEventLoop::quit          // 4) slot (method to call)
+        );
+
+        return;
     }
 
     std::string QSettingsSessionManager::get_current_user_id() const {

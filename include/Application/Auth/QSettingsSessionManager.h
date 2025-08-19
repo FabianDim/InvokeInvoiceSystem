@@ -24,7 +24,7 @@ namespace Invoke::Application::Auth {
 
         std::string hash_token(const std::string& token);
 
-        void save_secture_token(const QString& token);
+        bool save_secure_token(const QString& token);
 
         QString settings_file_;
 
