@@ -73,6 +73,7 @@ target_include_directories(InvokeInvoiceSystem PUBLIC ${CMAKE_SOURCE_DIR}/includ
 target_link_libraries(InvokeInvoiceSystem PRIVATE
     passlib
     Qt6::Widgets
+    # Qt6::Pdf
     fmt::fmt 
     Iconv::Iconv
     unofficial::libharu::hpdf

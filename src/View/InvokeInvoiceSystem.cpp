@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
     AccountManager accountManager(dataManager);
     QApplication app(argc, argv);
     QCoreApplication::setOrganizationName("Invoke");
-    QCoreApplication::setApplicationName("InvokeInvoiceS00ystem");
+    QCoreApplication::setApplicationName("InvokeInvoiceSystem");
     App::Views::MainWindow window(accountManager);
     window.resize(800, 800);
     window.show();
