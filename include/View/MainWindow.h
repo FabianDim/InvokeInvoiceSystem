@@ -4,6 +4,8 @@
 #include <QStackedWidget>
 #include <qlayout.h>
 #include <QComboBox>
+#include "UICode/Views/LoginPage.h"
+#include "UICode/Views/LandingPage.h"
 
 namespace Invoke {
     namespace Domain {
@@ -35,7 +37,10 @@ namespace App {
 
             QComboBox* pageComboBox;
             QStackedWidget* pagesStack;
-            QWidget* landingPage;
+            LandingPage* landingPage_;
+
+            LoginPage* loginPage;
+
             QVBoxLayout* mainLayout();
 
             QMenu* fileMenu;

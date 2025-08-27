@@ -8,7 +8,6 @@
 #include <unordered_map>
 #include <any>
 #include <QUuid>
-
 namespace Invoke::Application::Auth {
 
     class QSettingsSessionManager final : public Infrastructure::Auth::ISessionManager {
@@ -18,25 +17,29 @@ namespace Invoke::Application::Auth {
         bool session_active_;
         std::unordered_map<std::string, std::any> session_data_;
 
-        ~QSettingsSessionManager() override = default;
+        QString create_token();
 
-        std::string create_token(const std::string& user_id);
-
-        std::string hash_token(const std::string& token);
+        bool is_session_data_valid(std::unordered_map<std::string, std::string> keychain_info) const;
 
         bool save_secure_token(const QString& token);
 
         QString settings_file_;
 
-        QApplication* app_;
-
       public:
-        QSettingsSessionManager(QApplication* main_app_);
+        ~QSettingsSessionManager() override = default;
 
-        void start_session(const std::string& user_id) override;
+        QSettingsSessionManager();
+
+        void start_new_session(const std::string& user_id) override;
+
+        void restart_session(const std::unordered_map<std::string, std::string>& session_info) override;
+
         void end_session() override;
 
-        std::string get_session_token() const override; // Missing in your original, but in ISessionManager
+        bool delete_session_data() override;
+
+        std::optional<std::unordered_map<std::string, std::string>>
+        get_session_token() const override; // Missing in your original, but in ISessionManager
 
         std::string get_current_user_id() const override;
 

@@ -12,13 +12,13 @@
 
 App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& acctMgr, QWidget* parent)
     : QMainWindow(parent), fileMenu(nullptr), newAct(nullptr), openAct(nullptr), saveAct(nullptr), loginAct(nullptr),
-      logoutAct(nullptr), acctMgr(acctMgr), landingPage(new App::Views::LandingPage(acctMgr, this)),
+      logoutAct(nullptr), acctMgr(acctMgr), landingPage_(new App::Views::LandingPage(acctMgr, this)),
       pagesStack(new QStackedWidget(this)) {
 
     auto* central = new QWidget(this);
     auto* vbox = new QVBoxLayout(central);
     vbox->setAlignment(Qt::AlignCenter);
-    vbox->setContentsMargins(0, 0, 0, 0);
+    // vbox->setContentsMargins(0, 0, 0, 0);
     vbox->setSpacing(6);
     setCentralWidget(central);
 
@@ -27,14 +27,18 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
     // vbox->addWidget(pageComboBox);
 
     // Pages
-    pagesStack->addWidget(landingPage);
+
+    loginPage = new LoginPage(acctMgr, landingPage_);
+
+    pagesStack->addWidget(landingPage_);
+    pagesStack->addWidget(loginPage);
+
     vbox->addWidget(pagesStack, /*stretch*/ 1, Qt::AlignCenter);
 
     // Menus & actions
     createAccountActions();
     createFileActions();
     createMenus();
-
     // Window bits
     setWindowTitle("Invoke Invoice System");
     QIcon icon(":/icons/invoice_icon.ico");
@@ -61,6 +65,8 @@ void App::Views::MainWindow::createMenus() {
 void App::Views::MainWindow::createAccountActions() {
     loginAct = new QAction(tr("&Login"), this);
     logoutAct = new QAction(tr("&Logout"), this);
+
+    connect(landingPage_, &LandingPage::login_requested, this, [this]() { pagesStack->setCurrentWidget(loginPage); });
 }
 
 void App::Views::MainWindow::createFileActions() {

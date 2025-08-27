@@ -7,7 +7,7 @@ class User; // global ::User forward-decl to match your AccountManager
 namespace Invoke::Domain::Accounts {
 
     class IAccountManager {
-    public:
+      public:
         virtual ~IAccountManager() = default;
 
         // validation / queries
@@ -18,9 +18,8 @@ namespace Invoke::Domain::Accounts {
         virtual bool validatePassword(const std::string& password) = 0;
 
         // actions
-        virtual void createAccount(std::string& userEmail,
-            std::string& userPassword) = 0;
-        virtual void login() = 0;
+        virtual void createAccount(std::string& userEmail, std::string& userPassword) = 0;
+        virtual void login(const std::string& userEmail, const std::string& userPassword) = 0;
         virtual void logOut() = 0;
 
         // state

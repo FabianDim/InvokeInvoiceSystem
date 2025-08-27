@@ -1,4 +1,5 @@
 #include "View/InvokeInvoiceSystem.h"
+
 // int main() {
 //
 //	/*Main Executable*/
@@ -41,12 +42,13 @@
 // }
 
 int main(int argc, char* argv[]) {
-    MongoDBDataManager dataManager;
-    AccountManager accountManager(dataManager);
+    MongoDBDataManager data_manager;
+    AccountManager account_manager(data_manager);
     QApplication app(argc, argv);
+    Invoke::Application::Auth::QSettingsSessionManager session_manager;
     QCoreApplication::setOrganizationName("Invoke");
     QCoreApplication::setApplicationName("InvokeInvoiceSystem");
-    App::Views::MainWindow window(accountManager);
+    App::Views::MainWindow window(account_manager);
     window.resize(800, 800);
     window.show();
     return app.exec();

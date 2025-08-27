@@ -119,34 +119,8 @@ void AccountManager::createAccount(std::string& userEmail, std::string& userPass
     std::cout << "Account created successfully!\n";
 }
 
-void AccountManager::login() {
+void AccountManager::login(const std::string& userEmail, const std::string& userPassword) {
     while (true) {
-        std::string userEmail;
-        std::string userPassword;
-
-        while (true) {
-            std::cout << "Please enter your email (or * to cancel): ";
-            std::getline(std::cin >> std::ws, userEmail);
-            std::transform(userEmail.begin(), userEmail.end(), userEmail.begin(), ::tolower);
-            if (userEmail == "*") {
-                std::cout << "Login canceled.\n";
-                return;
-            }
-            if (validEmail(userEmail)) {
-                break;
-            }
-        }
-
-        while (true) {
-            std::cout << "Please enter your password (or * to cancel): ";
-            std::getline(std::cin >> std::ws, userPassword);
-            if (userPassword == "*") {
-                std::cout << "Login canceled.\n";
-                return;
-            }
-            break;
-        }
-
         if (dataManager.validPassword(userPassword, userEmail)) {
             SetUser setuser(dataManager);
             this->currentUser = setuser.setUserOnLogin(userEmail, userPassword);

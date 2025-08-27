@@ -8,12 +8,13 @@
 #include <QApplication>
 #include "View/MainWindow.h"
 #include <QMainWindow>
-
+#include "Application/Auth/QSettingsSessionManager.h"
 class InvokeInvoiceSystem {
     friend class MainMenu;
-public:
-    InvokeInvoiceSystem(){};
-private:
 
+  public:
+    InvokeInvoiceSystem() {};
+
+  private:
     System invoiceSystem;
 };
