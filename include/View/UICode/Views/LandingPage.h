@@ -16,7 +16,7 @@ namespace App::Views {
         ~LandingPage() = default;
 
       private:
-        QWidget* createPageLayout();
+        void createPageLayout();
         QWidget* title_widget_;
         QWidget* button_layout_;
         QVBoxLayout* inner_layout_;

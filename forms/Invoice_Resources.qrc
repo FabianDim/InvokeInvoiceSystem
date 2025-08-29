@@ -1,5 +1,8 @@
 <RCC>
-    <qresource prefix="/icons">
-        <file>resources/icons/invoice_icon.png</file>
-    </qresource>
+  <qresource prefix="/icons">
+    <file>resources/icons/invoice_icon.ico</file>
+  </qresource>
+  <qresource prefix="/styles">
+    <file>UI/Global.qss</file>
+  </qresource>
 </RCC>

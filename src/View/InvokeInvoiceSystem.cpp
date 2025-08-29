@@ -1,4 +1,5 @@
 #include "View/InvokeInvoiceSystem.h"
+#include <qfile.h>
 
 // int main() {
 //
@@ -45,6 +46,13 @@ int main(int argc, char* argv[]) {
     MongoDBDataManager data_manager;
     AccountManager account_manager(data_manager);
     QApplication app(argc, argv);
+    QFile f(":/styles/UI/Global.qss");
+    if (f.open(QIODevice::ReadOnly)) {
+        QString StyleSheet = QLatin1String(f.readAll());
+        app.setStyleSheet(StyleSheet);
+    } else {
+        qWarning() << "Failed to load stylesheet";
+    }
     Invoke::Application::Auth::QSettingsSessionManager session_manager;
     QCoreApplication::setOrganizationName("Invoke");
     QCoreApplication::setApplicationName("InvokeInvoiceSystem");

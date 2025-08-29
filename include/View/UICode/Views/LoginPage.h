@@ -17,8 +17,8 @@ namespace App {
             ~LoginPage() = default;
 
           private:
-            QWidget* create_page_layout();
-            QWidget* title_widget_;
+            void createPageLayout();
+            QWidget* parent_widget_;
             QWidget* button_layout_;
             QWidget* form_layout_;
 

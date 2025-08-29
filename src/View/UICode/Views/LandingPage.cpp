@@ -7,7 +7,8 @@
 
 namespace App::Views {
 
-    LandingPage::LandingPage(Invoke::Domain::Accounts::IAccountManager& account_manager, QWidget* parent) {
+    LandingPage::LandingPage(Invoke::Domain::Accounts::IAccountManager& account_manager, QWidget* parent)
+        : QWidget(parent) {
         title_widget_ = new QWidget(this);
         button_layout_ = new QWidget(title_widget_);
         inner_layout_ = new QVBoxLayout(title_widget_);
@@ -15,12 +16,12 @@ namespace App::Views {
         setWindowTitle("Landing Page");
         createPageLayout();
         // setFixedSize(800, 600);
-        //  wire the actions last
+        // wire the actions last
 
         connect(register_button_, &QPushButton::clicked, this, &LandingPage::on_register_clicked);
         connect(login_button_, &QPushButton::clicked, this, &LandingPage::on_login_clicked);
     }
-    QWidget* LandingPage::createPageLayout() {
+    void App::Views::LandingPage::createPageLayout() {
         // Title
         auto* title_label = new QLabel(title_widget_);
         title_label->setTextFormat(Qt::RichText);
@@ -37,7 +38,7 @@ namespace App::Views {
         register_button_->setObjectName("register_button_"); // matches QSS: QPushButton#register_button_
 
         // Styles
-        auto* effect = new QGraphicsDropShadowEffect(title_widget_);
+        auto* effect = new QGraphicsDropShadowEffect(this);
         effect->setBlurRadius(16);
         effect->setOffset(0, 6);
         effect->setColor(QColor(0, 0, 0, 90));
@@ -62,7 +63,7 @@ namespace App::Views {
         inner_layout_->addWidget(title_label, 0, Qt::AlignCenter);
         inner_layout_->addWidget(button_layout_, 0, Qt::AlignCenter);
 
-        return title_widget_;
+        setLayout(inner_layout_);
     }
 
     void LandingPage::on_register_clicked() {
