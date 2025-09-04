@@ -28,21 +28,21 @@ namespace App::Views {
         title_label->setText(
             R"(<span style="color: white;">Welcome to the </span>
            <span style="color: #9c27b0; font-weight: 700;">Invoke Invoice System</span>)");
-        title_label->setObjectName("titleLabel"); // matches Styles::widgetStyles key + QSS #titleLabel
+        title_label->setObjectName("titleLabel");
         title_label->setAlignment(Qt::AlignCenter);
 
         // Buttons
         login_button_ = new QPushButton("Login", button_layout_);
         register_button_ = new QPushButton("Register", button_layout_);
-        login_button_->setObjectName("login_button_");       // matches QSS: QPushButton#login_button_
-        register_button_->setObjectName("register_button_"); // matches QSS: QPushButton#register_button_
+        login_button_->setObjectName("login_button_");
+        register_button_->setObjectName("register_button_");
 
         // Styles
         auto* effect = new QGraphicsDropShadowEffect(this);
         effect->setBlurRadius(16);
         effect->setOffset(0, 6);
         effect->setColor(QColor(0, 0, 0, 90));
-        title_label->setGraphicsEffect(effect); // apply the drop shadow
+        title_label->setGraphicsEffect(effect);
 
         title_label->setStyleSheet(Styles::widgetStyles.at("titleLabel"));
         login_button_->setStyleSheet(Styles::widgetStyles.at("login_button_") + Styles::widgetStyles.at("button"));
@@ -67,11 +67,11 @@ namespace App::Views {
     }
 
     void LandingPage::on_register_clicked() {
-        emit register_requested();
+        emit navigate_to(Page::Login);
     }
 
     void LandingPage::on_login_clicked() {
-        emit login_requested();
+        emit navigate_to(Page::Login);
     }
 
 } // namespace App::Views

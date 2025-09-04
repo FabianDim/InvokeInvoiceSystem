@@ -17,7 +17,7 @@ find_package(bsoncxx            CONFIG REQUIRED)
 find_package(mongocxx           CONFIG REQUIRED)
 find_package(unofficial-libharu CONFIG REQUIRED)
 find_package(Iconv              REQUIRED)
-find_package(Qt6 COMPONENTS Widgets REQUIRED)
+find_package(Qt6 COMPONENTS Widgets HttpServer REQUIRED)
 find_package(Qt6Keychain CONFIG REQUIRED)
 qt_standard_project_setup()  # enables AUTOMOC/AUTORCC/AUTOUIC
 
@@ -80,14 +80,12 @@ target_link_libraries(InvokeInvoiceSystem PRIVATE
     $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
     $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
     Qt6Keychain::Qt6Keychain
+    Qt6::HttpServer
 )
 
 set_target_properties(InvokeInvoiceSystem PROPERTIES
   WIN32_EXECUTABLE ON
   MACOSX_BUNDLE   ON
 )
-
 target_precompile_headers(InvokeInvoiceSystem PRIVATE include/pch.h)
 qt_finalize_executable(InvokeInvoiceSystem)
-
-

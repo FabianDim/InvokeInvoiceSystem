@@ -9,6 +9,8 @@
 #include "View/MainWindow.h"
 #include <QMainWindow>
 #include "Application/Auth/QSettingsSessionManager.h"
+#include "Application/Controllers/AppController.h"
+
 class InvokeInvoiceSystem {
     friend class MainMenu;
 

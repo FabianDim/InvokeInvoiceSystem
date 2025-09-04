@@ -45,3 +45,15 @@ QLabel#titleLabel {
   font-weight: bold;
   color: white;
 }
+
+
+/* --- Input fields --- */
+
+QLineEdit {
+  font-size: 14px;
+  padding: 5px;
+  border: 2px solid purple;
+  border-radius: 3px;
+  color: black;
+  background-color: white;
+}

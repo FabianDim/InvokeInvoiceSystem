@@ -6,6 +6,7 @@
 #include <QComboBox>
 #include "UICode/Views/LoginPage.h"
 #include "UICode/Views/LandingPage.h"
+#include "Enums/RouteEnums.h"
 
 namespace Invoke {
     namespace Domain {
@@ -29,6 +30,13 @@ namespace App {
           public:
             explicit MainWindow(Invoke::Domain::Accounts::IAccountManager& acctMgr, QWidget* parent = nullptr);
             ~MainWindow();
+            void show_page(Page p);
+            LandingPage* landing_page() const {
+                return landingPage_;
+            }
+            LoginPage* login_page() const {
+                return loginPage;
+            }
 
           private:
             Ui::MainWindow* ui;
@@ -56,6 +64,7 @@ namespace App {
             void createMenus();
             void createAccountActions();
             void createFileActions();
+
             Invoke::Domain::Accounts::IAccountManager& acctMgr;
 
             /*Landing page*/

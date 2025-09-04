@@ -10,6 +10,7 @@
     "mongo-cxx-driver",
     "qtkeychain-qt6",
     "qtbase",
-    "qttools"
+    "qttools",
+    "qthttpserver"
   ]
 }

@@ -9,6 +9,7 @@
 #include <QIcon>
 #include <QDebug>
 #include <QWidget>
+#include <Enums/RouteEnums.h>
 
 App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& acctMgr, QWidget* parent)
     : QMainWindow(parent), fileMenu(nullptr), newAct(nullptr), openAct(nullptr), saveAct(nullptr), loginAct(nullptr),
@@ -28,7 +29,7 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
 
     // Pages
 
-    loginPage = new LoginPage(acctMgr, landingPage_);
+    loginPage = new LoginPage(landingPage_);
 
     pagesStack->addWidget(landingPage_);
     pagesStack->addWidget(loginPage);
@@ -41,7 +42,7 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
     createMenus();
     // Window bits
     setWindowTitle("Invoke Invoice System");
-    QIcon icon(":/icons/invoice_icon.ico");
+    QIcon icon(":/icons/invoice_icon.png");
     qDebug() << "Icon is null?" << icon.isNull();
     setWindowIcon(icon);
 }
@@ -65,8 +66,6 @@ void App::Views::MainWindow::createMenus() {
 void App::Views::MainWindow::createAccountActions() {
     loginAct = new QAction(tr("&Login"), this);
     logoutAct = new QAction(tr("&Logout"), this);
-
-    connect(landingPage_, &LandingPage::login_requested, this, [this]() { pagesStack->setCurrentWidget(loginPage); });
 }
 
 void App::Views::MainWindow::createFileActions() {
@@ -77,4 +76,15 @@ void App::Views::MainWindow::createFileActions() {
     connect(newAct, &QAction::triggered, this, []() { qDebug() << "New action triggered"; });
     connect(openAct, &QAction::triggered, this, []() { qDebug() << "Open action triggered"; });
     connect(saveAct, &QAction::triggered, this, []() { qDebug() << "Save action triggered"; });
+}
+
+void App::Views::MainWindow::show_page(Page p) {
+    switch (p) {
+    case Page::Landing:
+        pagesStack->setCurrentWidget(landingPage_);
+        break;
+    case Page::Login:
+        pagesStack->setCurrentWidget(loginPage);
+        break;
+    }
 }

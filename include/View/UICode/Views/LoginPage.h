@@ -6,23 +6,29 @@
 #include <QPushButton>
 #include "Application/Accounts/AccountManager.h"
 #include <QLineEdit>
+#include <QCheckBox>
 
-class Invoke::Domain::Accounts::IAccountManager;
 namespace App {
     namespace Views {
         class LoginPage : public QWidget {
             Q_OBJECT
           public:
-            LoginPage(Invoke::Domain::Accounts::IAccountManager& account_manager, QWidget* parent = nullptr);
+            LoginPage(QWidget* parent = nullptr);
             ~LoginPage() = default;
+
+          signals:
+            void login_requested(QString email, QString password, bool remember);
 
           private:
             void createPageLayout();
+            void on_login_clicked();
             QWidget* parent_widget_;
             QWidget* button_layout_;
             QWidget* form_layout_;
-
+            QWidget* remember_me_layout_;
             QVBoxLayout* inner_layout_;
+
+            QCheckBox* remember_me_;
 
             QLineEdit* email_input_;
             QLineEdit* password_input_;

@@ -6,6 +6,7 @@
 #include <QPushButton>
 #include "Application/Accounts/AccountManager.h"
 #include "View/MainWindow.h"
+#include "Enums/RouteEnums.h"
 
 class Invoke::Domain::Accounts::IAccountManager;
 namespace App::Views {
@@ -25,8 +26,7 @@ namespace App::Views {
         QPushButton* register_button_;
 
       signals:
-        void login_requested();
-        void register_requested();
+        void navigate_to(Page page);
 
       private slots:
         void on_login_clicked();
