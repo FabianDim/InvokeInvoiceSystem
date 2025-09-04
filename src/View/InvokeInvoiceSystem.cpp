@@ -1,6 +1,7 @@
 #include "View/InvokeInvoiceSystem.h"
 #include <qfile.h>
 #include <QIcon>
+#include <Infrastructure/Http/FakeServer.h>
 // int main() {
 //
 //	/*Main Executable*/
@@ -46,6 +47,8 @@ int main(int argc, char* argv[]) {
     MongoDBDataManager data_manager;
     AccountManager account_manager(data_manager);
     QApplication app(argc, argv);
+    
+    Server server;
 
     app.setWindowIcon(QIcon(":/icons/invoice_icon.ico"));
     QFile f("C:/Users/fdime/Repos/InvokeInvoiceSystem/forms/UI/Global.qss");

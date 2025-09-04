@@ -1,15 +1,26 @@
 #include "Infrastructure/Http/FakeServer.h"
-#include <QtHttpServer>
 
-void Server::start_server() {
-    QHttpServer httpServer;
+Server::Server() : InvokeDB(dbHandler.getDatabase()) {
+    start_server();
+    create_routes_basic();
+}
 
-    const auto port = httpServer.listen(QHostAddress::Any);
+void Server::create_routes_basic() {
+    httpServer_.route("/", []() { return "hello world"; });
+}
 
-    if (!port)
-        return 0;
+void Server::create_routes_auth() {}
 
-    qDebug() << QCoreApplication::translate("QHttpServerExample",
-                                            "Running on http://127.0.0.1:%1/ (Press CTRL+C to quit)")
-                    .arg(port);
+int Server::start_server() {
+
+    tcpServer_ = new QTcpServer();
+    if (!tcpServer_->listen() || !httpServer_.bind(tcpServer_)) {
+        delete tcpServer_;
+        return -1;
+    }
+    qDebug() << "Listening on port" << tcpServer_->serverPort();
+}
+
+Server::~Server() {
+    delete tcpServer_
 }

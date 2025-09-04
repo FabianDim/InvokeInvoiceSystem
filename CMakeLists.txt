@@ -81,6 +81,7 @@ target_link_libraries(InvokeInvoiceSystem PRIVATE
     $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
     Qt6Keychain::Qt6Keychain
     Qt6::HttpServer
+    Qt6::Network
 )
 
 set_target_properties(InvokeInvoiceSystem PROPERTIES
