@@ -8,14 +8,15 @@ using bsoncxx::builder::basic::make_document;
 class Server {
     MongoDBHandler dbHandler;
     const mongocxx::database InvokeDB;
+
   private:
     QHttpServer httpServer_;
     QTcpServer* tcpServer_;
     int start_server();
-    ~Server();
+
   public:
-    Server(); 
+    Server();
+    ~Server() = default;
     void create_routes_basic();
     void create_routes_auth();
-
 };

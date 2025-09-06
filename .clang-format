@@ -16,10 +16,7 @@ SpaceBeforeParens: ControlStatements
 SortIncludes: false
 IncludeBlocks: Regroup
 
-NamespaceIndentation: All
-
 Cpp11BracedListStyle: true
-AlignAfterOpenBracket: Align
 BinPackParameters: false
 BinPackArguments: false
 ReflowComments: true

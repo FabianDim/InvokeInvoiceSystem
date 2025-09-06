@@ -47,7 +47,7 @@ int main(int argc, char* argv[]) {
     MongoDBDataManager data_manager;
     AccountManager account_manager(data_manager);
     QApplication app(argc, argv);
-    
+
     Server server;
 
     app.setWindowIcon(QIcon(":/icons/invoice_icon.ico"));
@@ -62,8 +62,8 @@ int main(int argc, char* argv[]) {
     QCoreApplication::setOrganizationName("Invoke");
     QCoreApplication::setApplicationName("InvokeInvoiceSystem");
     App::Views::MainWindow window(account_manager);
-
-    Application::Controllers::AppController controller(&window, account_manager, nullptr);
+    auto api = new Infrastructure::Http::ApiClient(QUrl("http://127.0.0.1:12312"), &app);
+    Application::Controllers::AppController controller(&window, account_manager, api);
 
     window.resize(800, 800);
     window.show();

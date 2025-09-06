@@ -47,7 +47,6 @@ void LoginPage::createPageLayout() {
 void LoginPage::on_login_clicked() {
     QString email = email_input_->text();
     QString password = password_input_->text();
-
     const QString trimmed_email = email.trimmed();
     emit login_requested(trimmed_email, password, remember_me_->isChecked());
 

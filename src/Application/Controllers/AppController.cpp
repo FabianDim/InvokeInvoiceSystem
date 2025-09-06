@@ -1,4 +1,5 @@
 #include "Application/Controllers/AppController.h"
+#include "View/UICode/Views/LoginPage.h"
 
 using namespace Application::Controllers;
 
@@ -13,8 +14,11 @@ AppController::AppController(App::Views::MainWindow* main,
                      main_,                                 // 3. Receiver object (MainWindow instance)
                      &App::Views::MainWindow::show_page     // 4. Slot (or method) to call on receiver
     );
+    auto* login = main_->login_page();
+    QObject::connect(login, &App::Views::LoginPage::login_requested, api_, &Infrastructure::Http::ApiClient::do_login);
 }
 
 void AppController::page_navigation(Page page) {
     main_->show_page(page);
+    return;
 }
