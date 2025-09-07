@@ -15,15 +15,15 @@ std::shared_ptr<Client> SetClient::setClientFromDB(const std::string& clientID) 
         auto addressView = view["Address"];
         auto stockIDsView = view["ClientStockIDs"];
 
-        std::string id{ idView.get_utf8().value };
-        std::string name{ nameView.get_utf8().value };
-        std::string phone{ phoneView.get_utf8().value };
-        std::string email{ emailView.get_utf8().value };
-        std::string address{ addressView.get_utf8().value };
+        std::string id{ idView.get_string().value };
+        std::string name{ nameView.get_string().value };
+        std::string phone{ phoneView.get_string().value };
+        std::string email{ emailView.get_string().value };
+        std::string address{ addressView.get_string().value };
 
         std::vector<std::string> clientStockIDs;
         for (auto& val : stockIDsView.get_array().value) {
-            clientStockIDs.push_back(static_cast<std::string>(val.get_utf8().value));
+            clientStockIDs.push_back(static_cast<std::string>(val.get_string().value));
         }
 
         auto client = std::make_shared<Client>();

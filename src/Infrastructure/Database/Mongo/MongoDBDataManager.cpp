@@ -79,7 +79,7 @@ std::optional<std::string> MongoDBDataManager::fetchStoredPassword(const std::st
         return std::nullopt;
     }
 
-    std::string hashedPW{ pw.get_utf8().value };
+    std::string hashedPW{ pw.get_string().value };
     return hashedPW;
 }
 

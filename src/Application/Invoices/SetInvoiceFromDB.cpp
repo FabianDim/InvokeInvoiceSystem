@@ -10,15 +10,15 @@ std::shared_ptr<Invoice> SetInvoice::setInvoice(const std::string invoiceID) {
             auto invoice = std::make_shared<Invoice>();
 
             // Extract and convert fields
-            std::string invoiceIDStr{ view["InvoiceID"].get_utf8().value };
-            std::string clientInvoice{ view["ClientInvoiceID"].get_utf8().value };
-            std::string clientID{ view["ClientID"].get_utf8().value };
-            std::string invoiceDate{ view["InvoiceDate"].get_utf8().value };
-            std::string dueDate{ view["DueDate"].get_utf8().value };
+            std::string invoiceIDStr{ view["InvoiceID"].get_string().value };
+            std::string clientInvoice{ view["ClientInvoiceID"].get_string().value };
+            std::string clientID{ view["ClientID"].get_string().value };
+            std::string invoiceDate{ view["InvoiceDate"].get_string().value };
+            std::string dueDate{ view["DueDate"].get_string().value };
             bool isPaid = view["IsPaid"].get_bool().value;
             bool gstIncluded = view["GSTIncluded"].get_bool().value;
-            std::string invoiceTemplate{ view["InvoiceTemplate"].get_utf8().value };
-            std::string notes{ view["Notes"].get_utf8().value };
+            std::string invoiceTemplate{ view["InvoiceTemplate"].get_string().value };
+            std::string notes{ view["Notes"].get_string().value };
 
             // Assign to invoice
             invoice->setInvoiceID(invoiceIDStr);
@@ -47,7 +47,7 @@ std::shared_ptr<Invoice> SetInvoice::setInvoice(const std::string invoiceID) {
             for (const auto& elem : stockArray) {
                 auto stockObj = elem.get_document().value;
 
-                std::string stockID{ stockObj["StockID"].get_utf8().value };
+                std::string stockID{ stockObj["StockID"].get_string().value };
                 int quantity = stockObj["Quantity"].get_int32().value;
 
                 auto stockItem = SetStockItem::setStockItem(stockID);

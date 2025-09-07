@@ -72,11 +72,11 @@ std::map<std::string, std::string> BusinessManager::retrieveUsersBusinessIDs() {
 		auto doc = result->view();
 		auto arr = doc["BusinessIDs"].get_array().value;
 		for (auto& elem : arr) {
-			std::string business{ elem.get_utf8().value };
+			std::string business{ elem.get_string().value };
 			auto res = dbManager.findOne("Business", make_document(kvp("BusinessID", business)));
 			if (res) {
 				auto doc = res->view();
-				std::string businessName{ std::string(doc["BusinessName"].get_utf8().value) };
+				std::string businessName{ std::string(doc["BusinessName"].get_string().value) };
 				businessMap[business] = businessName;
 			}
 		}

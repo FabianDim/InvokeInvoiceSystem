@@ -4,9 +4,8 @@
 #include <bsoncxx/builder/stream/helpers.hpp>
 
 std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const std::string& password) {
-    
-    auto filter = bsoncxx::builder::stream::document{}
-    << "UserEmail" << email << bsoncxx::builder::stream::finalize;
+
+    auto filter = bsoncxx::builder::stream::document{} << "UserEmail" << email << bsoncxx::builder::stream::finalize;
     auto result = mongoDataManager.findOne("Users", filter.view());
 
     if (result) {
@@ -17,14 +16,14 @@ std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const st
         auto last = view["LastName"];
         auto email = view["UserEmail"];
         auto pass = view["UserPassword"];
-        if (!first || first.type() != bsoncxx::type::k_utf8) {
+        if (!first || first.type() != bsoncxx::type::k_string) {
             throw std::runtime_error("FirstName missing or wrong type");
         }
-        std::string userID{ id.get_utf8().value };
-        std::string firstName{ first.get_utf8().value };
-        std::string lastName{ last.get_utf8().value };
-        std::string userEmail{ email.get_utf8().value };
-        std::string password{ pass.get_utf8().value };
+        std::string userID{id.get_string().value};
+        std::string firstName{first.get_string().value};
+        std::string lastName{last.get_string().value};
+        std::string userEmail{email.get_string().value};
+        std::string password{pass.get_string().value};
         user->setMongoUserID(userID);
         user->setFirstName(firstName);
         user->setLastName(lastName);
@@ -45,8 +44,7 @@ bool SetUser::addBusinessToUser(const std::string& userID, const std::string& bu
             return false;
         }
         mongoDataManager.getCollection("Users")->update_one(filter->view(), update.view());
-    }
-    catch (mongocxx::exception e) {
+    } catch (mongocxx::exception e) {
         std::cerr << e.what() << std::endl;
     }
     return false;

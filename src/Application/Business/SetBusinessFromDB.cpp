@@ -21,18 +21,18 @@ std::shared_ptr<BusinessRepository> SetBusiness::setUpBusiness(const std::string
 		stock.reserve(std::distance(stockV.get_array().value.begin(), stockV.get_array().value.end()));
 		auto acnV = view["ACN"];
 
-		std::string bizID{ bizV.get_utf8().value };
-		std::string abn{ abnV.get_utf8().value };
-		std::string phone{ phoneV.get_utf8().value };
-		std::string name{ nameV.get_utf8().value };
-		std::string address{ addressV.get_utf8().value };
-		std::string acn{ acnV.get_utf8().value };
+		std::string bizID{ bizV.get_string().value };
+		std::string abn{ abnV.get_string().value };
+		std::string phone{ phoneV.get_string().value };
+		std::string name{ nameV.get_string().value };
+		std::string address{ addressV.get_string().value };
+		std::string acn{ acnV.get_string().value };
 		
 		for (auto& val : stockV.get_array().value) {
-			stock.push_back(static_cast<std::string>(val.get_utf8().value));
+			stock.push_back(static_cast<std::string>(val.get_string().value));
 		}
 		for (auto& val : clientV.get_array().value) {
-			clients.insert(static_cast<std::string>(val.get_utf8().value));
+			clients.insert(static_cast<std::string>(val.get_string().value));
 		}
 		business->setBizID(bizID);
 		business->setAbn(abn);
