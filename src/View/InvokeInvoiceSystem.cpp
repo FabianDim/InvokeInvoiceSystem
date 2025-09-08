@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
     MongoDBDataManager data_manager;
     AccountManager account_manager(data_manager);
     QApplication app(argc, argv);
-    Server server;
+    Server server(data_manager);
     qDebug() << "Qt version:" << QT_VERSION_STR;
     app.setWindowIcon(QIcon(":/icons/invoice_icon.ico"));
     QFile f("C:/Users/fdime/Repos/InvokeInvoiceSystem/forms/UI/Global.qss");

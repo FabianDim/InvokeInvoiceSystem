@@ -121,7 +121,7 @@ void AccountManager::createAccount(std::string& userEmail, std::string& userPass
 
 void AccountManager::login(const std::string& userEmail, const std::string& userPassword) {
     while (true) {
-        if (dataManager.validPassword(userPassword, userEmail)) {
+        if (dataManager.valid_password(userPassword, userEmail)) {
             SetUser setuser(dataManager);
             this->currentUser = setuser.setUserOnLogin(userEmail, userPassword);
             accounts[userEmail] = this->currentUser;

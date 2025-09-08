@@ -1,7 +1,7 @@
 ﻿#include "Infrastructure/Http/FakeServer.h"
+#include "Infrastructure/Database/Mongo/MongoDBDataManager.h"
 
-Server::Server() : InvokeDB(dbHandler.getDatabase()) {
-
+Server::Server(MongoDBDataManager& db_manager) : db_manager_(db_manager), account_services_(db_manager) {
     create_routes_basic();
     create_routes_auth();
     start_server();
@@ -12,12 +12,15 @@ void Server::create_routes_basic() {
 }
 
 void Server::create_routes_auth() {
-    httpServer_.route("/auth/login", QHttpServerRequest::Method::Post, [](const QHttpServerRequest& request) {
-        auto body = request.body();
-        // Handle login logic here
-        // hit a method in a dbhandler to verify credentials
-        qDebug() << "Login attempt with body: " << body;
-        return QHttpServerResponse("Logged In", QHttpServerResponder::StatusCode::Accepted);
+    httpServer_.route("/auth/login", QHttpServerRequest::Method::Post, [&](const QHttpServerRequest& request) {
+        QJsonParseError parseError;
+        QJsonDocument doc = QJsonDocument::fromJson(request.body(), &parseError);
+
+        if (account_services_.validate_login(doc)) {
+            qDebug() << "Logging In Successfully";
+            return QHttpServerResponse("Login Successful", QHttpServerResponder::StatusCode::Ok);
+        }
+        return QHttpServerResponse("Not logging in", QHttpServerResponder::StatusCode::BadRequest);
     });
 }
 
