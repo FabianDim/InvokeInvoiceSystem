@@ -16,6 +16,7 @@ AppController::AppController(App::Views::MainWindow* main,
     );
     auto* login = main_->login_page();
     QObject::connect(login, &App::Views::LoginPage::login_requested, api_, &Infrastructure::Http::ApiClient::do_login);
+    auto* dashboard = main_->dashboard_page();
 }
 
 void AppController::page_navigation(Page page) {

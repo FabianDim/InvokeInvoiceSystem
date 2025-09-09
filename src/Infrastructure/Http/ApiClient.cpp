@@ -23,8 +23,7 @@ void ApiClient::do_login(const QString& email, const QString& password, bool rem
     json["password"] = password;
     json["remember"] = remember;
     try {
-        networkManager_->post(request, QJsonDocument(json).toJson());
-
+        auto reply = networkManager_->post(request, QJsonDocument(json).toJson());
     } catch (const std::exception& e) {
         qDebug() << "Exception during login request:" << e.what();
     }

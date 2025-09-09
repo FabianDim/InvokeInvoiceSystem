@@ -49,7 +49,6 @@ int main(int argc, char* argv[]) {
     AccountManager account_manager(data_manager);
     QApplication app(argc, argv);
     Server server(data_manager);
-    qDebug() << "Qt version:" << QT_VERSION_STR;
     app.setWindowIcon(QIcon(":/icons/invoice_icon.ico"));
     QFile f("C:/Users/fdime/Repos/InvokeInvoiceSystem/forms/UI/Global.qss");
     if (f.open(QIODevice::ReadOnly)) {
@@ -62,10 +61,11 @@ int main(int argc, char* argv[]) {
     QCoreApplication::setOrganizationName("Invoke");
     QCoreApplication::setApplicationName("InvokeInvoiceSystem");
     App::Views::MainWindow window(account_manager);
+    App::Views::Dashboard dashboard;
     auto api = new Infrastructure::Http::ApiClient(QUrl("http://127.0.0.1:1234"), &app);
     Application::Controllers::AppController controller(&window, account_manager, api);
 
-    window.resize(800, 800);
-    window.show();
+    dashboard.resize(800, 800);
+    dashboard.show();
     return app.exec();
 }

@@ -30,6 +30,7 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
     // Pages
 
     loginPage = new LoginPage(landingPage_);
+    dashboard_page_ = new Dashboard();
 
     pagesStack->addWidget(landingPage_);
     pagesStack->addWidget(loginPage);
@@ -85,6 +86,9 @@ void App::Views::MainWindow::show_page(Page p) {
         break;
     case Page::Login:
         pagesStack->setCurrentWidget(loginPage);
+        break;
+    case Page::Dashboard:
+        pagesStack->setCurrentWidget(dashboard_page_);
         break;
     }
 }
