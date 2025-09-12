@@ -136,12 +136,12 @@ std::shared_ptr<User> AccountManager::getAccount() {
     return currentUser ? currentUser : nullptr;
 }
 
-bool AccountManager::isLoggedIn() const {
+bool AccountManager::is_logged_in() const {
     return currentUser != nullptr;
 }
 
 void AccountManager::logOut() {
-    if (!isLoggedIn()) {
+    if (!is_logged_in()) {
         return;
     }
     currentUser = nullptr;

@@ -24,7 +24,7 @@ class AccountManager : public Invoke::Domain::Accounts::IAccountManager {
     void createAccount(std::string& userEmail, std::string& userPassword) override;
     void login(const std::string& userEmail, const std::string& userPassword) override;
     std::shared_ptr<User> getAccount();
-    bool isLoggedIn() const override;
+    bool is_logged_in() const override;
     void logOut() override;
     std::string makeUserID();
 

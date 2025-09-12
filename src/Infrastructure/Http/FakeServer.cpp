@@ -26,12 +26,12 @@ void Server::create_routes_auth() {
 
 int Server::start_server() {
     const QHostAddress host = QHostAddress::LocalHost;
-    tcpServer_ = new QTcpServer(&httpServer_);
-    if (!tcpServer_->listen(host, 1234) || !httpServer_.bind(tcpServer_)) {
-        delete tcpServer_;
+    auto* sslServer = new QSslServer(&httpServer_);
+    if (!sslServer->listen(host, 1234) || !httpServer_.bind(sslServer)) {
+        delete sslServer;
         return -1;
     }
-    QString url = QString("http://%1:%2").arg(tcpServer_->serverAddress().toString()).arg(tcpServer_->serverPort());
+    QString url = QString("http://%1:%2").arg(sslServer->serverAddress().toString()).arg(sslServer->serverPort());
 
     qDebug() << "🗄 Server listening at:" << url;
     return 0;

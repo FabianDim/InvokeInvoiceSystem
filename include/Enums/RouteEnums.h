@@ -1,2 +1,2 @@
 #pragma once
-enum class Page { Landing, Login, Dashboard };
+enum class Page { Null, Landing, Login, Dashboard, NewInvoice };

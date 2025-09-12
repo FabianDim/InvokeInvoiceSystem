@@ -61,11 +61,10 @@ int main(int argc, char* argv[]) {
     QCoreApplication::setOrganizationName("Invoke");
     QCoreApplication::setApplicationName("InvokeInvoiceSystem");
     App::Views::MainWindow window(account_manager);
-    App::Views::Dashboard dashboard;
     auto api = new Infrastructure::Http::ApiClient(QUrl("http://127.0.0.1:1234"), &app);
     Application::Controllers::AppController controller(&window, account_manager, api);
 
-    dashboard.resize(800, 800);
-    dashboard.show();
+    window.resize(800, 800);
+    window.show();
     return app.exec();
 }

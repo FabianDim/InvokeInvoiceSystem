@@ -8,6 +8,7 @@
 #include "UICode/Views/LandingPage.h"
 #include "Enums/RouteEnums.h"
 #include "UICode/Views/Dashboard.h"
+#include "UICode/Views/NewInvoiceCreation.h"
 
 namespace Invoke {
 namespace Domain {
@@ -31,16 +32,12 @@ class MainWindow : public QMainWindow {
   public:
     explicit MainWindow(Invoke::Domain::Accounts::IAccountManager& acctMgr, QWidget* parent = nullptr);
     ~MainWindow();
-    void show_page(Page p);
-    LandingPage* landing_page() const {
-        return landingPage_;
-    }
-    LoginPage* login_page() const {
-        return loginPage;
-    }
-    Dashboard* dashboard_page() const {
-        return dashboard_page_;
-    }
+    void show_page(QWidget* widget);
+
+    LandingPage* landing_page();
+    LoginPage* login_page();
+    Dashboard* dashboard_page();
+    NewInvoiceCreation* new_invoice_page();
 
   private:
     Ui::MainWindow* ui;
@@ -49,10 +46,10 @@ class MainWindow : public QMainWindow {
 
     QComboBox* pageComboBox;
     QStackedWidget* pagesStack;
-    LandingPage* landingPage_;
-    Dashboard* dashboard_page_;
-    LoginPage* loginPage;
-
+    LandingPage* landingPage_ = nullptr;
+    Dashboard* dashboard_page_ = nullptr;
+    LoginPage* login_page_ = nullptr;
+    NewInvoiceCreation* new_invoice_page_ = nullptr;
     QVBoxLayout* mainLayout();
 
     QMenu* fileMenu;

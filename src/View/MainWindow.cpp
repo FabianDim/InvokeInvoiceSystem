@@ -29,11 +29,12 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
 
     // Pages
 
-    loginPage = new LoginPage(landingPage_);
-    dashboard_page_ = new Dashboard();
+    auto* landing = landing_page();
+    pagesStack->addWidget(landing);
 
-    pagesStack->addWidget(landingPage_);
-    pagesStack->addWidget(loginPage);
+    // start page
+    pagesStack->setCurrentWidget(landing);
+    // start page
 
     vbox->addWidget(pagesStack, /*stretch*/ 1, Qt::AlignCenter);
 
@@ -57,7 +58,7 @@ void App::Views::MainWindow::createMenus() {
     fileMenu->addAction(saveAct);
 
     accountMenu = menuBar()->addMenu(tr("&Account"));
-    if (acctMgr.isLoggedIn()) {
+    if (acctMgr.is_logged_in()) {
         accountMenu->addAction(logoutAct);
     } else {
         accountMenu->addAction(loginAct);
@@ -79,16 +80,39 @@ void App::Views::MainWindow::createFileActions() {
     connect(saveAct, &QAction::triggered, this, []() { qDebug() << "Save action triggered"; });
 }
 
-void App::Views::MainWindow::show_page(Page p) {
-    switch (p) {
-    case Page::Landing:
-        pagesStack->setCurrentWidget(landingPage_);
-        break;
-    case Page::Login:
-        pagesStack->setCurrentWidget(loginPage);
-        break;
-    case Page::Dashboard:
-        pagesStack->setCurrentWidget(dashboard_page_);
-        break;
+// application could pass in the page instance instead of using a switch
+void App::Views::MainWindow::show_page(QWidget* widget) {
+    pagesStack->setCurrentWidget(widget);
+}
+
+App::Views::LandingPage* App::Views::MainWindow::landing_page() {
+    if (!landingPage_) {
+        landingPage_ = new App::Views::LandingPage(acctMgr, this);
+        pagesStack->addWidget(landingPage_);
     }
+    return landingPage_;
+}
+
+App::Views::LoginPage* App::Views::MainWindow::login_page() {
+    if (!login_page_) {
+        login_page_ = new App::Views::LoginPage(this);
+        pagesStack->addWidget(login_page_);
+    }
+    return login_page_;
+}
+
+App::Views::Dashboard* App::Views::MainWindow::dashboard_page() {
+    if (!dashboard_page_) {
+        dashboard_page_ = new App::Views::Dashboard(this);
+        pagesStack->addWidget(dashboard_page_);
+    }
+    return dashboard_page_;
+}
+
+App::Views::NewInvoiceCreation* App::Views::MainWindow::new_invoice_page() {
+    if (!new_invoice_page_) {
+        new_invoice_page_ = new App::Views::NewInvoiceCreation(this);
+        pagesStack->addWidget(new_invoice_page_);
+    }
+    return new_invoice_page_;
 }

@@ -5,6 +5,7 @@ using namespace App::Views;
 
 App::Views::Dashboard::Dashboard(QWidget* parent) {
     create_page_layout();
+    button_connections();
 }
 
 void App::Views::Dashboard::create_page_layout() {
@@ -14,7 +15,11 @@ void App::Views::Dashboard::create_page_layout() {
 
     button_group_->setObjectName("dashboard_button_group");
     QIcon icon(":/icons/invoice_icon.png");
-    QPushButton* invoice_button = new QPushButton(icon, "Create new invoice", this);
+    invoice_button = new QPushButton(icon, "Create new invoice", this);
 
     button_group_->addButton(invoice_button);
+}
+
+void Dashboard::button_connections() {
+    connect(invoice_button, &QPushButton::clicked, this, [this]() { emit dash_navigation(Page::NewInvoice); });
 }
