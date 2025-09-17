@@ -1,7 +1,7 @@
 #include "Application/Controllers/AppController.h"
 #include "View/UICode/Views/LoginPage.h"
 #include "View/UICode/Views/LandingPage.h"
-#include "Enums/RouteEnums.h"
+#include "Infrastructure/Enums/RouteEnums.h"
 
 using namespace Application::Controllers;
 

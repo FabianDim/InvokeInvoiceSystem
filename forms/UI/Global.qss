@@ -57,3 +57,9 @@ QLineEdit {
   color: black;
   background-color: white;
 }
+
+QLabel#form_label {
+  font-size: 16px;
+  color: white;
+  font-weight: bold;	
+}

@@ -6,9 +6,10 @@
 #include <QComboBox>
 #include "UICode/Views/LoginPage.h"
 #include "UICode/Views/LandingPage.h"
-#include "Enums/RouteEnums.h"
+#include "Infrastructure/Enums/RouteEnums.h"
 #include "UICode/Views/Dashboard.h"
 #include "UICode/Views/NewInvoiceCreation.h"
+#include "UICode/Views/NewInvoiceStock.h"
 
 namespace Invoke {
 namespace Domain {
@@ -38,6 +39,7 @@ class MainWindow : public QMainWindow {
     LoginPage* login_page();
     Dashboard* dashboard_page();
     NewInvoiceCreation* new_invoice_page();
+    NewInvoiceStock* new_invoice_stock_page();
 
   private:
     Ui::MainWindow* ui;
@@ -50,6 +52,7 @@ class MainWindow : public QMainWindow {
     Dashboard* dashboard_page_ = nullptr;
     LoginPage* login_page_ = nullptr;
     NewInvoiceCreation* new_invoice_page_ = nullptr;
+    NewInvoiceStock* new_invoice_stock_ = nullptr;
     QVBoxLayout* mainLayout();
 
     QMenu* fileMenu;

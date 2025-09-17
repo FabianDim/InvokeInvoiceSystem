@@ -9,7 +9,7 @@
 #include <QIcon>
 #include <QDebug>
 #include <QWidget>
-#include <Enums/RouteEnums.h>
+#include "Infrastructure/Enums/RouteEnums.h"
 
 App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& acctMgr, QWidget* parent)
     : QMainWindow(parent), fileMenu(nullptr), newAct(nullptr), openAct(nullptr), saveAct(nullptr), loginAct(nullptr),
@@ -30,10 +30,11 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
     // Pages
 
     auto* landing = landing_page();
-    pagesStack->addWidget(landing);
+    auto* invoice = new_invoice_page();
+    pagesStack->addWidget(invoice);
 
     // start page
-    pagesStack->setCurrentWidget(landing);
+    pagesStack->setCurrentWidget(invoice);
     // start page
 
     vbox->addWidget(pagesStack, /*stretch*/ 1, Qt::AlignCenter);
@@ -44,9 +45,6 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
     createMenus();
     // Window bits
     setWindowTitle("Invoke Invoice System");
-    QIcon icon(":/icons/invoice_icon.png");
-    qDebug() << "Icon is null?" << icon.isNull();
-    setWindowIcon(icon);
 }
 
 App::Views::MainWindow::~MainWindow() = default;
@@ -113,6 +111,14 @@ App::Views::NewInvoiceCreation* App::Views::MainWindow::new_invoice_page() {
     if (!new_invoice_page_) {
         new_invoice_page_ = new App::Views::NewInvoiceCreation(this);
         pagesStack->addWidget(new_invoice_page_);
+    }
+    return new_invoice_page_;
+}
+
+App::Views::NewInvoiceStock* App::Views::MainWindow::new_invoice_stock_page() {
+    if (!new_invoice_stock_) {
+        new_invoice_stock_ = new App::Views::NewInvoiceCreation(this);
+        pagesStack->addWidget(new_invoice_stock_);
     }
     return new_invoice_page_;
 }

@@ -2,7 +2,7 @@
 #include <qobject.h>
 #include "View/MainWindow.h"
 #include "Infrastructure/Http/ApiClient.h"
-#include "Enums/RouteEnums.h"
+#include "Infrastructure/Enums/RouteEnums.h"
 #include "View/UICode/Views/LoginPage.h"
 #include "View/UICode/Views/Dashboard.h"
 #include "View/UICode/Views/NewInvoiceCreation.h"
