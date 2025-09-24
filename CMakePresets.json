@@ -24,18 +24,8 @@
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
           "hostOS": [ "Windows" ],
-          "vcvarsall": {
-            "arch": [ "x64" ]
-          }
+          "vcvarsall": { "arch": [ "x64" ] }
         }
-      }
-    },
-    {
-      "name": "x64-debug",
-      "displayName": "Ninja MSVC x64 Debug",
-      "inherits": "windows-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
@@ -45,18 +35,27 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
+    },
+    {
+      "name": "x64-relwithdebinfo", // 👈 NEW
+      "displayName": "Ninja MSVC x64 RelWithDebInfo", // shows up in VS dropdown
+      "inherits": "windows-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
     }
   ],
+
   "buildPresets": [
-    {
-      "name": "x64-debug",
-      "configurePreset": "x64-debug",
-      "description": "Build Debug"
-    },
     {
       "name": "x64-release",
       "configurePreset": "x64-release",
       "description": "Build Release"
+    },
+    {
+      "name": "x64-relwithdebinfo",
+      "configurePreset": "x64-relwithdebinfo",
+      "description": "Build RelWithDebInfo"
     }
   ]
 }

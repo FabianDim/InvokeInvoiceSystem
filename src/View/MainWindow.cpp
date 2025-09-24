@@ -117,8 +117,8 @@ App::Views::NewInvoiceCreation* App::Views::MainWindow::new_invoice_page() {
 
 App::Views::NewInvoiceStock* App::Views::MainWindow::new_invoice_stock_page() {
     if (!new_invoice_stock_) {
-        new_invoice_stock_ = new App::Views::NewInvoiceCreation(this);
+        new_invoice_stock_ = new App::Views::NewInvoiceStock(&new_invoice_page()->invoice, this);
         pagesStack->addWidget(new_invoice_stock_);
     }
-    return new_invoice_page_;
+    return new_invoice_stock_;
 }

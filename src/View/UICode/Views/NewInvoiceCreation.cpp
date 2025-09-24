@@ -7,6 +7,8 @@
 #include <QDateEdit>
 #include <QPushButton>
 #include "Infrastructure/Enums/RouteEnums.h"
+#include "Domain/Invoices/InvoiceTemplateEnum.h"
+#include "Domain/Invoices/Invoice.h"
 using namespace App::Views;
 NewInvoiceCreation::NewInvoiceCreation(QWidget* parent) {
     parent_widget_ = new QWidget(this);
@@ -35,31 +37,31 @@ void NewInvoiceCreation::create_page_layout() {
             input->setObjectName("form_input");
             input->setPlaceholderText(element.opt.placeholder);
             main_form_layout->addWidget(input, row, 1);
-            form_fields_[element.key] = input;
+            base_invoice_form_fields_[element.key] = input;
         } else if (element.type == FormField::Type::ComboBox) {
             QComboBox* input = new QComboBox(form_layout_);
             input->setObjectName("form_input");
             main_form_layout->addWidget(input, row, 1);
-            form_fields_[element.key] = input;
+            base_invoice_form_fields_[element.key] = input;
         } else if (element.type == FormField::Type::DateEdit && element.opt.fromNow) {
             QDateEdit* input = new QDateEdit(QDate::currentDate(), form_layout_);
             input->setDateRange(QDate::currentDate(), QDate::currentDate().addYears(100));
             input->setObjectName("form_date_input");
             input->setCalendarPopup(true);
             main_form_layout->addWidget(input, row, 1);
-            form_fields_[element.key] = input;
+            base_invoice_form_fields_[element.key] = input;
         } else if (element.type == FormField::Type::DateEdit && element.opt.defaultToday) {
             QDateEdit* input = new QDateEdit(QDate::currentDate(), form_layout_);
             input->setObjectName("form_date_input");
             input->setCalendarPopup(true);
             main_form_layout->addWidget(input, row, 1);
-            form_fields_[element.key] = input;
+            base_invoice_form_fields_[element.key] = input;
         } else if (element.type == FormField::Type::DateEdit && !element.opt.defaultToday) {
             QDateEdit* input = new QDateEdit(form_layout_);
             input->setObjectName("form_date_input");
             input->setCalendarPopup(true);
             main_form_layout->addWidget(input, row, 1);
-            form_fields_[element.key] = input;
+            base_invoice_form_fields_[element.key] = input;
         }
     }
 
@@ -68,7 +70,27 @@ void NewInvoiceCreation::create_page_layout() {
 
     QPushButton* next_page_button = new QPushButton("Next >>", parent_widget_);
 
-    connect(next_page_button, &QPushButton::clicked, this, [this]() { emit navigate_to(Page::StockInput); });
+    connect(next_page_button, &QPushButton::clicked, this, [this]() {
+        auto idLe = qobject_cast<QLineEdit*>(base_invoice_form_fields_.value("invoice_number"));
+        auto theme = qobject_cast<QComboBox*>(base_invoice_form_fields_.value("invoice_theme"));
+        auto created = qobject_cast<QDateEdit*>(base_invoice_form_fields_.value("date_created"));
+        auto due = qobject_cast<QDateEdit*>(base_invoice_form_fields_.value("date_due"));
+
+        if (!idLe || !theme || !created || !due) {
+            // one of your map entries isn’t set to the expected widget type
+            // (wrong key, not inserted, or was replaced). Handle gracefully:
+            return;
+        }
+
+        invoice.setInvoiceID(idLe->text().toStdString());
+        invoice.setTemplate(theme->currentText() == "PEECE" ? InvoiceTemplateEnum::PEECE : InvoiceTemplateEnum::PEECE);
+
+        // Prefer dates, not text, then format:
+        invoice.setCurrentDate(created->date().toString(Qt::ISODate).toStdString());
+        invoice.setDueDate(due->date().toString(Qt::ISODate).toStdString());
+
+        emit invoice_navigation(Page::StockInput);
+    });
 
     main_form_layout->addWidget(next_page_button, main_form_layout->rowCount(), 1, Qt::AlignRight);
 }
@@ -76,8 +98,6 @@ void NewInvoiceCreation::create_page_layout() {
 void NewInvoiceCreation::create_form_layout() {
     QGridLayout* main_form_layout = new QGridLayout(form_layout_);
     main_form_layout->setAlignment(Qt::AlignCenter);
-
-    // create inputs and labels
 
     QLabel* invoice_label = new QLabel("Invoice Number:", form_layout_);
     QLineEdit* invoice_input = new QLineEdit(form_layout_);

@@ -17,6 +17,10 @@ AppController::AppController(App::Views::MainWindow* main,
 
     QObject::connect(
         main_->dashboard_page(), &App::Views::Dashboard::dash_navigation, this, &AppController::page_navigation);
+    QObject::connect(main_->new_invoice_page(),
+                     &App::Views::NewInvoiceCreation::invoice_navigation,
+                     this,
+                     &AppController::page_navigation);
 }
 
 void AppController::page_navigation(Page page) {
@@ -32,6 +36,9 @@ void AppController::page_navigation(Page page) {
         break;
     case Page::NewInvoice:
         main_->show_page(main_->new_invoice_page());
+        break;
+    case Page::StockInput:
+        main_->show_page(main_->new_invoice_stock_page());
         break;
     default:
         break;
