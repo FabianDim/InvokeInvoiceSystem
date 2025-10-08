@@ -95,6 +95,23 @@ bool MongoDBDataManager::valid_password(const std::string& password, const std::
     return true;
 }
 
+QJsonDocument MongoDBDataManager::get_account_businesses(const std::string& user_id) {
+    constexpr char kCollectionName[] = "Users";
+    auto collection = InvokeDB[kCollectionName];
+    auto result = collection.find_one(make_document(kvp("UserID", user_id)));
+
+    if (result) {
+        bsoncxx::document::view view = result->view();
+        auto businesses = view["Businesses"];
+        if (businesses && businesses.type() == bsoncxx::type::k_array) {
+            std::string json_str = bsoncxx::to_json(businesses.get_array().value);
+            QJsonDocument jsonDoc = QJsonDocument::fromJson(QByteArray::fromStdString(json_str));
+            return jsonDoc;
+        }
+    }
+    return QJsonDocument();
+}
+
 void MongoDBDataManager::updateDoc(const std::string& collectionName,
                                    std::optional<bsoncxx::document::value> filterDoc,
                                    std::optional<bsoncxx::document::value> replacementDoc) {

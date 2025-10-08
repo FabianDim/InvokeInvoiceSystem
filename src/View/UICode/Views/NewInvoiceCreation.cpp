@@ -77,8 +77,6 @@ void NewInvoiceCreation::create_page_layout() {
         auto due = qobject_cast<QDateEdit*>(base_invoice_form_fields_.value("date_due"));
 
         if (!idLe || !theme || !created || !due) {
-            // one of your map entries isn’t set to the expected widget type
-            // (wrong key, not inserted, or was replaced). Handle gracefully:
             return;
         }
 

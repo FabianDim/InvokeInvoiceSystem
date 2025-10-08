@@ -12,6 +12,7 @@ class ApiClient : public QObject {
     explicit ApiClient(const QUrl& baseUrl, QObject* parent = nullptr);
   public slots:
     void do_login(const QString& email, const QString& password, bool remember);
+    std::unordered_map<QString, QString> get_business_list();
 
   private:
     bool loginInProgress_ = false;

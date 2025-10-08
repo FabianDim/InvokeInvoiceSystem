@@ -60,6 +60,12 @@ int main(int argc, char* argv[]) {
     Invoke::Application::Auth::QSettingsSessionManager session_manager;
     QCoreApplication::setOrganizationName("Invoke");
     QCoreApplication::setApplicationName("InvokeInvoiceSystem");
+
+    AccountManager accountManager(data_manager);
+    auto user = std::make_shared<User>("test@email.com", "password123");
+    user->setMongoUserID("USR00000001");
+    accountManager.setTestUser(user);
+
     App::Views::MainWindow window(account_manager);
     auto api = new Infrastructure::Http::ApiClient(QUrl("http://127.0.0.1:1234"), &app);
     Application::Controllers::AppController controller(&window, account_manager, api);

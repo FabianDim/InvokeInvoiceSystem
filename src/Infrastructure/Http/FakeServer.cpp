@@ -11,6 +11,23 @@ void Server::create_routes_basic() {
     httpServer_.route("/", []() { return "hello world"; });
 }
 
+void Server::create_routes_invoices() {
+    httpServer_.route(
+        "/invoices/invoice_file", QHttpServerRequest::Method::Post, [&](const QHttpServerRequest& request) {
+            QJsonParseError parseError;
+            QJsonDocument doc = QJsonDocument::fromJson(request.body(), &parseError);
+        });
+}
+
+void Server::create_routes_business() {
+    httpServer_.route("/business/list", QHttpServerRequest::Method::Get, [&]() {
+        if (!account_manager_->is_logged_in()) {
+            return;
+        }
+        const auto& list_json = account_services_.get_account_businesses();
+        QHttpServerResponse(list_json.toJson(), "application/json");
+    });
+}
 void Server::create_routes_auth() {
     httpServer_.route("/auth/login", QHttpServerRequest::Method::Post, [&](const QHttpServerRequest& request) {
         QJsonParseError parseError;

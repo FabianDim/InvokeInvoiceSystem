@@ -31,7 +31,7 @@ set(CMAKE_AUTOUIC_SEARCH_PATHS
 add_library(passlib STATIC
   src/Infrastructure/Security/PasswordHashing/bcrypt.cpp
   src/Infrastructure/Security/PasswordHashing/blowfish.cpp
-)
+ "include/Infrastructure/Database/Services/InvoiceServices.h")
 target_include_directories(passlib PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Infrastructure/Security/PasswordHashing
   ${CMAKE_CURRENT_SOURCE_DIR}/include

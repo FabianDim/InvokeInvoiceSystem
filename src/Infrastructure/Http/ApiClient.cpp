@@ -5,6 +5,14 @@ using namespace Infrastructure::Http;
 ApiClient::ApiClient(const QUrl& baseUrl, QObject* parent)
     : networkManager_(new QNetworkAccessManager), baseUrl_(baseUrl) {}
 
+std::unordered_map<QString, QString> Infrastructure::Http::ApiClient::get_business_list() {
+    QUrl url = baseUrl_;
+    url.setPath("/business/list");
+    QNetworkRequest;
+
+    return std::unordered_map<QString, QString>();
+}
+
 void ApiClient::do_login(const QString& email, const QString& password, bool remember) {
     if (loginInProgress_)
         return;

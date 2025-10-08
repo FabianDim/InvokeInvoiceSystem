@@ -42,6 +42,7 @@ class MongoDBDataManager {
     std::optional<mongocxx::collection> getCollection(const std::string& collectionName);
 
     bool valid_password(const std::string& password, const std::string& email);
+    QJsonDocument get_account_businesses(const std::string& user_id);
 
   private:
     // std::optional<bsoncxx::document::value> findOne(const std::string& collectionName, const
