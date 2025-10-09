@@ -1,7 +1,8 @@
 ﻿#include "Infrastructure/Http/FakeServer.h"
 #include "Infrastructure/Database/Mongo/MongoDBDataManager.h"
 
-Server::Server(MongoDBDataManager& db_manager) : db_manager_(db_manager), account_services_(db_manager) {
+Server::Server(MongoDBDataManager& db_manager)
+    : db_manager_(db_manager), account_services_(db_manager, account_manager_) {
     create_routes_basic();
     create_routes_auth();
     start_server();

@@ -107,9 +107,9 @@ App::Views::Dashboard* App::Views::MainWindow::dashboard_page() {
     return dashboard_page_;
 }
 
-App::Views::NewInvoiceCreation* App::Views::MainWindow::new_invoice_page() {
+App::Views::InvoiceDetailsInput* App::Views::MainWindow::new_invoice_page() {
     if (!new_invoice_page_) {
-        new_invoice_page_ = new App::Views::NewInvoiceCreation(this);
+        new_invoice_page_ = new App::Views::InvoiceDetailsInput(this);
         pagesStack->addWidget(new_invoice_page_);
     }
     return new_invoice_page_;

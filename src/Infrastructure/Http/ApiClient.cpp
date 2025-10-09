@@ -1,5 +1,6 @@
 #include "Infrastructure/Http/ApiClient.h"
 #include "Infrastructure/Http/FakeServer.h"
+#include "Domain/Accounts/User.h"
 using namespace Infrastructure::Http;
 
 ApiClient::ApiClient(const QUrl& baseUrl, QObject* parent)
@@ -8,8 +9,16 @@ ApiClient::ApiClient(const QUrl& baseUrl, QObject* parent)
 std::unordered_map<QString, QString> Infrastructure::Http::ApiClient::get_business_list() {
     QUrl url = baseUrl_;
     url.setPath("/business/list");
-    QNetworkRequest;
+    QNetworkRequest request;
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
+    QJsonObject json;
+    json["UserID"] = account_manager_->getAccount()->getMongoUserID().c_str();
+    try {
+        auto reply = networkManager_->get(request, QJsonDocument(json).toJson());
+    } catch (const std::exception& e) {
+        qDebug() << "Exception during business list request:" << e.what();
+    }
     return std::unordered_map<QString, QString>();
 }
 

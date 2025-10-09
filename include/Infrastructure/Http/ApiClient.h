@@ -16,6 +16,7 @@ class ApiClient : public QObject {
 
   private:
     bool loginInProgress_ = false;
+    Invoke::Domain::Accounts::IAccountManager* account_manager_;
     QNetworkAccessManager* networkManager_;
     QUrl baseUrl_;
 };

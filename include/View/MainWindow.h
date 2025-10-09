@@ -38,7 +38,7 @@ class MainWindow : public QMainWindow {
     LandingPage* landing_page();
     LoginPage* login_page();
     Dashboard* dashboard_page();
-    NewInvoiceCreation* new_invoice_page();
+    InvoiceDetailsInput* new_invoice_page();
     NewInvoiceStock* new_invoice_stock_page();
 
   private:
@@ -51,7 +51,7 @@ class MainWindow : public QMainWindow {
     LandingPage* landingPage_ = nullptr;
     Dashboard* dashboard_page_ = nullptr;
     LoginPage* login_page_ = nullptr;
-    NewInvoiceCreation* new_invoice_page_ = nullptr;
+    InvoiceDetailsInput* new_invoice_page_ = nullptr;
     NewInvoiceStock* new_invoice_stock_ = nullptr;
     QVBoxLayout* mainLayout();
 

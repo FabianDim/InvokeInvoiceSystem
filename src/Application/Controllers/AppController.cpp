@@ -18,7 +18,7 @@ AppController::AppController(App::Views::MainWindow* main,
     QObject::connect(
         main_->dashboard_page(), &App::Views::Dashboard::dash_navigation, this, &AppController::page_navigation);
     QObject::connect(main_->new_invoice_page(),
-                     &App::Views::NewInvoiceCreation::invoice_navigation,
+                     &App::Views::InvoiceDetailsInput::invoice_navigation,
                      this,
                      &AppController::page_navigation);
 }

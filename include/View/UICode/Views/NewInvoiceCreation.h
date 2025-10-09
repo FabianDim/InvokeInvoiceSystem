@@ -9,12 +9,12 @@
 #include "Domain/Invoices/Invoice.h"
 
 namespace App::Views {
-class NewInvoiceCreation : public QWidget {
+class InvoiceDetailsInput : public QWidget {
     Q_OBJECT
   public:
-    NewInvoiceCreation(QWidget* parent = nullptr);
-    ~NewInvoiceCreation() = default;
-    Invoice invoice;
+    InvoiceDetailsInput(Invoice* invoice, QWidget* parent = nullptr);
+    ~InvoiceDetailsInput() = default;
+    Invoice* invoice;
   signals:
     void invoice_navigation(Page page);
 

@@ -10,13 +10,13 @@
 #include "Domain/Invoices/InvoiceTemplateEnum.h"
 #include "Domain/Invoices/Invoice.h"
 using namespace App::Views;
-NewInvoiceCreation::NewInvoiceCreation(QWidget* parent) {
+InvoiceDetailsInput::NewInvoiceCreation(QWidget* parent) {
     parent_widget_ = new QWidget(this);
     form_layout_ = new QWidget(parent_widget_);
     create_page_layout();
 }
 
-void NewInvoiceCreation::create_page_layout() {
+void InvoiceDetailsInput::create_page_layout() {
     QGridLayout* main_form_layout = new QGridLayout(form_layout_);
     main_form_layout->setAlignment(Qt::AlignCenter);
     main_form_layout->setObjectName("form_grid_layout");
@@ -93,7 +93,7 @@ void NewInvoiceCreation::create_page_layout() {
     main_form_layout->addWidget(next_page_button, main_form_layout->rowCount(), 1, Qt::AlignRight);
 }
 
-void NewInvoiceCreation::create_form_layout() {
+void InvoiceDetailsInput::create_form_layout() {
     QGridLayout* main_form_layout = new QGridLayout(form_layout_);
     main_form_layout->setAlignment(Qt::AlignCenter);
 
