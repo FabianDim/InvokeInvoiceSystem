@@ -10,7 +10,7 @@
 #include "Domain/Invoices/InvoiceTemplateEnum.h"
 #include "Domain/Invoices/Invoice.h"
 using namespace App::Views;
-InvoiceDetailsInput::NewInvoiceCreation(QWidget* parent) {
+InvoiceDetailsInput::InvoiceDetailsInput(Invoice* invoice, QWidget* parent) {
     parent_widget_ = new QWidget(this);
     form_layout_ = new QWidget(parent_widget_);
     create_page_layout();
@@ -80,12 +80,12 @@ void InvoiceDetailsInput::create_page_layout() {
             return;
         }
 
-        invoice.setInvoiceID(idLe->text().toStdString());
-        invoice.setTemplate(theme->currentText() == "PEECE" ? InvoiceTemplateEnum::PEECE : InvoiceTemplateEnum::PEECE);
+        invoice->setInvoiceID(idLe->text().toStdString());
+        invoice->setTemplate(theme->currentText() == "PEECE" ? InvoiceTemplateEnum::PEECE : InvoiceTemplateEnum::PEECE);
 
         // Prefer dates, not text, then format:
-        invoice.setCurrentDate(created->date().toString(Qt::ISODate).toStdString());
-        invoice.setDueDate(due->date().toString(Qt::ISODate).toStdString());
+        invoice->setCurrentDate(created->date().toString(Qt::ISODate).toStdString());
+        invoice->setDueDate(due->date().toString(Qt::ISODate).toStdString());
 
         emit invoice_navigation(Page::StockInput);
     });

@@ -14,19 +14,28 @@ void Server::create_routes_basic() {
 
 void Server::create_routes_invoices() {
     httpServer_.route(
-        "/invoices/invoice_file", QHttpServerRequest::Method::Post, [&](const QHttpServerRequest& request) {
-            QJsonParseError parseError;
-            QJsonDocument doc = QJsonDocument::fromJson(request.body(), &parseError);
+        "/invoices/invoice_file",
+        QHttpServerRequest::Method::Post,
+        [this](const QHttpServerRequest& request) -> QHttpServerResponse {
+            QJsonParseError err{};
+            const QJsonDocument doc = QJsonDocument::fromJson(request.body(), &err);
+            if (err.error != QJsonParseError::NoError) {
+                return QHttpServerResponse("Invalid JSON", "text/plain", QHttpServerResponse::StatusCode::BadRequest);
+            }
+            // Do your work, then reply
+            return QHttpServerResponse(QJsonDocument(QJsonObject{{"status", "ok"}}).toJson(QJsonDocument::Compact),
+                                       "application/json");
         });
 }
 
 void Server::create_routes_business() {
-    httpServer_.route("/business/list", QHttpServerRequest::Method::Get, [&]() {
-        if (!account_manager_->is_logged_in()) {
-            return;
+    httpServer_.route("/business/list", QHttpServerRequest::Method::Get, [this]() -> QHttpServerResponse {
+        if (!account_manager_ || !account_manager_->is_logged_in()) {
+            // Use QHttpServerResponse::StatusCode and return a response
+            return QHttpServerResponse(QHttpServerResponse::StatusCode::Unauthorized);
         }
-        const auto& list_json = account_services_.get_account_businesses();
-        QHttpServerResponse(list_json.toJson(), "application/json");
+        const QJsonDocument listJson = account_services_.get_account_businesses();
+        return QHttpServerResponse(listJson.toJson(QJsonDocument::Compact), "application/json");
     });
 }
 void Server::create_routes_auth() {

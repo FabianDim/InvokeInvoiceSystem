@@ -14,6 +14,15 @@ AppController::AppController(App::Views::MainWindow* main,
         main_->landing_page(), &App::Views::LandingPage::navigate_to, this, &AppController::page_navigation);
     QObject::connect(
         main_->login_page(), &App::Views::LoginPage::login_requested, api_, &Infrastructure::Http::ApiClient::do_login);
+    QObject::connect(main->business_invoice_choice_page(),
+                     &App::Views::BusinessInvoiceChoice::find_businesses,
+                     api_,
+                     &Infrastructure::Http::ApiClient::get_business_list);
+
+    QObject::connect(api_,
+                     &Infrastructure::Http::ApiClient::business_list_received,
+                     main_->business_invoice_choice_page(),
+                     &App::Views::BusinessInvoiceChoice::populate_business_list);
 
     QObject::connect(
         main_->dashboard_page(), &App::Views::Dashboard::dash_navigation, this, &AppController::page_navigation);
@@ -39,6 +48,9 @@ void AppController::page_navigation(Page page) {
         break;
     case Page::StockInput:
         main_->show_page(main_->new_invoice_stock_page());
+        break;
+    case Page::InvoiceBusinessChoice:
+        main_->show_page(main_->business_invoice_choice_page());
         break;
     default:
         break;

@@ -28,13 +28,13 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
     // vbox->addWidget(pageComboBox);
 
     // Pages
-
+    auto* business_invoice_choice = business_invoice_choice_page();
     auto* landing = landing_page();
     auto* invoice = new_invoice_page();
-    pagesStack->addWidget(invoice);
+    pagesStack->addWidget(business_invoice_choice);
 
     // start page
-    pagesStack->setCurrentWidget(invoice);
+    pagesStack->setCurrentWidget(business_invoice_choice);
     // start page
 
     vbox->addWidget(pagesStack, /*stretch*/ 1, Qt::AlignCenter);
@@ -109,7 +109,7 @@ App::Views::Dashboard* App::Views::MainWindow::dashboard_page() {
 
 App::Views::InvoiceDetailsInput* App::Views::MainWindow::new_invoice_page() {
     if (!new_invoice_page_) {
-        new_invoice_page_ = new App::Views::InvoiceDetailsInput(this);
+        new_invoice_page_ = new App::Views::InvoiceDetailsInput(&business_invoice_choice_page()->invoice_, this);
         pagesStack->addWidget(new_invoice_page_);
     }
     return new_invoice_page_;
@@ -117,8 +117,16 @@ App::Views::InvoiceDetailsInput* App::Views::MainWindow::new_invoice_page() {
 
 App::Views::NewInvoiceStock* App::Views::MainWindow::new_invoice_stock_page() {
     if (!new_invoice_stock_) {
-        new_invoice_stock_ = new App::Views::NewInvoiceStock(&new_invoice_page()->invoice, this);
+        new_invoice_stock_ = new App::Views::NewInvoiceStock(&business_invoice_choice_page()->invoice_, this);
         pagesStack->addWidget(new_invoice_stock_);
     }
     return new_invoice_stock_;
+}
+
+App::Views::BusinessInvoiceChoice* App::Views::MainWindow::business_invoice_choice_page() {
+    if (!business_invoice_choice_) {
+        business_invoice_choice_ = new App::Views::BusinessInvoiceChoice(this);
+        pagesStack->addWidget(business_invoice_choice_);
+    }
+    return business_invoice_choice_;
 }

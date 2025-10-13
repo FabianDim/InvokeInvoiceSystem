@@ -3,23 +3,36 @@
 #include "Domain/Accounts/User.h"
 using namespace Infrastructure::Http;
 
-ApiClient::ApiClient(const QUrl& baseUrl, QObject* parent)
-    : networkManager_(new QNetworkAccessManager), baseUrl_(baseUrl) {}
+ApiClient::ApiClient(const QUrl& baseUrl, Invoke::Domain::Accounts::IAccountManager* mgr, QObject* parent)
+    : networkManager_(new QNetworkAccessManager), baseUrl_(baseUrl), account_manager_(mgr) {}
 
-std::unordered_map<QString, QString> Infrastructure::Http::ApiClient::get_business_list() {
+void Infrastructure::Http::ApiClient::get_business_list() {
     QUrl url = baseUrl_;
     url.setPath("/business/list");
     QNetworkRequest request;
+    request.setUrl(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-
     QJsonObject json;
     json["UserID"] = account_manager_->getAccount()->getMongoUserID().c_str();
     try {
-        auto reply = networkManager_->get(request, QJsonDocument(json).toJson());
+        auto reply = networkManager_->get(request);
+        connect(reply, &QNetworkReply::finished, this, [=]() {
+            if (reply->error() == QNetworkReply::NoError) {
+                QByteArray data = reply->readAll();
+                QJsonDocument jsonResponse = QJsonDocument::fromJson(data);
+                if (jsonResponse.isArray()) {
+                    QJsonArray jsonArray = jsonResponse.array();
+                    emit business_list_received(jsonArray);
+                }
+                qDebug() << "Received data:" << data;
+            } else {
+                qDebug() << "Network error:" << reply->errorString();
+            }
+            reply->deleteLater(); // Clean up the reply object
+        });
     } catch (const std::exception& e) {
         qDebug() << "Exception during business list request:" << e.what();
     }
-    return std::unordered_map<QString, QString>();
 }
 
 void ApiClient::do_login(const QString& email, const QString& password, bool remember) {

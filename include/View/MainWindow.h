@@ -10,6 +10,7 @@
 #include "UICode/Views/Dashboard.h"
 #include "UICode/Views/NewInvoiceCreation.h"
 #include "UICode/Views/NewInvoiceStock.h"
+#include "UICode/Views/BusinessInvoiceChoice.h"
 
 namespace Invoke {
 namespace Domain {
@@ -40,6 +41,7 @@ class MainWindow : public QMainWindow {
     Dashboard* dashboard_page();
     InvoiceDetailsInput* new_invoice_page();
     NewInvoiceStock* new_invoice_stock_page();
+    BusinessInvoiceChoice* business_invoice_choice_page();
 
   private:
     Ui::MainWindow* ui;
@@ -51,6 +53,7 @@ class MainWindow : public QMainWindow {
     LandingPage* landingPage_ = nullptr;
     Dashboard* dashboard_page_ = nullptr;
     LoginPage* login_page_ = nullptr;
+    BusinessInvoiceChoice* business_invoice_choice_ = nullptr;
     InvoiceDetailsInput* new_invoice_page_ = nullptr;
     NewInvoiceStock* new_invoice_stock_ = nullptr;
     QVBoxLayout* mainLayout();

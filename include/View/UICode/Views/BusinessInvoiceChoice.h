@@ -22,23 +22,27 @@
 #include <qpointer.h>
 #include <QLayout>
 #include "Domain/Stock/StockItem.h"
+#include "Domain/Invoices/Invoice.h"
 class StockItem;
 class Invoice;
 namespace App::Views {
-class BusinessInvoieChoice : public QWidget {
+class BusinessInvoiceChoice : public QWidget {
     Q_OBJECT
   public:
     BusinessInvoiceChoice(QWidget* parent = nullptr);
     Invoice invoice_;
 
   private:
-    void create_page_layout();
-    QLayout* create_item_entry_form();
+    void create_form_layout();
     QWidget* parent_widget_;
-    QWidget* item_form_layout_;
-
+    QWidget* form_layout_;
+    QComboBox* business_select;
+    void set_business_list(const QJsonArray& list);
   signals:
     void find_businesses();
+
+  public slots:
+    void populate_business_list(const QJsonArray& list);
 
     // private slots:
     //   void on_add_item_clicked();

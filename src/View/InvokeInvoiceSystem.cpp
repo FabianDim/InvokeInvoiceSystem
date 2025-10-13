@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
     accountManager.setTestUser(user);
 
     App::Views::MainWindow window(account_manager);
-    auto api = new Infrastructure::Http::ApiClient(QUrl("http://127.0.0.1:1234"), &app);
+    auto api = new Infrastructure::Http::ApiClient(QUrl("http://127.0.0.1:1234"), &accountManager, &app);
     Application::Controllers::AppController controller(&window, account_manager, api);
 
     window.resize(800, 800);
