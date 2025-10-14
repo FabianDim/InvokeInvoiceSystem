@@ -4,6 +4,9 @@
 #include <mongocxx/exception/exception.hpp>
 #include "Domain/Accounts/User.h"
 #include <QDebug>
+#include "Application/Business/BusinessRepository.h"
+#include <QJsonObject>
+#include "Application/Business/SetBusinessFromDB.h"
 bsoncxx::document::value MongoDBDataManager::buildNewUser(const std::shared_ptr<User>& newUser) {
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
@@ -96,20 +99,41 @@ bool MongoDBDataManager::valid_password(const std::string& password, const std::
 }
 
 QJsonDocument MongoDBDataManager::get_account_businesses(const std::string& user_id) {
-    constexpr char kCollectionName[] = "Users";
-    auto collection = InvokeDB[kCollectionName];
-    auto result = collection.find_one(make_document(kvp("UserID", user_id)));
+    try {
+        constexpr char kCollectionName[] = "Users";
+        auto collection = InvokeDB[kCollectionName];
+        qDebug() << "Fetching businesses for user ID:" << QString::fromStdString(user_id);
+        auto result = collection.find_one(make_document(kvp("UserID", user_id)));
 
-    if (result) {
-        bsoncxx::document::view view = result->view();
-        auto businesses = view["Businesses"];
-        if (businesses && businesses.type() == bsoncxx::type::k_array) {
-            std::string json_str = bsoncxx::to_json(businesses.get_array().value);
-            QJsonDocument jsonDoc = QJsonDocument::fromJson(QByteArray::fromStdString(json_str));
-            return jsonDoc;
+        if (result) {
+            bsoncxx::document::view view = result->view();
+            auto businesses = view["BusinessIDs"];
+
+            QJsonObject json_id;
+
+            if (businesses && businesses.type() == bsoncxx::type::k_array) {
+                SetBusiness set_business;
+                for (auto& elem : businesses.get_array().value) {
+                    auto item = set_business.setUpBusiness(std::string(elem.get_string().value));
+                    if (item) {
+                        QJsonObject json_object;
+                        json_object["BusinessName"] = QString::fromStdString(item->getBizName());
+                        json_object["Address"] = QString::fromStdString(item->getAddress());
+                        json_object["ABN"] = QString::fromStdString(item->getAbn());
+                        json_object["ACN"] = QString::fromStdString(item->getAcn());
+                        json_object["Phone"] = QString::fromStdString(item->getPhone());
+                        json_id[QString::fromStdString(std::string(elem.get_string().value))] = json_object;
+                    }
+                }
+                return QJsonDocument(json_id);
+            }
         }
+        return QJsonDocument();
+    } catch (mongocxx::exception e) {
+        qDebug() << "Error processing business IDs for user ID:" << QString::fromStdString(user_id);
+        qDebug() << "MongoDB exception:" << e.what();
+        return QJsonDocument();
     }
-    return QJsonDocument();
 }
 
 void MongoDBDataManager::updateDoc(const std::string& collectionName,

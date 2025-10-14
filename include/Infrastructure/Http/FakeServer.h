@@ -18,7 +18,7 @@ class Server {
     Invoke::Domain::Accounts::IAccountManager* account_manager_;
 
   public:
-    Server(MongoDBDataManager& db_manager);
+    Server(MongoDBDataManager& db_manager, Invoke::Domain::Accounts::IAccountManager* account_manager_);
     ~Server() = default;
     void create_routes_basic();
     void create_routes_invoices();

@@ -31,7 +31,6 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
     auto* business_invoice_choice = business_invoice_choice_page();
     auto* landing = landing_page();
     auto* invoice = new_invoice_page();
-    pagesStack->addWidget(business_invoice_choice);
 
     // start page
     pagesStack->setCurrentWidget(business_invoice_choice);

@@ -30,6 +30,8 @@ AppController::AppController(App::Views::MainWindow* main,
                      &App::Views::InvoiceDetailsInput::invoice_navigation,
                      this,
                      &AppController::page_navigation);
+
+    emit main_->business_invoice_choice_page()->find_businesses();
 }
 
 void AppController::page_navigation(Page page) {

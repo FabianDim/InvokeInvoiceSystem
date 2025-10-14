@@ -15,7 +15,7 @@ class ApiClient : public QObject {
     void get_business_list();
 
   signals:
-    void business_list_received(const QJsonArray& list);
+    void business_list_received(const QJsonDocument& list);
 
   private:
     bool loginInProgress_ = false;

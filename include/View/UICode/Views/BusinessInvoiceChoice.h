@@ -37,12 +37,12 @@ class BusinessInvoiceChoice : public QWidget {
     QWidget* parent_widget_;
     QWidget* form_layout_;
     QComboBox* business_select;
-    void set_business_list(const QJsonArray& list);
+    void set_business_list(const QJsonDocument& list);
   signals:
     void find_businesses();
 
   public slots:
-    void populate_business_list(const QJsonArray& list);
+    void populate_business_list(const QJsonDocument& list);
 
     // private slots:
     //   void on_add_item_clicked();

@@ -4,9 +4,10 @@
 #include "Application/Business/BusinessRepository.h"
 
 class SetBusiness {
-	friend class BusinessMenu;
-	friend class BusinessManager;
-private:
-	std::shared_ptr<BusinessRepository> setUpBusiness(const std::string businessID);
-	std::string getBusinessName(const std::string businessID);
+    friend class BusinessMenu;
+    friend class BusinessManager;
+
+  public:
+    std::shared_ptr<BusinessRepository> setUpBusiness(const std::string businessID);
+    std::string getBusinessName(const std::string businessID);
 };

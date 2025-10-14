@@ -8,7 +8,6 @@
 #include <qjsondocument.h>
 #include "Infrastructure/Database/Mongo/MongoDBHandler.h"
 #include "Infrastructure/Security/PasswordHashing/bcrypt.h"
-
 using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::make_document;
 
@@ -43,6 +42,8 @@ class MongoDBDataManager {
 
     bool valid_password(const std::string& password, const std::string& email);
     QJsonDocument get_account_businesses(const std::string& user_id);
+
+    std::shared_ptr<BusinessRepository> make_business_object(const std::string& business_id);
 
   private:
     // std::optional<bsoncxx::document::value> findOne(const std::string& collectionName, const

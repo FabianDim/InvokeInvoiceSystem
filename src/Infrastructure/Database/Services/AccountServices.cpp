@@ -16,6 +16,6 @@ bool AccountServices::validate_login(QJsonDocument& login_data) {
     return db_manager.valid_password(password, email);
 }
 
-QJsonDocument AccountServices::get_account_businesses() {
+QJsonDocument AccountServices::fetch_account_businesses() {
     return db_manager.get_account_businesses(account_manager_->getAccount()->getMongoUserID());
 }

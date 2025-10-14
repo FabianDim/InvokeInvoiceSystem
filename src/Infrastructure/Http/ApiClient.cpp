@@ -12,18 +12,13 @@ void Infrastructure::Http::ApiClient::get_business_list() {
     QNetworkRequest request;
     request.setUrl(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    QJsonObject json;
-    json["UserID"] = account_manager_->getAccount()->getMongoUserID().c_str();
     try {
         auto reply = networkManager_->get(request);
         connect(reply, &QNetworkReply::finished, this, [=]() {
             if (reply->error() == QNetworkReply::NoError) {
                 QByteArray data = reply->readAll();
                 QJsonDocument jsonResponse = QJsonDocument::fromJson(data);
-                if (jsonResponse.isArray()) {
-                    QJsonArray jsonArray = jsonResponse.array();
-                    emit business_list_received(jsonArray);
-                }
+                emit business_list_received(jsonResponse);
                 qDebug() << "Received data:" << data;
             } else {
                 qDebug() << "Network error:" << reply->errorString();

@@ -14,7 +14,7 @@ class AccountServices {
     AccountServices(MongoDBDataManager& db_manager, Invoke::Domain::Accounts::IAccountManager* account_manager);
     ~AccountServices() = default;
     bool validate_login(QJsonDocument& login_data);
-    QJsonDocument get_account_businesses();
+    QJsonDocument fetch_account_businesses();
 
   private:
     MongoDBDataManager& db_manager;

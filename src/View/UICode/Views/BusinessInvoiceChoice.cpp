@@ -22,23 +22,49 @@ void BusinessInvoiceChoice::create_form_layout() {
     main_form_layout->addWidget(business_select, 0, 1);
     main_form_layout->addWidget(continue_button, 1, 0, 1, 2, Qt::AlignCenter);
 
-    form_layout_->setLayout(main_form_layout);
     this->setLayout(main_form_layout);
 }
 
-void App::Views::BusinessInvoiceChoice::set_business_list(const QJsonArray& list) {
-    for (int i = 0; i < list.size(); i++) {
-        try {
-            QJsonObject obj = list.at(i).toObject();
-            QString business_name = obj["name"].toString();
-            business_select->addItem(business_name);
-        } catch (...) {
-            qErrnoWarning("Error parsing business list JSON object");
+void App::Views::BusinessInvoiceChoice::set_business_list(const QJsonDocument& doc) {
+    business_select->clear();
+
+    struct Row {
+        QString id;
+        QString name;
+    };
+    QVector<Row> rows;
+
+    if (doc.isObject()) {
+        const QJsonObject obj = doc.object();
+        for (auto it = obj.constBegin(); it != obj.constEnd(); ++it) {
+            const QString id = it.key();
+            const QJsonObject biz = it.value().toObject();
+            const QString name = biz.value("BusinessName").toString();
         }
+    } else if (doc.isArray()) {
+        const QJsonArray arr = doc.array();
+        for (const QJsonValue& v : arr) {
+            const QJsonObject biz = v.toObject();
+            const QString name = biz.value("BusinessName").toString();
+        }
+    } else {
+        qWarning() << "Business list JSON is neither object nor array";
+        return;
     }
+
+    // Optional: sort by name for a nicer UX
+    std::sort(
+        rows.begin(), rows.end(), [](const Row& a, const Row& b) { return a.name.localeAwareCompare(b.name) < 0; });
+
+    // Add to combo; stash the ID in item data
+    for (const auto& r : rows) {
+        business_select->addItem(r.name, r.id);
+    }
+
+    qDebug() << "Added" << rows.size() << "businesses to combo box";
 }
 
-void App::Views::BusinessInvoiceChoice::populate_business_list(const QJsonArray& list) {
-    qDebug() << "Populated business list with" << list.size() << "items";
-    set_business_list(list);
+void App::Views::BusinessInvoiceChoice::populate_business_list(const QJsonDocument& doc) {
+    qDebug().noquote() << "Populating business list with data:\n" << doc.toJson(QJsonDocument::Indented);
+    set_business_list(doc);
 }

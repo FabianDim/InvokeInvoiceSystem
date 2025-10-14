@@ -1,10 +1,11 @@
 ﻿#include "Infrastructure/Http/FakeServer.h"
 #include "Infrastructure/Database/Mongo/MongoDBDataManager.h"
 
-Server::Server(MongoDBDataManager& db_manager)
-    : db_manager_(db_manager), account_services_(db_manager, account_manager_) {
+Server::Server(MongoDBDataManager& db_manager, Invoke::Domain::Accounts::IAccountManager* account_manager_)
+    : db_manager_(db_manager), account_services_(db_manager, account_manager_), account_manager_(account_manager_) {
     create_routes_basic();
     create_routes_auth();
+    create_routes_business();
     start_server();
 }
 
@@ -31,11 +32,14 @@ void Server::create_routes_invoices() {
 void Server::create_routes_business() {
     httpServer_.route("/business/list", QHttpServerRequest::Method::Get, [this]() -> QHttpServerResponse {
         if (!account_manager_ || !account_manager_->is_logged_in()) {
-            // Use QHttpServerResponse::StatusCode and return a response
-            return QHttpServerResponse(QHttpServerResponse::StatusCode::Unauthorized);
+            QJsonObject err{{"error", "unauthorized"}};
+            QJsonDocument doc(err);
+            return QHttpServerResponse(
+                "application/json", doc.toJson(QJsonDocument::Compact), QHttpServerResponse::StatusCode::Unauthorized);
         }
-        const QJsonDocument listJson = account_services_.get_account_businesses();
-        return QHttpServerResponse(listJson.toJson(QJsonDocument::Compact), "application/json");
+        const QJsonDocument listJson = account_services_.fetch_account_businesses();
+        return QHttpServerResponse(
+            "application/json", listJson.toJson(QJsonDocument::Compact), QHttpServerResponse::StatusCode::Ok);
     });
 }
 void Server::create_routes_auth() {
@@ -53,7 +57,7 @@ void Server::create_routes_auth() {
 
 int Server::start_server() {
     const QHostAddress host = QHostAddress::LocalHost;
-    auto* sslServer = new QSslServer(&httpServer_);
+    auto* sslServer = new QTcpServer(&httpServer_);
     if (!sslServer->listen(host, 1234) || !httpServer_.bind(sslServer)) {
         delete sslServer;
         return -1;

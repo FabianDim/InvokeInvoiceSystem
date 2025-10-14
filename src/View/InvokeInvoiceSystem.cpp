@@ -46,9 +46,8 @@
 int main(int argc, char* argv[]) {
 
     MongoDBDataManager data_manager;
-    AccountManager account_manager(data_manager);
     QApplication app(argc, argv);
-    Server server(data_manager);
+
     app.setWindowIcon(QIcon(":/icons/invoice_icon.ico"));
     QFile f("C:/Users/fdime/Repos/InvokeInvoiceSystem/forms/UI/Global.qss");
     if (f.open(QIODevice::ReadOnly)) {
@@ -65,11 +64,10 @@ int main(int argc, char* argv[]) {
     auto user = std::make_shared<User>("test@email.com", "password123");
     user->setMongoUserID("USR00000001");
     accountManager.setTestUser(user);
-
-    App::Views::MainWindow window(account_manager);
+    Server server(data_manager, &accountManager);
     auto api = new Infrastructure::Http::ApiClient(QUrl("http://127.0.0.1:1234"), &accountManager, &app);
-    Application::Controllers::AppController controller(&window, account_manager, api);
-
+    App::Views::MainWindow window(accountManager);
+    Application::Controllers::AppController controller(&window, accountManager, api);
     window.resize(800, 800);
     window.show();
     return app.exec();
