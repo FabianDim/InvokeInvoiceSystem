@@ -9,8 +9,9 @@
 #include "Infrastructure/Enums/RouteEnums.h"
 #include "Domain/Invoices/InvoiceTemplateEnum.h"
 #include "Domain/Invoices/Invoice.h"
+#include <QJsonObject>
 using namespace App::Views;
-InvoiceDetailsInput::InvoiceDetailsInput(Invoice* invoice, QWidget* parent) {
+InvoiceDetailsInput::InvoiceDetailsInput(QWidget* parent) {
     parent_widget_ = new QWidget(this);
     form_layout_ = new QWidget(parent_widget_);
     create_page_layout();
@@ -80,12 +81,15 @@ void InvoiceDetailsInput::create_page_layout() {
             return;
         }
 
-        invoice->setInvoiceID(idLe->text().toStdString());
-        invoice->setTemplate(theme->currentText() == "PEECE" ? InvoiceTemplateEnum::PEECE : InvoiceTemplateEnum::PEECE);
+        QJsonObject inv_obj = {
+            {"invoice_number", idLe->text()},
+            {"invoice_theme", theme->currentText()},
+            {"date_created", created->date().toString(Qt::ISODate)},
+            {"date_due", due->date().toString(Qt::ISODate)},
+        };
 
-        // Prefer dates, not text, then format:
-        invoice->setCurrentDate(created->date().toString(Qt::ISODate).toStdString());
-        invoice->setDueDate(due->date().toString(Qt::ISODate).toStdString());
+        QJsonDocument doc(inv_obj);
+        emit set_invoice_details(doc);
 
         emit invoice_navigation(Page::StockInput);
     });

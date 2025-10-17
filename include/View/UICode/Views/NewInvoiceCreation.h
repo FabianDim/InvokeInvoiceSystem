@@ -12,11 +12,11 @@ namespace App::Views {
 class InvoiceDetailsInput : public QWidget {
     Q_OBJECT
   public:
-    InvoiceDetailsInput(Invoice* invoice, QWidget* parent = nullptr);
+    InvoiceDetailsInput(QWidget* parent = nullptr);
     ~InvoiceDetailsInput() = default;
-    Invoice* invoice;
   signals:
     void invoice_navigation(Page page);
+    void set_invoice_details(const QJsonDocument& doc);
 
   private:
     void create_page_layout();

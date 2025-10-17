@@ -23,6 +23,7 @@
 #include <QLayout>
 #include "Domain/Stock/StockItem.h"
 #include "Domain/Invoices/Invoice.h"
+#include <Infrastructure/Enums/RouteEnums.h>
 class StockItem;
 class Invoice;
 namespace App::Views {
@@ -30,7 +31,6 @@ class BusinessInvoiceChoice : public QWidget {
     Q_OBJECT
   public:
     BusinessInvoiceChoice(QWidget* parent = nullptr);
-    Invoice invoice_;
 
   private:
     void create_form_layout();
@@ -38,8 +38,13 @@ class BusinessInvoiceChoice : public QWidget {
     QWidget* form_layout_;
     QComboBox* business_select;
     void set_business_list(const QJsonDocument& list);
+    QMap<QString, QJsonObject> rows;
   signals:
     void find_businesses();
+    void finished_loading_biz();
+    void business_selected();
+    void navigate_to(Page page);
+    void business_chosen(const QJsonObject& biz);
 
   public slots:
     void populate_business_list(const QJsonDocument& list);

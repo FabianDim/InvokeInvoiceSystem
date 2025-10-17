@@ -3,6 +3,7 @@
 #include <QtHttpServer>
 #include "Infrastructure/Database/Services/AccountServices.h"
 #include "Infrastructure/Database/Services/InvoiceServices.h"
+#include "Infrastructure/Database/Services/BusinessService.h"
 #include "Domain/Accounts/Interfaces/IAccountManager.h"
 using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::make_document;
@@ -15,7 +16,9 @@ class Server {
     int start_server();
     AccountServices account_services_;
     MongoDBDataManager& db_manager_;
+    Infrastructure::Services::InvoiceServices invoice_service_;
     Invoke::Domain::Accounts::IAccountManager* account_manager_;
+    // Infrastructure::Services::BusinessService business_service_;
 
   public:
     Server(MongoDBDataManager& db_manager, Invoke::Domain::Accounts::IAccountManager* account_manager_);

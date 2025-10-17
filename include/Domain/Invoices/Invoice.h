@@ -138,4 +138,21 @@ class Invoice {
     void setNotes(const std::string& n) {
         notes = n;
     }
+
+    void clear_invoice() {
+        invoiceID.clear();
+        clientInvoiceID.clear();
+        business = nullptr;
+        client = nullptr;
+        currentDate.clear();
+        dueDate.clear();
+        stockQuantityMap.clear();
+        invoiceTemplate = InvoiceTemplateEnum::PEECE;
+        totalAmount = 0.0f;
+        taxAmount = 0.0f;
+        discountAmount = 0.0f;
+        isPaid = false;
+        gstIncluded = false;
+        notes.clear();
+    }
 };

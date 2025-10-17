@@ -3,14 +3,14 @@
 #include "Domain/Invoices/Invoice.h"
 using namespace App::Views;
 
-NewInvoiceStock::NewInvoiceStock(Invoice* invoice, QWidget* parent) : QWidget(parent), invoice_(invoice) {
+NewInvoiceStock::NewInvoiceStock(QWidget* parent) : QWidget(parent) {
     parent_widget_ = new QWidget(this);
     item_form_layout_ = new QWidget(parent_widget_);
     create_page_layout();
 }
 
 void NewInvoiceStock::create_page_layout() {
-    QGridLayout* main_form_layout = new QGridLayout(item_form_layout_);
+    QGridLayout* main_form_layout = new QGridLayout(this);
     main_form_layout->setAlignment(Qt::AlignCenter);
     main_form_layout->setObjectName("form_grid_layout");
 
@@ -35,11 +35,11 @@ void NewInvoiceStock::create_page_layout() {
     hbox->setAlignment(Qt::AlignTop);
     connect(this,
             &NewInvoiceStock::add_item_to_invoice,
-            item_list,
-            [name_col, qty_col, price_col, item_list](StockItem item) {
-                auto* item_label_ = new QLabel(QString::fromStdString(item.getName()), item_list);
-                auto* qty_label_ = new QLabel(QString::number(item.get_invoice_stock()), item_list);
-                auto* price_label_ = new QLabel(QString::number(item.getStdPrice(), 'f', 2), item_list);
+            this,
+            [name_col, qty_col, price_col, item_list](const QJsonObject& doc) {
+                auto* item_label_ = new QLabel(doc.value("Name").toString(), item_list);
+                auto* qty_label_ = new QLabel(QString::number(doc.value("Quantity").toInt()), item_list);
+                auto* price_label_ = new QLabel(QString::number(doc.value("Price").toDouble(), 'f', 2), item_list);
                 name_col->addWidget(item_label_);
                 qty_col->addWidget(qty_label_);
                 price_col->addWidget(price_label_);
@@ -47,6 +47,8 @@ void NewInvoiceStock::create_page_layout() {
     main_form_layout->addWidget(item_list, 0, 0, 1, 2);
     main_form_layout->addLayout(create_item_entry_form(), 10, 0, 1, 2);
 
+    QPushButton* create_invoice_pdf = new QPushButton("Finish Invoice", item_form_layout_);
+    main_form_layout->addWidget(create_invoice_pdf, 20, 0, 1, 2, Qt::AlignCenter);
     std::vector<FormField> fields = {
 
     };
@@ -123,17 +125,16 @@ QLayout* App::Views::NewInvoiceStock::create_item_entry_form() {
     row->addWidget(add_item_button);
 
     connect(add_item_button, &QPushButton::clicked, this, [=, this]() {
-        StockItem item;
-        item.set_invoice_stock(item_quantity_entry->text().toInt());
-        item.setStdPrice(item_price_entry->text().toFloat());
-        item.setName(item_name_entry->text().toStdString());
+        QJsonObject item;
+        item["Quantity"] = (item_quantity_entry->text().toInt());
+        item["Price"] = (item_price_entry->text().toFloat());
+        item["Name"] = (item_name_entry->text());
+        item["Notes"] = (item_notes_entry->text());
 
-        stock_items.append(item);
         item_name_entry->clear();
         item_quantity_entry->clear();
         item_price_entry->clear();
         item_notes_entry->clear();
-        invoice_->addStockItem(std::make_shared<StockItem>(item), item.get_invoice_stock());
         emit add_item_to_invoice(item);
     });
 

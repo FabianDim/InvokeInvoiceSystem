@@ -13,7 +13,8 @@ class ApiClient : public QObject {
   public slots:
     void do_login(const QString& email, const QString& password, bool remember);
     void get_business_list();
-
+    void business_selected(const QJsonObject& biz);
+    void invoice_details(const QJsonDocument& invoice);
   signals:
     void business_list_received(const QJsonDocument& list);
 

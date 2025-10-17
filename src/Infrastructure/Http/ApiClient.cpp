@@ -30,6 +30,61 @@ void Infrastructure::Http::ApiClient::get_business_list() {
     }
 }
 
+void Infrastructure::Http::ApiClient::business_selected(const QJsonObject& biz) {
+    QUrl url = baseUrl_;
+    url.setPath("/business/objectify");
+    QNetworkRequest request;
+    request.setUrl(url);
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    try {
+        request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        QJsonObject json = biz;
+        try {
+            auto reply = networkManager_->post(request, QJsonDocument(json).toJson());
+            connect(reply, &QNetworkReply::finished, this, [=]() {
+                if (reply->error() == QNetworkReply::NoError) {
+                    QByteArray data = reply->readAll();
+                } else {
+                    qDebug() << "Network error during business objectification:" << reply->errorString();
+                }
+                reply->deleteLater();
+            });
+        } catch (const std::exception& e) {
+            qDebug() << "Exception business object request:" << e.what();
+        }
+    } catch (const std::exception& e) {
+        qDebug() << "Exception during business object request:" << e.what();
+    }
+}
+
+void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoice) {
+    QUrl url = baseUrl_;
+    url.setPath("/invoices/invoice_start");
+    QNetworkRequest request;
+    request.setUrl(url);
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    try {
+        request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        try {
+            auto reply = networkManager_->post(request, invoice.toJson());
+            connect(reply, &QNetworkReply::finished, this, [=]() {
+                if (reply->error() == QNetworkReply::NoError) {
+                    QByteArray data = reply->readAll();
+                    QJsonDocument jsonResponse = QJsonDocument::fromJson(data);
+                    qDebug() << "Invoice details added to invoice" << jsonResponse;
+                } else {
+                    qDebug() << "Network error during invoice objectification:" << reply->errorString();
+                }
+                reply->deleteLater();
+            });
+        } catch (const std::exception& e) {
+            qDebug() << "Exception invoice object request:" << e.what();
+        }
+    } catch (const std::exception& e) {
+        qDebug() << "Exception during invoice object request:" << e.what();
+    }
+}
+
 void ApiClient::do_login(const QString& email, const QString& password, bool remember) {
     if (loginInProgress_)
         return;

@@ -117,6 +117,7 @@ QJsonDocument MongoDBDataManager::get_account_businesses(const std::string& user
                     auto item = set_business.setUpBusiness(std::string(elem.get_string().value));
                     if (item) {
                         QJsonObject json_object;
+                        json_object["BusinessID"] = QString::fromStdString(item->getBizID());
                         json_object["BusinessName"] = QString::fromStdString(item->getBizName());
                         json_object["Address"] = QString::fromStdString(item->getAddress());
                         json_object["ABN"] = QString::fromStdString(item->getAbn());

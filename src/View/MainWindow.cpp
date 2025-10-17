@@ -108,7 +108,7 @@ App::Views::Dashboard* App::Views::MainWindow::dashboard_page() {
 
 App::Views::InvoiceDetailsInput* App::Views::MainWindow::new_invoice_page() {
     if (!new_invoice_page_) {
-        new_invoice_page_ = new App::Views::InvoiceDetailsInput(&business_invoice_choice_page()->invoice_, this);
+        new_invoice_page_ = new App::Views::InvoiceDetailsInput(this);
         pagesStack->addWidget(new_invoice_page_);
     }
     return new_invoice_page_;
@@ -116,7 +116,7 @@ App::Views::InvoiceDetailsInput* App::Views::MainWindow::new_invoice_page() {
 
 App::Views::NewInvoiceStock* App::Views::MainWindow::new_invoice_stock_page() {
     if (!new_invoice_stock_) {
-        new_invoice_stock_ = new App::Views::NewInvoiceStock(&business_invoice_choice_page()->invoice_, this);
+        new_invoice_stock_ = new App::Views::NewInvoiceStock(this);
         pagesStack->addWidget(new_invoice_stock_);
     }
     return new_invoice_stock_;

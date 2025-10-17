@@ -24,6 +24,20 @@ AppController::AppController(App::Views::MainWindow* main,
                      main_->business_invoice_choice_page(),
                      &App::Views::BusinessInvoiceChoice::populate_business_list);
 
+    QObject::connect(main_->business_invoice_choice_page(),
+                     &App::Views::BusinessInvoiceChoice::navigate_to,
+                     this,
+                     &AppController::page_navigation);
+    QObject::connect(main_->business_invoice_choice_page(),
+                     &App::Views::BusinessInvoiceChoice::business_chosen,
+                     api_,
+                     &Infrastructure::Http::ApiClient::business_selected);
+
+    QObject::connect(main_->new_invoice_page(),
+                     &App::Views::InvoiceDetailsInput::set_invoice_details,
+                     api_,
+                     &Infrastructure::Http::ApiClient::invoice_details);
+
     QObject::connect(
         main_->dashboard_page(), &App::Views::Dashboard::dash_navigation, this, &AppController::page_navigation);
     QObject::connect(main_->new_invoice_page(),

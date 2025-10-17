@@ -28,11 +28,9 @@ namespace App::Views {
 class NewInvoiceStock : public QWidget {
     Q_OBJECT
   public:
-    NewInvoiceStock(Invoice* invoice, QWidget* parent = nullptr);
-    QVector<StockItem> stock_items;
+    NewInvoiceStock(QWidget* parent = nullptr);
+    QJsonDocument stock_items;
     QMap<QString, QWidget*> invoice_body_form_fields;
-
-    Invoice* invoice_;
 
   private:
     void create_page_layout();
@@ -41,7 +39,8 @@ class NewInvoiceStock : public QWidget {
     QWidget* item_form_layout_;
 
   signals:
-    void add_item_to_invoice(StockItem item);
+    void add_item_to_invoice(const QJsonObject& doc);
+    void add_item_list_to_invoice(const QJsonDocument& doc);
 
     // private slots:
     //   void on_add_item_clicked();

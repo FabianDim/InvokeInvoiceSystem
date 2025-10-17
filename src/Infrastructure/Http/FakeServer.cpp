@@ -2,10 +2,12 @@
 #include "Infrastructure/Database/Mongo/MongoDBDataManager.h"
 
 Server::Server(MongoDBDataManager& db_manager, Invoke::Domain::Accounts::IAccountManager* account_manager_)
-    : db_manager_(db_manager), account_services_(db_manager, account_manager_), account_manager_(account_manager_) {
+    : db_manager_(db_manager), account_services_(db_manager, account_manager_), account_manager_(account_manager_),
+      invoice_service_(db_manager) {
     create_routes_basic();
     create_routes_auth();
     create_routes_business();
+    create_routes_invoices();
     start_server();
 }
 
@@ -14,19 +16,19 @@ void Server::create_routes_basic() {
 }
 
 void Server::create_routes_invoices() {
-    httpServer_.route(
-        "/invoices/invoice_file",
-        QHttpServerRequest::Method::Post,
-        [this](const QHttpServerRequest& request) -> QHttpServerResponse {
-            QJsonParseError err{};
-            const QJsonDocument doc = QJsonDocument::fromJson(request.body(), &err);
-            if (err.error != QJsonParseError::NoError) {
-                return QHttpServerResponse("Invalid JSON", "text/plain", QHttpServerResponse::StatusCode::BadRequest);
-            }
-            // Do your work, then reply
-            return QHttpServerResponse(QJsonDocument(QJsonObject{{"status", "ok"}}).toJson(QJsonDocument::Compact),
-                                       "application/json");
-        });
+    httpServer_.route("/invoices/invoice_start",
+                      QHttpServerRequest::Method::Post,
+                      [this](const QHttpServerRequest& request) -> QHttpServerResponse {
+                          QJsonParseError err{};
+                          const QJsonDocument doc = QJsonDocument::fromJson(request.body(), &err);
+                          if (err.error != QJsonParseError::NoError) {
+                              return QHttpServerResponse(
+                                  "Invalid JSON", "text/plain", QHttpServerResponse::StatusCode::BadRequest);
+                          }
+
+                          invoice_service_.begin_invoice_details(doc);
+                          return QHttpServerResponse("Invalid JSON", "text/plain", QHttpServerResponse::StatusCode::Ok);
+                      });
 }
 
 void Server::create_routes_business() {
@@ -40,6 +42,23 @@ void Server::create_routes_business() {
         const QJsonDocument listJson = account_services_.fetch_account_businesses();
         return QHttpServerResponse(
             "application/json", listJson.toJson(QJsonDocument::Compact), QHttpServerResponse::StatusCode::Ok);
+    });
+    httpServer_.route("/business/objectify", QHttpServerRequest::Method::Post, [&](const QHttpServerRequest& request) {
+        if (!account_manager_ || !account_manager_->is_logged_in()) {
+            QJsonObject err{{"error", "unauthorized"}};
+            QJsonDocument doc(err);
+            return QHttpServerResponse("No authorised user", QHttpServerResponder::StatusCode::BadRequest);
+        }
+        try {
+            QJsonParseError parseError;
+            QJsonDocument doc = QJsonDocument::fromJson(request.body(), &parseError);
+            invoice_service_.add_business_to_invoice(doc);
+            return QHttpServerResponse("Posting the business", QHttpServerResponder::StatusCode::Ok);
+        } catch (const std::exception& e) {
+            qDebug() << "Exception setting active business:" << e.what();
+            return QHttpServerResponse("Failed to set active business",
+                                       QHttpServerResponder::StatusCode::InternalServerError);
+        }
     });
 }
 void Server::create_routes_auth() {
