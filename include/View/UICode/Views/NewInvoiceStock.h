@@ -29,7 +29,7 @@ class NewInvoiceStock : public QWidget {
     Q_OBJECT
   public:
     NewInvoiceStock(QWidget* parent = nullptr);
-    QJsonDocument stock_items;
+    QJsonArray stock_items;
     QMap<QString, QWidget*> invoice_body_form_fields;
 
   private:
@@ -37,6 +37,7 @@ class NewInvoiceStock : public QWidget {
     QLayout* create_item_entry_form();
     QWidget* parent_widget_;
     QWidget* item_form_layout_;
+    QPushButton* create_invoice_pdf;
 
   signals:
     void add_item_to_invoice(const QJsonObject& doc);

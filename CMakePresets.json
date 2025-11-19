@@ -23,8 +23,8 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": [ "Windows" ],
-          "vcvarsall": { "arch": [ "x64" ] }
+          "hostOS": ["Windows"],
+          "vcvarsall": { "arch": ["x64"] }
         }
       }
     },
@@ -37,8 +37,8 @@
       }
     },
     {
-      "name": "x64-relwithdebinfo", // 👈 NEW
-      "displayName": "Ninja MSVC x64 RelWithDebInfo", // shows up in VS dropdown
+      "name": "x64-relwithdebinfo",
+      "displayName": "Ninja MSVC x64 RelWithDebInfo",
       "inherits": "windows-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo"

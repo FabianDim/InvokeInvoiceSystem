@@ -1,6 +1,8 @@
 #include "View/UICode/Views/NewInvoiceStock.h"
 #include "Domain/Stock/StockItem.h"
 #include "Domain/Invoices/Invoice.h"
+#include <QGroupBox>
+#include <QJsonDocument>
 using namespace App::Views;
 
 NewInvoiceStock::NewInvoiceStock(QWidget* parent) : QWidget(parent) {
@@ -10,6 +12,8 @@ NewInvoiceStock::NewInvoiceStock(QWidget* parent) : QWidget(parent) {
 }
 
 void NewInvoiceStock::create_page_layout() {
+    QGroupBox* groupBox = new QGroupBox(tr("Invoice"));
+    QVBoxLayout* groupVbox = new QVBoxLayout;
     QGridLayout* main_form_layout = new QGridLayout(this);
     main_form_layout->setAlignment(Qt::AlignCenter);
     main_form_layout->setObjectName("form_grid_layout");
@@ -44,10 +48,13 @@ void NewInvoiceStock::create_page_layout() {
                 qty_col->addWidget(qty_label_);
                 price_col->addWidget(price_label_);
             });
-    main_form_layout->addWidget(item_list, 0, 0, 1, 2);
+
+    groupBox->setLayout(groupVbox);
+    groupVbox->addWidget(item_list);
+    main_form_layout->addWidget(groupBox, 0, 0, 1, 2);
     main_form_layout->addLayout(create_item_entry_form(), 10, 0, 1, 2);
 
-    QPushButton* create_invoice_pdf = new QPushButton("Finish Invoice", item_form_layout_);
+    create_invoice_pdf = new QPushButton("Finish Invoice", item_form_layout_);
     main_form_layout->addWidget(create_invoice_pdf, 20, 0, 1, 2, Qt::AlignCenter);
     std::vector<FormField> fields = {
 
@@ -124,6 +131,7 @@ QLayout* App::Views::NewInvoiceStock::create_item_entry_form() {
 
     row->addWidget(add_item_button);
 
+    /*Create a JSon object and add it to a JSon document*/
     connect(add_item_button, &QPushButton::clicked, this, [=, this]() {
         QJsonObject item;
         item["Quantity"] = (item_quantity_entry->text().toInt());
@@ -135,7 +143,13 @@ QLayout* App::Views::NewInvoiceStock::create_item_entry_form() {
         item_quantity_entry->clear();
         item_price_entry->clear();
         item_notes_entry->clear();
+        stock_items.append(item);
         emit add_item_to_invoice(item);
+    });
+
+    /*send the json document to the app controller to send to the backend*/
+    connect(create_invoice_pdf, &QPushButton::clicked, this, [this]() {
+        emit add_item_list_to_invoice(QJsonDocument(stock_items));
     });
 
     return row;
