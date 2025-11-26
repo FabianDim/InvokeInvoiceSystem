@@ -3,8 +3,14 @@
   "version-string": "0.1.0",
   "dependencies": [
     "fmt",
-    "mongo-cxx-driver",
+    "gtest",
+    "jansson",
     "libharu",
-    "gtest"
+    "libiconv",
+    "mongo-cxx-driver",
+    "qtkeychain-qt6",
+    "qtbase",
+    "qttools",
+    "qthttpserver"
   ]
 }

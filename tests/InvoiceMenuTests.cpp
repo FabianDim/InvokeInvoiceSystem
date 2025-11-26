@@ -2,10 +2,10 @@
 #include <gtest/gtest.h>  
 #include <gmock/gmock.h>  
 
-#include "System/Menu/InvoiceMenu.h"
-#include "Accounts/AccountManager.h"
-#include "Accounts/User.h"  
-#include "Accounts/UserBusiness/BusinessRepository.h"
+#include "View/LegacyMenus/InvoiceMenu.h"
+#include "Application/Accounts/AccountManager.h"
+#include "Domain/Accounts/User.h"  
+#include "Application/Business/BusinessRepository.h"
 
 
 struct InvoiceMenuTestAccount : testing::Test {  
