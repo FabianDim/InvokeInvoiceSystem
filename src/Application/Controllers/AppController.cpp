@@ -4,7 +4,7 @@
 #include "Infrastructure/Enums/RouteEnums.h"
 
 using namespace Application::Controllers;
-
+/*define connections from the front end to the back end and the page navigations.*/
 AppController::AppController(App::Views::MainWindow* main,
                              Invoke::Domain::Accounts::IAccountManager& accountManager,
                              Infrastructure::Http::ApiClient* api,
@@ -45,9 +45,24 @@ AppController::AppController(App::Views::MainWindow* main,
                      this,
                      &AppController::page_navigation);
 
+    QObject::connect(main_->new_invoice_stock_page(),
+                     &App::Views::NewInvoiceStock::add_item_list_to_invoice,
+                     api_,
+                     &Infrastructure::Http::ApiClient::stock_list);
+
     emit main_->business_invoice_choice_page()->find_businesses();
 }
 
+/**
+ * @brief Navigate between pages using the enum
+ *
+ * Uses a switch statement to navigate between pages using the
+ * page enum. Frontend pages can call the enum from anywhere.
+ *
+ * @param page An enum containing the name of all the pages
+ * @return Void
+ * @pre All the pages should be built in the main page
+ */
 void AppController::page_navigation(Page page) {
     switch (page) {
     case Page::Landing:

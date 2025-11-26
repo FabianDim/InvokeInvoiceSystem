@@ -1,6 +1,7 @@
 #include "Infrastructure/Http/ApiClient.h"
 #include "Infrastructure/Http/FakeServer.h"
 #include "Domain/Accounts/User.h"
+
 using namespace Infrastructure::Http;
 
 ApiClient::ApiClient(const QUrl& baseUrl, Invoke::Domain::Accounts::IAccountManager* mgr, QObject* parent)
@@ -85,6 +86,21 @@ void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoi
     }
 }
 
+void Infrastructure::Http::ApiClient::stock_list(const QJsonDocument& stock) {
+    QUrl url = baseUrl_;
+    url.setPath("/invoices/stock-list");
+    qDebug() << "Sending invoice item list to: " << url.toString();
+    QNetworkRequest request;
+    request.setUrl(url);
+
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    try {
+        auto reply = networkManager_->post(request, stock.toJson());
+    } catch (const std::exception e) {
+        qDebug() << "Exception during login request:" << e.what();
+    }
+}
 void ApiClient::do_login(const QString& email, const QString& password, bool remember) {
     if (loginInProgress_)
         return;

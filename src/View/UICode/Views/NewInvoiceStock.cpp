@@ -10,7 +10,7 @@ NewInvoiceStock::NewInvoiceStock(QWidget* parent) : QWidget(parent) {
     item_form_layout_ = new QWidget(parent_widget_);
     create_page_layout();
 }
-
+/*Create the page layout*/
 void NewInvoiceStock::create_page_layout() {
     QGroupBox* groupBox = new QGroupBox(tr("Invoice"));
     QVBoxLayout* groupVbox = new QVBoxLayout;
@@ -99,7 +99,7 @@ void NewInvoiceStock::create_page_layout() {
     }
     this->setLayout(main_form_layout);
 }
-
+/*create the item entry and connect buttons to frontend and backend tasks*/
 QLayout* App::Views::NewInvoiceStock::create_item_entry_form() {
     auto* row = new QHBoxLayout();
     row->setContentsMargins(0, 0, 0, 0);
@@ -148,9 +148,9 @@ QLayout* App::Views::NewInvoiceStock::create_item_entry_form() {
     });
 
     /*send the json document to the app controller to send to the backend*/
-    connect(create_invoice_pdf, &QPushButton::clicked, this, [this]() {
-        emit add_item_list_to_invoice(QJsonDocument(stock_items));
-    });
+    const QJsonDocument json = QJsonDocument(stock_items);
+    connect(
+        create_invoice_pdf, &QPushButton::clicked, this, [json, this](bool) { emit add_item_list_to_invoice(json); });
 
     return row;
 }

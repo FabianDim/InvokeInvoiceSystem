@@ -2,23 +2,24 @@
 #include "Infrastructure/Pdf/InvoicePdfGenerator.h"
 
 jmp_buf env;
+using namespace Infrastructure::PDF;
+Infrastructure::PDF::InvoicePdfGenerator::InvoicePdfGenerator(std::shared_ptr<Invoice> invoice)
+    : cur_invoice_(invoice) {}
 
-const std::set<std::string> InvoicePdfGenerator::fontList{
-    "Courier",
-    "Courier-Bold",
-    "Courier-Oblique",
-    "Courier-BoldOblique",
-    "Helvetica",
-    "Helvetica-Bold",
-    "Helvetica-Oblique",
-    "Helvetica-BoldOblique",
-    "Times-Roman",
-    "Times-Bold",
-    "Times-Italic",
-    "Times-BoldItalic",
-    "Symbol",
-    "ZapfDingbats"
-};
+const std::set<std::string> InvoicePdfGenerator::fontList{"Courier",
+                                                          "Courier-Bold",
+                                                          "Courier-Oblique",
+                                                          "Courier-BoldOblique",
+                                                          "Helvetica",
+                                                          "Helvetica-Bold",
+                                                          "Helvetica-Oblique",
+                                                          "Helvetica-BoldOblique",
+                                                          "Times-Roman",
+                                                          "Times-Bold",
+                                                          "Times-Italic",
+                                                          "Times-BoldItalic",
+                                                          "Symbol",
+                                                          "ZapfDingbats"};
 
 void error_handler(HPDF_STATUS error_no, HPDF_STATUS detail_no, void* user_data) {
     std::cerr << "Error: " << std::hex << error_no << ", Detail: " << detail_no << std::endl;
@@ -37,8 +38,7 @@ HPDF_Doc InvoicePdfGenerator::createPDF(const char* font) {
     HPDF_SetCompressionMode(pdf, HPDF_COMP_ALL);
     if (fontList.contains(font)) {
         def_font = HPDF_GetFont(pdf, font, NULL);
-    }
-    else {
+    } else {
         std::cerr << "Cannot find that font" << std::endl;
         return NULL;
     }
@@ -65,11 +65,11 @@ void InvoicePdfGenerator::savePDF(HPDF_Doc pdf, const char* name) {
     HPDF_SaveToFile(pdf, name);
 }
 
-void InvoicePdfGenerator::createTestPDF(HPDF_Doc pdf, HPDF_Page page_1) {  
-    HPDF_Page_BeginText(page_1);  
-    HPDF_Page_TextOut(page_1, 60, 140, "test"); // page, xpos, ypos, text  // Corrected invocation  
-    HPDF_Page_EndText(page_1);  
-    savePDF(pdf, "test.pdf");  
+void InvoicePdfGenerator::createTestPDF(HPDF_Doc pdf, HPDF_Page page_1) {
+    HPDF_Page_BeginText(page_1);
+    HPDF_Page_TextOut(page_1, 60, 140, "test"); // page, xpos, ypos, text  // Corrected invocation
+    HPDF_Page_EndText(page_1);
+    savePDF(pdf, "test.pdf");
 }
 
 std::string InvoicePdfGenerator::retrieveFileName() {
@@ -79,31 +79,28 @@ std::string InvoicePdfGenerator::retrieveFileName() {
     return name;
 }
 
-bool InvoicePdfGenerator::peeceTemplate(std::shared_ptr<Invoice> curInvoice) {
+bool InvoicePdfGenerator::peeceTemplate() {
     try {
-       auto peeceInvoicePDF = createPDF("Helvetica");
-       auto page = addPage(peeceInvoicePDF);
-       HPDF_Font font = HPDF_Page_GetCurrentFont(page);
-       HPDF_Page_SetTextRenderingMode(page, HPDF_FILL);
-       int h2 = 32;
-       HPDF_Page_SetFontAndSize(page, font, h2);
-       const char* invoiceType = "Invoice";
-       HPDF_Page_TextOut(page, 450, 820, invoiceType);
-       HPDF_Page_TextOut(page, 450, 750, curInvoice->getBusiness()->getBizName().c_str());
-       HPDF_Page_EndText(page);
-       savePDF(peeceInvoicePDF, retrieveFileName().c_str());
+        auto peeceInvoicePDF = createPDF("Helvetica");
+        auto page = addPage(peeceInvoicePDF);
+        HPDF_Font font = HPDF_Page_GetCurrentFont(page);
+        HPDF_Page_SetTextRenderingMode(page, HPDF_FILL);
+        int h2 = 32;
+        HPDF_Page_SetFontAndSize(page, font, h2);
+        const char* invoiceType = "Invoice";
+        HPDF_Page_TextOut(page, 450, 820, invoiceType);
+        HPDF_Page_TextOut(page, 450, 750, cur_invoice_->getBusiness()->getBizName().c_str());
+        HPDF_Page_EndText(page);
+        savePDF(peeceInvoicePDF, retrieveFileName().c_str());
 
-
-    }
-    catch (...) { 
-        std::cout << "Error in the peece template\n"; 
+    } catch (...) {
+        std::cout << "Error in the peece template\n";
     }
     return false;
 }
 
-
-//http://libharu.org/demo/text_demo.c
-//http://libharu.org/demo/line_demo.c
-//https://github.com/libharu/libharu/wiki/Examples#user-content-font_democ
-// https://github.com/libharu/libharu/wiki/Error-handling errors
-// https://johan162.github.io/libhpdftbl/html/index.html
+// http://libharu.org/demo/text_demo.c
+// http://libharu.org/demo/line_demo.c
+// https://github.com/libharu/libharu/wiki/Examples#user-content-font_democ
+//  https://github.com/libharu/libharu/wiki/Error-handling errors
+//  https://johan162.github.io/libhpdftbl/html/index.html

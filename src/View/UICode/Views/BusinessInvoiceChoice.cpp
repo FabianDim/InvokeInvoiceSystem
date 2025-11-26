@@ -26,11 +26,11 @@ void BusinessInvoiceChoice::create_form_layout() {
     main_form_layout->addWidget(business_select, 0, 1);
     main_form_layout->addWidget(continue_button, 1, 0, 1, 2, Qt::AlignCenter);
     business_select->setDisabled(true);
-    //continue_button->setDisabled(true);
+    continue_button->setDisabled(true);
     business_select->view()->setMinimumWidth(100);
-    connect(this, &BusinessInvoiceChoice::finished_loading_biz, [&]() {
+    connect(this, &BusinessInvoiceChoice::finished_loading_biz, this, [this, continue_button]() {
         business_select->setDisabled(false);
-        //continue_button->setDisabled(false);
+        continue_button->setDisabled(false);
     });
     this->setLayout(main_form_layout);
 

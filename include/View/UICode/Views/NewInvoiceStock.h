@@ -39,8 +39,10 @@ class NewInvoiceStock : public QWidget {
     QWidget* item_form_layout_;
     QPushButton* create_invoice_pdf;
 
+  public:
   signals:
     void add_item_to_invoice(const QJsonObject& doc);
+
     void add_item_list_to_invoice(const QJsonDocument& doc);
 
     // private slots:

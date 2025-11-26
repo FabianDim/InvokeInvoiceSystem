@@ -15,6 +15,7 @@ class ApiClient : public QObject {
     void get_business_list();
     void business_selected(const QJsonObject& biz);
     void invoice_details(const QJsonDocument& invoice);
+    void stock_list(const QJsonDocument& stock);
   signals:
     void business_list_received(const QJsonDocument& list);
 

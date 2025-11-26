@@ -29,6 +29,19 @@ void Server::create_routes_invoices() {
                           invoice_service_.begin_invoice_details(doc);
                           return QHttpServerResponse("Invalid JSON", "text/plain", QHttpServerResponse::StatusCode::Ok);
                       });
+    httpServer_.route("/invoices/stock-list",
+                      QHttpServerRequest::Method::Post,
+                      [this](const QHttpServerRequest& request) -> QHttpServerResponse {
+                          QJsonParseError err{};
+                          const QJsonDocument doc = QJsonDocument::fromJson(request.body(), &err);
+                          if (err.error != QJsonParseError::NoError) {
+                              return QHttpServerResponse(
+                                  "Invalid JSON", "text/plain", QHttpServerResponse::StatusCode::BadRequest);
+                          }
+
+                          invoice_service_.add_stock_to_invoice(doc);
+                          return QHttpServerResponse("Invalid JSON", "text/plain", QHttpServerResponse::StatusCode::Ok);
+                      });
 }
 
 void Server::create_routes_business() {

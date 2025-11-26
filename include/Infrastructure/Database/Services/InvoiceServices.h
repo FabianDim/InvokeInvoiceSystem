@@ -14,8 +14,9 @@ class InvoiceServices {
     ~InvoiceServices() = default;
 
     bool save_invoice(QJsonDocument& doc);
-    void add_business_to_invoice(const QJsonDocument doc);
+    void add_business_to_invoice(const QJsonDocument& doc);
     void begin_invoice_details(const QJsonDocument& doc);
+    void add_stock_to_invoice(const QJsonDocument& doc);
 
   private:
     Invoice invoice_;
