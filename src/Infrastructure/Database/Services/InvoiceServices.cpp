@@ -3,7 +3,7 @@
 #include <QJsonObject>
 #include <functional>
 #include <QJsonArray>
-
+#include "Infrastructure/Pdf/InvoicePdfGenerator.h"
 using namespace Infrastructure::Services;
 
 InvoiceServices::InvoiceServices(MongoDBDataManager& db_manager) : db_manager_(db_manager) {}
@@ -48,6 +48,8 @@ void Infrastructure::Services::InvoiceServices::begin_invoice_details(const QJso
     invoice_.setDueDate(doc.object().value("date_due").toString().toStdString());
     invoice_.setCurrentDate(doc.object().value("date_created").toString().toStdString());
     invoice_.setTemplate(template_converter(doc.object().value("invoice_theme").toString().toStdString()));
+    invoice_.set_file_name(doc.object().value("file_dir").toString().toStdString() + "/" +
+                           doc.object().value("file_name").toString().toStdString());
 }
 
 /**
@@ -79,4 +81,47 @@ void Infrastructure::Services::InvoiceServices::add_stock_to_invoice(const QJson
             std::cerr << err.what();
         }
     }
+    try {
+        build_invoice();
+    } catch (std::exception err) {
+        qDebug() << err.what();
+    }
+}
+
+/**
+ * @brief Create an instance of the PDF builder and build the Invoice.
+ *
+ * Uses the invoice object to build the InvoicePDFGenerator class and generate
+ * the invoice in a specified format.
+ *
+ * @return Bool flag of successful completion
+ * @pre An invoice object should be created.
+ */
+bool Infrastructure::Services::InvoiceServices::build_invoice() {
+    try {
+        qDebug() << "Building invoice...";
+        Infrastructure::PDF::InvoicePdfGenerator* pdf_gen =
+            new Infrastructure::PDF::InvoicePdfGenerator(std::make_shared<Invoice>(invoice_));
+        pdf_gen->peeceTemplate();
+        return true;
+    } catch (std::exception e) {
+        std::cerr << e.what();
+        throw e;
+    }
+    return false;
+}
+
+/**
+ * @brief
+ *
+ *
+ * @param
+ * @return
+ * @pre
+ */
+std::string Infrastructure::Services::InvoiceServices::normalise_file_name(const std::string& file_name) {
+    // TODO
+    std::string original_file_name = file_name;
+    original_file_name.replace(original_file_name.begin(), original_file_name.end(), ' ', '_');
+    return std::string();
 }

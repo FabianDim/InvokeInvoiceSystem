@@ -38,7 +38,6 @@ void Server::create_routes_invoices() {
                               return QHttpServerResponse(
                                   "Invalid JSON", "text/plain", QHttpServerResponse::StatusCode::BadRequest);
                           }
-
                           invoice_service_.add_stock_to_invoice(doc);
                           return QHttpServerResponse("Invalid JSON", "text/plain", QHttpServerResponse::StatusCode::Ok);
                       });

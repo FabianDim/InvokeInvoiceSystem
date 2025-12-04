@@ -17,6 +17,7 @@ class Invoice {
     std::shared_ptr<Client> client;
     std::string currentDate;
     std::string dueDate;
+    std::string file_name_;
     std::unordered_map<std::shared_ptr<StockItem>, int> stockQuantityMap; // stockID to quantity
     InvoiceTemplateEnum invoiceTemplate;
     float totalAmount = 0.0f;
@@ -34,6 +35,14 @@ class Invoice {
     }
     void setInvoiceID(const std::string& id) {
         invoiceID = id;
+    }
+
+    // file_name
+    std::string get_file_name() const {
+        return file_name_;
+    }
+    void set_file_name(const std::string& file_name) {
+        file_name_ = file_name;
     }
 
     // clientInvoiceID

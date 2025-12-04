@@ -1,5 +1,6 @@
 #include <sstream>
 #include "Infrastructure/Pdf/InvoicePdfGenerator.h"
+#include <QDebug>
 
 jmp_buf env;
 using namespace Infrastructure::PDF;
@@ -79,6 +80,15 @@ std::string InvoicePdfGenerator::retrieveFileName() {
     return name;
 }
 
+/**
+ * @brief Build a invoice using a template named peece.
+ *
+ * Uses the libharu library to create and export a pdf invoice
+ * using the data passed by the invoice service.
+ *
+ * @return Bool flag of successful completion
+ * @pre An instance of this class should be created.
+ */
 bool InvoicePdfGenerator::peeceTemplate() {
     try {
         auto peeceInvoicePDF = createPDF("Helvetica");
@@ -91,7 +101,8 @@ bool InvoicePdfGenerator::peeceTemplate() {
         HPDF_Page_TextOut(page, 450, 820, invoiceType);
         HPDF_Page_TextOut(page, 450, 750, cur_invoice_->getBusiness()->getBizName().c_str());
         HPDF_Page_EndText(page);
-        savePDF(peeceInvoicePDF, retrieveFileName().c_str());
+        savePDF(peeceInvoicePDF, cur_invoice_->get_file_name().c_str());
+        qDebug() << "Saved PDF to" << cur_invoice_->get_file_name().c_str();
 
     } catch (...) {
         std::cout << "Error in the peece template\n";

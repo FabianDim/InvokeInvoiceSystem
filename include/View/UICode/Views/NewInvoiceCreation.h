@@ -3,7 +3,7 @@
 #include <QWidget>
 #include <QVBoxLayout>
 #include <qmap.h>
-
+#include <QPushButton>
 #include "Utils/FormUtils.h"
 #include "Infrastructure/Enums/RouteEnums.h"
 #include "Domain/Invoices/Invoice.h"
@@ -23,7 +23,7 @@ class InvoiceDetailsInput : public QWidget {
     void create_form_layout();
 
     QMap<QString, QWidget*> base_invoice_form_fields_;
-
+    QPushButton* dir_button_;
     QWidget* parent_widget_;
     QWidget* form_layout_;
 };

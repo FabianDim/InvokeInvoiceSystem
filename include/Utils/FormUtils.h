@@ -6,7 +6,7 @@
 #include <QDateEdit>
 
 struct FormField {
-    enum class Type { LineEdit, ComboBox, DateEdit };
+    enum class Type { LineEdit, ComboBox, DateEdit, DirBrowse };
 
     QString key;
     QString label;
