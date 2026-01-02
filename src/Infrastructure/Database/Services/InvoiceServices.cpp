@@ -7,7 +7,9 @@
 using namespace Infrastructure::Services;
 
 InvoiceServices::InvoiceServices(MongoDBDataManager& db_manager) : db_manager_(db_manager) {}
-
+/**
+ * @brief this shit does nothing shlawg.
+ */
 bool InvoiceServices::save_invoice(QJsonDocument& doc) {
     QJsonObject obj = doc.object();
     try {
@@ -49,7 +51,7 @@ void Infrastructure::Services::InvoiceServices::begin_invoice_details(const QJso
     invoice_.setCurrentDate(doc.object().value("date_created").toString().toStdString());
     invoice_.setTemplate(template_converter(doc.object().value("invoice_theme").toString().toStdString()));
     invoice_.set_file_name(doc.object().value("file_dir").toString().toStdString() + "/" +
-                           doc.object().value("file_name").toString().toStdString());
+                           normalise_file_name(doc.object().value("file_name").toString().toStdString()));
 }
 
 /**
@@ -112,16 +114,17 @@ bool Infrastructure::Services::InvoiceServices::build_invoice() {
 }
 
 /**
- * @brief
+ * @brief Takes the file name and normalises it to not have spaces and end with pdf.
  *
  *
- * @param
- * @return
- * @pre
+ * @param file_name the raw file name from the front end.
+ * @return String with normalised name
  */
 std::string Infrastructure::Services::InvoiceServices::normalise_file_name(const std::string& file_name) {
-    // TODO
-    std::string original_file_name = file_name;
-    original_file_name.replace(original_file_name.begin(), original_file_name.end(), ' ', '_');
-    return std::string();
+    std::string new_file_name = file_name;
+    std::replace(new_file_name.begin(), new_file_name.end(), ' ', '_');
+    if (!new_file_name.ends_with(".pdf")) {
+        new_file_name.append(".pdf");
+    }
+    return new_file_name;
 }

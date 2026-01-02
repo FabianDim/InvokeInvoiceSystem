@@ -39,9 +39,15 @@ HPDF_Doc InvoicePdfGenerator::createPDF(const char* font) {
     HPDF_SetCompressionMode(pdf, HPDF_COMP_ALL);
     if (fontList.contains(font)) {
         def_font = HPDF_GetFont(pdf, font, NULL);
+        if (!def_font) {
+            std::cerr << "HPDF_GetFont failed for font: " << font << std::endl;
+            HPDF_Free(pdf);
+            return nullptr;
+        }
     } else {
-        std::cerr << "Cannot find that font" << std::endl;
-        return NULL;
+        std::cerr << "Cannot find that font: " << font << std::endl;
+        HPDF_Free(pdf);
+        return nullptr;
     }
 
     /* set page mode to use outlines. */
@@ -90,16 +96,28 @@ std::string InvoicePdfGenerator::retrieveFileName() {
  * @pre An instance of this class should be created.
  */
 bool InvoicePdfGenerator::peeceTemplate() {
+    const int h2 = 32;
+    const int h3 = 24;
+    const int body = 12;
+    const int biz_details_spacing = 12;
     try {
         auto peeceInvoicePDF = createPDF("Helvetica");
-        auto page = addPage(peeceInvoicePDF);
+        auto page = HPDF_GetPageByIndex(peeceInvoicePDF, 0);
         HPDF_Font font = HPDF_Page_GetCurrentFont(page);
+        HPDF_Page_BeginText(page);
         HPDF_Page_SetTextRenderingMode(page, HPDF_FILL);
-        int h2 = 32;
+
         HPDF_Page_SetFontAndSize(page, font, h2);
-        const char* invoiceType = "Invoice";
-        HPDF_Page_TextOut(page, 450, 820, invoiceType);
-        HPDF_Page_TextOut(page, 450, 750, cur_invoice_->getBusiness()->getBizName().c_str());
+        // HPDF_Page_SetTextLeading(page, 18);
+        const char* tax_inv = "Tax Invoice";
+        float width = HPDF_Page_TextWidth(page, tax_inv);
+        float x = 550 - width;
+        HPDF_Page_TextOut(page, x, 790, tax_inv);
+        HPDF_Page_SetFontAndSize(page, font, body);
+        HPDF_Page_TextOut(page, 100, 840 - h2, "");
+
+        HPDF_Page_SetTextLeading(page, biz_details_spacing);
+        HPDF_Page_ShowText(page, cur_invoice_->getBusiness()->getBizName().c_str());
         HPDF_Page_EndText(page);
         savePDF(peeceInvoicePDF, cur_invoice_->get_file_name().c_str());
         qDebug() << "Saved PDF to" << cur_invoice_->get_file_name().c_str();

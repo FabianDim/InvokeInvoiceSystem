@@ -150,6 +150,9 @@ QLayout* App::Views::NewInvoiceStock::create_item_entry_form() {
     /*send the json document to the app controller to send to the backend*/
     const QJsonDocument json = QJsonDocument(stock_items);
     connect(create_invoice_pdf, &QPushButton::clicked, this, [json, this](bool) {
+        if (stock_items.empty()) {
+            return;
+        }
         qDebug() << "emit add_item_list;";
         emit add_item_list_to_invoice(json);
         create_invoice_pdf->setDisabled(true);
