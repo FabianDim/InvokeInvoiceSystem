@@ -11,6 +11,7 @@
     "qtkeychain-qt6",
     "qtbase",
     "qttools",
-    "qthttpserver"
+    "qthttpserver",
+    "libiconv"
   ]
 }

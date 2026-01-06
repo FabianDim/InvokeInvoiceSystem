@@ -104,7 +104,7 @@ bool Infrastructure::Services::InvoiceServices::build_invoice() {
         qDebug() << "Building invoice...";
         Infrastructure::PDF::InvoicePdfGenerator* pdf_gen =
             new Infrastructure::PDF::InvoicePdfGenerator(std::make_shared<Invoice>(invoice_));
-        pdf_gen->peeceTemplate();
+        pdf_gen->peece_template();
         return true;
     } catch (std::exception e) {
         std::cerr << e.what();

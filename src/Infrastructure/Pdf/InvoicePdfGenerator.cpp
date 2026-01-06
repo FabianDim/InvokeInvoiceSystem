@@ -1,7 +1,6 @@
 #include <sstream>
 #include "Infrastructure/Pdf/InvoicePdfGenerator.h"
 #include <QDebug>
-
 jmp_buf env;
 using namespace Infrastructure::PDF;
 Infrastructure::PDF::InvoicePdfGenerator::InvoicePdfGenerator(std::shared_ptr<Invoice> invoice)
@@ -85,7 +84,49 @@ std::string InvoicePdfGenerator::retrieveFileName() {
     std::cin >> name;
     return name;
 }
+void InvoicePdfGenerator::draw_stock_item_row(HPDF_Page page,
+                                              const StockItem& item,
+                                              const TableLayout& layout,
+                                              int rowIndex) {
+    const float yTop = layout.y - rowIndex * layout.rowHeight;
+    const float yBottom = yTop - layout.rowHeight;
 
+    float x = layout.x;
+
+    auto drawCell = [&](float width, const std::string& text) {
+        // Cell border
+        HPDF_Page_Rectangle(page, x, yBottom, width, layout.rowHeight);
+        HPDF_Page_Stroke(page);
+
+        // Text
+        HPDF_Page_BeginText(page);
+        HPDF_Page_TextRect(page,
+                           x + 4.0f,    // left padding
+                           yTop - 4.0f, // top padding
+                           x + width - 4.0f,
+                           yBottom + 4.0f,
+                           text.c_str(),
+                           HPDF_TALIGN_LEFT,
+                           nullptr);
+        HPDF_Page_EndText(page);
+
+        x += width;
+    };
+    drawCell(layout.colWidths[0], item.getName());
+    drawCell(layout.colWidths[1], std::to_string(item.get_invoice_stock()));
+    {
+        std::ostringstream ss;
+        ss << std::fixed << std::setprecision(2) << item.getStdPrice();
+        drawCell(layout.colWidths[2], ss.str());
+    }
+    {
+        float total = item.getStdPrice() * item.get_invoice_stock();
+
+        std::ostringstream ss;
+        ss << std::fixed << std::setprecision(2) << total;
+        drawCell(layout.colWidths[3], ss.str());
+    }
+}
 /**
  * @brief Build a invoice using a template named peece.
  *
@@ -95,7 +136,7 @@ std::string InvoicePdfGenerator::retrieveFileName() {
  * @return Bool flag of successful completion
  * @pre An instance of this class should be created.
  */
-bool InvoicePdfGenerator::peeceTemplate() {
+bool InvoicePdfGenerator::peece_template() {
     const int h2 = 32;
     const int h3 = 24;
     const int body = 12;
@@ -119,6 +160,13 @@ bool InvoicePdfGenerator::peeceTemplate() {
         HPDF_Page_SetTextLeading(page, biz_details_spacing);
         HPDF_Page_ShowText(page, cur_invoice_->getBusiness()->getBizName().c_str());
         HPDF_Page_EndText(page);
+        const TableLayout table;
+        int i = 0;
+        for (const auto& stock : cur_invoice_->getStockQuantityMap()) {
+            draw_stock_item_row(page, *stock.first, table, i);
+            i++;
+        }
+
         savePDF(peeceInvoicePDF, cur_invoice_->get_file_name().c_str());
         qDebug() << "Saved PDF to" << cur_invoice_->get_file_name().c_str();
 
@@ -131,5 +179,5 @@ bool InvoicePdfGenerator::peeceTemplate() {
 // http://libharu.org/demo/text_demo.c
 // http://libharu.org/demo/line_demo.c
 // https://github.com/libharu/libharu/wiki/Examples#user-content-font_democ
-//  https://github.com/libharu/libharu/wiki/Error-handling errors
-//  https://johan162.github.io/libhpdftbl/html/index.html
+// https://github.com/libharu/libharu/wiki/Error-handling errors
+// https://johan162.github.io/libhpdftbl/html/index.html

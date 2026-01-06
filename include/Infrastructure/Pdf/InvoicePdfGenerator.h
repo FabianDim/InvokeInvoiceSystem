@@ -9,6 +9,12 @@ namespace Infrastructure::PDF {
 
 class InvoicePdfGenerator {
     friend class InvoiceMenu;
+    struct TableLayout {
+        float x;
+        float y;
+        float rowHeight;
+        float colWidths[4];
+    };
 
   public:
     HPDF_Doc createPDF(const char* font);
@@ -17,7 +23,8 @@ class InvoicePdfGenerator {
     void savePDF(HPDF_Doc pdf, const char* name);
     void createTestPDF(HPDF_Doc pdf, HPDF_Page page_1);
     std::string retrieveFileName();
-    bool peeceTemplate();
+    void draw_stock_item_row(HPDF_Page page, const StockItem& item, const TableLayout& layout, int rowIndex);
+    bool peece_template();
     InvoicePdfGenerator(std::shared_ptr<Invoice> invoice);
 
   private:
