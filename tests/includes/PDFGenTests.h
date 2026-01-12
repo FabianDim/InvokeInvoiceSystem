@@ -1,6 +1,7 @@
 #include <QtWidgets>
 #include <QTest>
-
+#include "Domain/Invoices/Invoice.h"
+#include "Infrastructure/Pdf/InvoicePdfGenerator.h"
 class TestPDFGen : public QObject {
     Q_OBJECT
 
