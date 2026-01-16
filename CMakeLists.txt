@@ -123,7 +123,6 @@
         NO_UNSUPPORTED_PLATFORM_ERROR
     )
     install(SCRIPT ${deploy_script})
-
+    qt_finalize_executable(InvokeInvoiceSystem)
     qt_finalize_executable(InvokeInvoiceSystemTests)
 
-    qt_finalize_executable(InvokeInvoiceSystem)

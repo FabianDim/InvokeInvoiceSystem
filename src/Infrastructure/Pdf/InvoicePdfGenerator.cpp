@@ -71,13 +71,6 @@ void InvoicePdfGenerator::savePDF(HPDF_Doc pdf, const char* name) {
     HPDF_SaveToFile(pdf, name);
 }
 
-void InvoicePdfGenerator::createTestPDF(HPDF_Doc pdf, HPDF_Page page_1) {
-    HPDF_Page_BeginText(page_1);
-    HPDF_Page_TextOut(page_1, 60, 140, "test"); // page, xpos, ypos, text  // Corrected invocation
-    HPDF_Page_EndText(page_1);
-    savePDF(pdf, "test.pdf");
-}
-
 std::string InvoicePdfGenerator::retrieveFileName() {
     std::string name;
     std::cout << "\nPlease enter the name of the file: ";
@@ -158,18 +151,21 @@ bool InvoicePdfGenerator::peece_template() {
         HPDF_Page_TextOut(page, 100, 840 - h2, "");
 
         HPDF_Page_SetTextLeading(page, biz_details_spacing);
-        HPDF_Page_ShowText(page, cur_invoice_->getBusiness()->getBizName().c_str());
-        HPDF_Page_EndText(page);
-        const TableLayout table;
-        int i = 0;
-        for (const auto& stock : cur_invoice_->getStockQuantityMap()) {
-            draw_stock_item_row(page, *stock.first, table, i);
-            i++;
+        try {
+            HPDF_Page_ShowText(page, cur_invoice_->getBusiness()->getBizName().c_str());
+            HPDF_Page_EndText(page);
+            const TableLayout table{770.0f, 25.0f, 10.0f, 100.0f};
+            int i = 0;
+            for (const auto& stock : cur_invoice_->getStockQuantityMap()) {
+                draw_stock_item_row(page, *stock.first, table, i);
+                i++;
+            }
+
+            savePDF(peeceInvoicePDF, cur_invoice_->get_file_name().c_str());
+            qDebug() << "Saved PDF to" << cur_invoice_->get_file_name().c_str();
+        } catch (std::exception e) {
+            qDebug() << e.what();
         }
-
-        savePDF(peeceInvoicePDF, cur_invoice_->get_file_name().c_str());
-        qDebug() << "Saved PDF to" << cur_invoice_->get_file_name().c_str();
-
     } catch (...) {
         std::cout << "Error in the peece template\n";
     }
@@ -181,3 +177,4 @@ bool InvoicePdfGenerator::peece_template() {
 // https://github.com/libharu/libharu/wiki/Examples#user-content-font_democ
 // https://github.com/libharu/libharu/wiki/Error-handling errors
 // https://johan162.github.io/libhpdftbl/html/index.html
+// https://libharu.org/demo/text_demo.pdf - Grid

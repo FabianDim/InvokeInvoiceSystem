@@ -1,6 +1,7 @@
 #include <QtTest/QtTest>
 #include "Domain/Invoices/Invoice.h"
 #include "Infrastructure/Pdf/InvoicePdfGenerator.h"
+#include <cstdlib>
 namespace fs = std::filesystem;
 class TestPDFGen : public QObject {
     Q_OBJECT
@@ -11,6 +12,11 @@ class TestPDFGen : public QObject {
 void TestPDFGen::pdf_creation_test() {
 
     Invoice test_invoice;
+    std::shared_ptr<BusinessRepository> biz = std::make_shared<BusinessRepository>();
+    const std::string& name = "My Business";
+    biz->setName(name);
+    test_invoice.setBusiness(biz);
+
     StockItem items[5];
 
     StockItem item1;
@@ -52,7 +58,7 @@ void TestPDFGen::pdf_creation_test() {
     test_invoice.addStockItem(std::make_shared<StockItem>(items[4]), 4);
 
     test_invoice.setInvoiceID("INV-1001");
-    test_invoice.set_file_name("C:/Users/Fabian/Desktop/test_invoice.pdf");
+    test_invoice.set_file_name("C:/Users/Fabian/Test_Invoices/test_invoice.pdf");
     test_invoice.setCurrentDate("2024-10-01");
     test_invoice.setDueDate("2024-10-15");
     test_invoice.setTotalAmount(500.0f);
