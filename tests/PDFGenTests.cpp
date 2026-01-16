@@ -1,5 +1,13 @@
-#include "./includes/PDFGenTests.h"
+#include <QtTest/QtTest>
+#include "Domain/Invoices/Invoice.h"
+#include "Infrastructure/Pdf/InvoicePdfGenerator.h"
 namespace fs = std::filesystem;
+class TestPDFGen : public QObject {
+    Q_OBJECT
+  private slots:
+    void pdf_creation_test();
+};
+
 void TestPDFGen::pdf_creation_test() {
 
     Invoice test_invoice;
@@ -55,4 +63,6 @@ void TestPDFGen::pdf_creation_test() {
 
     QVERIFY(fs::exists("C:/Users/Fabian/Desktop/test_invoice.pdf"));
 }
+
 QTEST_MAIN(TestPDFGen)
+#include "PDFGenTests.moc"
