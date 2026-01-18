@@ -152,7 +152,14 @@ bool InvoicePdfGenerator::peece_template() {
 
         HPDF_Page_SetTextLeading(page, biz_details_spacing);
         try {
-            HPDF_Page_ShowText(page, cur_invoice_->getBusiness()->getBizName().c_str());
+            const auto& bizName = cur_invoice_->getBusiness()->getBizName();
+            const auto& name = cur_invoice_->getBusiness()->getName();
+            if (name == "") {
+                HPDF_Page_ShowText(page, cur_invoice_->getBusiness()->getBizName().c_str());
+            } else {
+                HPDF_Page_ShowText(page, cur_invoice_->getBusiness()->getName().c_str());
+            }
+
             HPDF_Page_EndText(page);
             const TableLayout table{770.0f, 25.0f, 10.0f, 100.0f};
             int i = 0;
@@ -160,14 +167,13 @@ bool InvoicePdfGenerator::peece_template() {
                 draw_stock_item_row(page, *stock.first, table, i);
                 i++;
             }
-
             savePDF(peeceInvoicePDF, cur_invoice_->get_file_name().c_str());
             qDebug() << "Saved PDF to" << cur_invoice_->get_file_name().c_str();
         } catch (std::exception e) {
-            qDebug() << e.what();
+            qDebug() << "Exception at peece template: " << e.what();
         }
     } catch (...) {
-        std::cout << "Error in the peece template\n";
+        std::cerr << "Error in the peece template\n";
     }
     return false;
 }

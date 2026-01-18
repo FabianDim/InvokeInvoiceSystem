@@ -24,7 +24,9 @@
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
           "hostOS": ["Windows"],
-          "vcvarsall": { "arch": ["x64"] }
+          "vcvarsall": {
+            "arch": ["x64"]
+          }
         }
       }
     },
@@ -45,7 +47,6 @@
       }
     }
   ],
-
   "buildPresets": [
     {
       "name": "x64-release",
