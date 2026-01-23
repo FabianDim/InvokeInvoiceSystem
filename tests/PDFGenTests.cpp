@@ -18,8 +18,11 @@ void TestPDFGen::pdf_creation_test() {
 
     Invoice test_invoice;
     std::shared_ptr<BusinessRepository> biz = std::make_shared<BusinessRepository>();
-    const std::string name = "My Business";
-    biz->setName(name);
+    biz->set_website_url("http://google.com");
+    biz->setName("My Business");
+    QString logoPath = QCoreApplication::applicationDirPath() + "../../../../tests/test_resources/logo.png";
+    std::cout << logoPath.toStdString() <<std::endl;
+    biz->set_biz_logo_url(logoPath.toStdString());
     test_invoice.setBusiness(biz);
 
     StockItem items[5];
@@ -101,22 +104,18 @@ std::string TestPDFGen::delete_old_pdfs(fs::path dir) {
                     dq.push(std::make_pair(std::stoi(file_num), entry));
                     std::cout << "file num = " << file_num << std::endl;
                 }
-                while (dq.size() >= 5) {
-                    std::cout << "popping: " << dq.top().first << std::endl;
-                    dq.pop();
-                }
             }
         }
         std::cout << "most recent file number: " << max << std::endl;
         new_file_number = max + 1;
         if (dq.size() >= 5) {
-            while (!dq.empty()) {
+            while (dq.size() != 5) {
                 std::cout << "deleting: " << dq.top().second << std::endl;
                 fs::remove(dq.top().second);
                 dq.pop();
             }
         }
-        return std::to_string(new_file_number);
+        return std::to_string(new_file_number > 0 ? new_file_number : 0);
     }
     return "";
 }

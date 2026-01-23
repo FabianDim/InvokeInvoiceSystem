@@ -133,7 +133,7 @@ bool InvoicePdfGenerator::peece_template() {
     const int h2 = 32;
     const int h3 = 24;
     const int body = 12;
-    const int biz_details_spacing = 12;
+    const int biz_details_spacing = 18;
     try {
         auto peeceInvoicePDF = createPDF("Helvetica");
         auto page = HPDF_GetPageByIndex(peeceInvoicePDF, 0);
@@ -154,19 +154,45 @@ bool InvoicePdfGenerator::peece_template() {
         try {
             const auto& bizName = cur_invoice_->getBusiness()->getBizName();
             const auto& name = cur_invoice_->getBusiness()->getName();
+            const auto& biz_logo = cur_invoice_->getBusiness()->get_biz_logo_url();
+            HPDF_Page_SetFontAndSize(page, HPDF_GetFont(peeceInvoicePDF, "Helvetica-Bold", NULL), body);
             if (name == "") {
                 HPDF_Page_ShowText(page, cur_invoice_->getBusiness()->getBizName().c_str());
             } else {
                 HPDF_Page_ShowText(page, cur_invoice_->getBusiness()->getName().c_str());
             }
-
+            HPDF_Page_MoveToNextLine(page);
+            HPDF_Page_SetFontAndSize(page, HPDF_GetFont(peeceInvoicePDF, "Helvetica", NULL), body);
+            HPDF_Page_ShowText(page, cur_invoice_->getBusiness()->get_website_url().c_str());
+            HPDF_Image logo = HPDF_LoadPngImageFromFile(peeceInvoicePDF, biz_logo.c_str());
             HPDF_Page_EndText(page);
-            const TableLayout table{770.0f, 25.0f, 10.0f, 100.0f};
+            const float img_width_max = 100.0f;
+            const float img_height_max = 100.0f;
+            if (logo) {
+                HPDF_REAL imgW = HPDF_Image_GetWidth(logo);
+                HPDF_REAL imgH = HPDF_Image_GetHeight(logo);
+                float aspect_ratio = imgW / imgH;
+                float image_height = imgH;
+                float image_width = imgW;
+
+                float scale_w = img_width_max / imgW;
+                float scale_h = img_height_max / imgH;
+
+                float scale = std::min(scale_w, scale_h);
+
+                image_width = imgW * scale;
+                image_height = imgH * scale;
+
+                HPDF_Page_DrawImage(page, logo, 15, 780, image_width, image_height);
+            }
+            const TableLayout table{0.0f, 0.0f, 10.0f, 100.0f};
             int i = 0;
+            HPDF_Page_SetFontAndSize(page, HPDF_GetFont(peeceInvoicePDF, "Helvetica", NULL), body);
             for (const auto& stock : cur_invoice_->getStockQuantityMap()) {
                 draw_stock_item_row(page, *stock.first, table, i);
                 i++;
             }
+
             savePDF(peeceInvoicePDF, cur_invoice_->get_file_name().c_str());
             qDebug() << "Saved PDF to" << cur_invoice_->get_file_name().c_str();
         } catch (std::exception e) {
@@ -184,3 +210,4 @@ bool InvoicePdfGenerator::peece_template() {
 // https://github.com/libharu/libharu/wiki/Error-handling errors
 // https://johan162.github.io/libhpdftbl/html/index.html
 // https://libharu.org/demo/text_demo.pdf - Grid
+// https://math.stackexchange.com/questions/3078121/resizing-and-scaling-image resizing image
