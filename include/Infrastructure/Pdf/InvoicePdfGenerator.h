@@ -25,12 +25,19 @@ class InvoicePdfGenerator {
     std::string retrieveFileName();
     void draw_stock_item_row(HPDF_Page page, const StockItem& item, const TableLayout& layout, int rowIndex);
     bool peece_template();
+
     InvoicePdfGenerator(std::shared_ptr<Invoice> invoice);
 
   private:
     // std::shared_ptr<Invoice> curInvoice;
     static const std::set<std::string> fontList;
     HPDF_Font def_font;
+    void resize_place_image(HPDF_Page page,
+                            const float img_width_max,
+                            const float img_height_max,
+                            const float place_x,
+                            const float place_y,
+                            HPDF_Image logo);
 
     std::shared_ptr<Invoice> cur_invoice_;
 };

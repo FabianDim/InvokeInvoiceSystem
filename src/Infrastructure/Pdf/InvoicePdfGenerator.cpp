@@ -166,24 +166,11 @@ bool InvoicePdfGenerator::peece_template() {
             HPDF_Page_ShowText(page, cur_invoice_->getBusiness()->get_website_url().c_str());
             HPDF_Image logo = HPDF_LoadPngImageFromFile(peeceInvoicePDF, biz_logo.c_str());
             HPDF_Page_EndText(page);
-            const float img_width_max = 100.0f;
+            const float img_width_max = 50.0f;
             const float img_height_max = 100.0f;
             if (logo) {
-                HPDF_REAL imgW = HPDF_Image_GetWidth(logo);
-                HPDF_REAL imgH = HPDF_Image_GetHeight(logo);
-                float aspect_ratio = imgW / imgH;
-                float image_height = imgH;
-                float image_width = imgW;
 
-                float scale_w = img_width_max / imgW;
-                float scale_h = img_height_max / imgH;
-
-                float scale = std::min(scale_w, scale_h);
-
-                image_width = imgW * scale;
-                image_height = imgH * scale;
-
-                HPDF_Page_DrawImage(page, logo, 15, 780, image_width, image_height);
+                resize_place_image(page, img_width_max, img_height_max, 15, 780, logo);
             }
             const TableLayout table{0.0f, 0.0f, 10.0f, 100.0f};
             int i = 0;
@@ -202,6 +189,44 @@ bool InvoicePdfGenerator::peece_template() {
         std::cerr << "Error in the peece template\n";
     }
     return false;
+}
+
+void InvoicePdfGenerator::resize_place_image(HPDF_Page page,
+                                             const float img_width_max,
+                                             const float img_height_max,
+                                             const float place_x,
+                                             const float place_y,
+                                             HPDF_Image logo) {
+    /**
+     * @brief Resizes an image and places the image on the page.
+     *
+     *
+     * @param page
+     * @param img_width_max
+     * @param img_height_max
+     * @param logo
+     *
+     * @return Bool flag of successful completion
+     * @pre An instance of this class should be created.
+     */
+    HPDF_REAL imgW = HPDF_Image_GetWidth(logo);
+    HPDF_REAL imgH = HPDF_Image_GetHeight(logo);
+    float aspect_ratio = imgW / imgH;
+    float image_height = imgH;
+    float image_width = imgW;
+
+    float scale_w = img_width_max / imgW;
+    float scale_h = img_height_max / imgH;
+
+    float scale = std::min(scale_w, scale_h);
+
+    image_width = imgW * scale;
+    image_height = imgH * scale;
+
+    const float centre_x = 15; // change the parameter to take this.
+    float x_placement = centre_x - imgW / 2;
+
+    HPDF_Page_DrawImage(page, logo, x_placement, place_y, image_width, image_height);
 }
 
 // http://libharu.org/demo/text_demo.c
