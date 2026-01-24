@@ -146,9 +146,9 @@ bool InvoicePdfGenerator::peece_template() {
         const char* tax_inv = "Tax Invoice";
         float width = HPDF_Page_TextWidth(page, tax_inv);
         float x = 550 - width;
-        HPDF_Page_TextOut(page, x, 790, tax_inv);
+        HPDF_Page_TextOut(page, x, 780, tax_inv);
         HPDF_Page_SetFontAndSize(page, font, body);
-        HPDF_Page_TextOut(page, 100, 840 - h2, "");
+        HPDF_Page_TextOut(page, 100, 830 - h2, "");
 
         HPDF_Page_SetTextLeading(page, biz_details_spacing);
         try {
@@ -169,8 +169,9 @@ bool InvoicePdfGenerator::peece_template() {
             const float img_width_max = 50.0f;
             const float img_height_max = 100.0f;
             if (logo) {
-
-                resize_place_image(page, img_width_max, img_height_max, 15, 780, logo);
+                float x_placement = 50.0f;
+                float y_placement = 770.0f;
+                resize_place_image(page, img_width_max, img_height_max, x_placement, y_placement, logo);
             }
             const TableLayout table{0.0f, 0.0f, 10.0f, 100.0f};
             int i = 0;
@@ -206,7 +207,6 @@ void InvoicePdfGenerator::resize_place_image(HPDF_Page page,
      * @param img_height_max
      * @param logo
      *
-     * @return Bool flag of successful completion
      * @pre An instance of this class should be created.
      */
     HPDF_REAL imgW = HPDF_Image_GetWidth(logo);
@@ -223,12 +223,10 @@ void InvoicePdfGenerator::resize_place_image(HPDF_Page page,
     image_width = imgW * scale;
     image_height = imgH * scale;
 
-    const float centre_x = 15; // change the parameter to take this.
-    float x_placement = centre_x - imgW / 2;
+    float x_placement = place_x - (image_width / 2);
 
     HPDF_Page_DrawImage(page, logo, x_placement, place_y, image_width, image_height);
 }
-
 // http://libharu.org/demo/text_demo.c
 // http://libharu.org/demo/line_demo.c
 // https://github.com/libharu/libharu/wiki/Examples#user-content-font_democ
