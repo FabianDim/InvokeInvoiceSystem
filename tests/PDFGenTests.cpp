@@ -21,7 +21,7 @@ void TestPDFGen::pdf_creation_test() {
     biz->set_website_url("http://google.com");
     biz->setName("My Business");
     QString logoPath = QCoreApplication::applicationDirPath() + "../../../../tests/test_resources/logo.png";
-    std::cout << logoPath.toStdString() <<std::endl;
+    std::cout << logoPath.toStdString() << std::endl;
     biz->set_biz_logo_url(logoPath.toStdString());
     test_invoice.setBusiness(biz);
 
@@ -86,7 +86,7 @@ QTEST_MAIN(TestPDFGen)
 
 std::string TestPDFGen::delete_old_pdfs(fs::path dir) {
     std::cout << "Deleting old PDFs from: " << dir.string() << std::endl;
-    std::priority_queue<std::pair<int, fs::path>> dq;
+    std::deque<std::pair<int, fs::path>> dq;
     int max = INT_MIN;
     int new_file_number = 0;
     if (fs::exists(dir) && fs::is_directory(dir)) {
@@ -101,7 +101,7 @@ std::string TestPDFGen::delete_old_pdfs(fs::path dir) {
                     max = stoi(file_num);
                 }
                 if (dq.size() <= 5) {
-                    dq.push(std::make_pair(std::stoi(file_num), entry));
+                    dq.push_back(std::make_pair(std::stoi(file_num), entry));
                     std::cout << "file num = " << file_num << std::endl;
                 }
             }
@@ -109,10 +109,11 @@ std::string TestPDFGen::delete_old_pdfs(fs::path dir) {
         std::cout << "most recent file number: " << max << std::endl;
         new_file_number = max + 1;
         if (dq.size() >= 5) {
-            while (dq.size() != 5) {
-                std::cout << "deleting: " << dq.top().second << std::endl;
-                fs::remove(dq.top().second);
-                dq.pop();
+            std::sort(dq.begin(), dq.end());
+            for (const auto& path : dq) {
+                std::cout << "deleting: " << dq.at(0).second << std::endl;
+                fs::remove(dq.at(0).second);
+                dq.pop_front();
             }
         }
         return std::to_string(new_file_number > 0 ? new_file_number : 0);

@@ -77,10 +77,44 @@ std::string InvoicePdfGenerator::retrieveFileName() {
     std::cin >> name;
     return name;
 }
-void InvoicePdfGenerator::draw_stock_item_row(HPDF_Page page,
-                                              const StockItem& item,
-                                              const TableLayout& layout,
-                                              int rowIndex) {
+
+void InvoicePdfGenerator::draw_invoice_table_header(HPDF_Page page,
+                                                    TableHeader table_header,
+                                                    float start_x,
+                                                    const float start_y) {
+
+    auto drawCell = [&](float width, const std::string& text) {
+        // Cell border
+        HPDF_Page_SetRGBStroke(page, 0.0f, 0.0f, 0.0f);
+        HPDF_Page_SetRGBFill(page, 0.0f, 0.0f, 0.0f);
+        HPDF_Page_Rectangle(page, start_x, start_y, width, table_header.rowHeight);
+        HPDF_Page_Stroke(page);
+        // HPDF_Page_Fill(page);
+        // Text
+        HPDF_Page_BeginText(page);
+
+        HPDF_Page_TextRect(page,
+                           start_x + 4.0f, // left padding
+                           start_y + 16,   // top padding
+                           start_x + width,
+                           start_y + 4,
+                           text.c_str(),
+                           HPDF_TALIGN_LEFT,
+                           nullptr);
+
+        HPDF_Page_EndText(page);
+
+        start_x += width;
+    };
+    int i = 0;
+    for (const auto& head : table_header.strings) {
+        drawCell(table_header.colWidths[i], head);
+        i++;
+    }
+}
+
+void InvoicePdfGenerator::draw_stock_item_row(
+    HPDF_Page page, const StockItem& item, const int stock_amount, const TableLayout& layout, int rowIndex) {
     const float yTop = layout.y - rowIndex * layout.rowHeight;
     const float yBottom = yTop - layout.rowHeight;
 
@@ -88,6 +122,7 @@ void InvoicePdfGenerator::draw_stock_item_row(HPDF_Page page,
 
     auto drawCell = [&](float width, const std::string& text) {
         // Cell border
+        HPDF_Page_SetRGBStroke(page, 1.0f, 1.0f, 1.0f);
         HPDF_Page_Rectangle(page, x, yBottom, width, layout.rowHeight);
         HPDF_Page_Stroke(page);
 
@@ -95,9 +130,9 @@ void InvoicePdfGenerator::draw_stock_item_row(HPDF_Page page,
         HPDF_Page_BeginText(page);
         HPDF_Page_TextRect(page,
                            x + 4.0f,    // left padding
-                           yTop - 4.0f, // top padding
+                           yTop + 4.0f, // top padding
                            x + width - 4.0f,
-                           yBottom + 4.0f,
+                           yBottom,
                            text.c_str(),
                            HPDF_TALIGN_LEFT,
                            nullptr);
@@ -106,14 +141,15 @@ void InvoicePdfGenerator::draw_stock_item_row(HPDF_Page page,
         x += width;
     };
     drawCell(layout.colWidths[0], item.getName());
-    drawCell(layout.colWidths[1], std::to_string(item.get_invoice_stock()));
+    drawCell(layout.colWidths[1], std::to_string(stock_amount));
     {
         std::ostringstream ss;
         ss << std::fixed << std::setprecision(2) << item.getStdPrice();
         drawCell(layout.colWidths[2], ss.str());
     }
     {
-        float total = item.getStdPrice() * item.get_invoice_stock();
+        const auto& stock_map = cur_invoice_->getStockQuantityMap();
+        float total = item.getStdPrice() * stock_amount;
 
         std::ostringstream ss;
         ss << std::fixed << std::setprecision(2) << total;
@@ -134,10 +170,13 @@ bool InvoicePdfGenerator::peece_template() {
     const int h3 = 24;
     const int body = 12;
     const int biz_details_spacing = 18;
+    const int section_spacing = 32;
     try {
         auto peeceInvoicePDF = createPDF("Helvetica");
         auto page = HPDF_GetPageByIndex(peeceInvoicePDF, 0);
         HPDF_Font font = HPDF_Page_GetCurrentFont(page);
+
+        // begin the Tax Invoice text output.
         HPDF_Page_BeginText(page);
         HPDF_Page_SetTextRenderingMode(page, HPDF_FILL);
 
@@ -145,8 +184,14 @@ bool InvoicePdfGenerator::peece_template() {
         // HPDF_Page_SetTextLeading(page, 18);
         const char* tax_inv = "Tax Invoice";
         float width = HPDF_Page_TextWidth(page, tax_inv);
-        float x = 550 - width;
-        HPDF_Page_TextOut(page, x, 780, tax_inv);
+        float page_right = HPDF_Page_GetWidth(page);
+        // place the tax invoice 50 from the end of the page
+        float x_tax_inv_place = page_right - peece_margin - width;
+
+        HPDF_Page_TextOut(page, x_tax_inv_place, 780, tax_inv);
+        HPDF_Page_EndText(page);
+
+        HPDF_Page_BeginText(page);
         HPDF_Page_SetFontAndSize(page, font, body);
         HPDF_Page_TextOut(page, 100, 830 - h2, "");
 
@@ -162,22 +207,52 @@ bool InvoicePdfGenerator::peece_template() {
                 HPDF_Page_ShowText(page, cur_invoice_->getBusiness()->getName().c_str());
             }
             HPDF_Page_MoveToNextLine(page);
+            // show link blue
+            const char* link = cur_invoice_->getBusiness()->get_website_url().c_str();
             HPDF_Page_SetFontAndSize(page, HPDF_GetFont(peeceInvoicePDF, "Helvetica", NULL), body);
-            HPDF_Page_ShowText(page, cur_invoice_->getBusiness()->get_website_url().c_str());
+            HPDF_Page_SetRGBFill(page, 0, 0, 1);
+            const auto& cur_pos = HPDF_Page_GetCurrentTextPos(page);
+            HPDF_Page_ShowText(page, link);
             HPDF_Image logo = HPDF_LoadPngImageFromFile(peeceInvoicePDF, biz_logo.c_str());
             HPDF_Page_EndText(page);
+            underline_word(page, link, 0.1, cur_pos.x, cur_pos.y, 0.0f, 0.0f, 1.0f);
+
             const float img_width_max = 50.0f;
             const float img_height_max = 100.0f;
             if (logo) {
                 float x_placement = 50.0f;
                 float y_placement = 770.0f;
-                resize_place_image(page, img_width_max, img_height_max, x_placement, y_placement, logo);
+                resize_and_place_image(page, img_width_max, img_height_max, x_placement, y_placement, logo);
             }
-            const TableLayout table{0.0f, 0.0f, 10.0f, 100.0f};
+
+            TableLayout table;
+            table.x = peece_margin;
+            table.y = 650.0f; // start near top
+            table.rowHeight = 18.0f;
+            table.colWidths[0] = 250.0f;
+            const float useable_width = (page_right - peece_margin) - (0 + peece_margin + table.colWidths[0]);
+            table.colWidths[1] = useable_width / 3;
+            table.colWidths[2] = useable_width / 3;
+            table.colWidths[3] = useable_width / 3;
+            TableHeader headers;
+            headers.colWidths[0] = 250.0f;
+            headers.colWidths[1] = useable_width / 3;
+            headers.colWidths[2] = useable_width / 3;
+            headers.colWidths[3] = useable_width / 3;
+            headers.rowHeight = 18.0f;
+            headers.strings[0] = "Description";
+            headers.strings[1] = "Quantity Supplied";
+            headers.strings[2] = "Item Price";
+            headers.strings[3] = "Total Price";
+            draw_invoice_table_header(page, headers, peece_margin, 660 + headers.rowHeight);
+            HPDF_Page_SetRGBFill(page, 0, 0, 0);
+            HPDF_Page_SetRGBStroke(page, 0, 0, 0);
             int i = 0;
             HPDF_Page_SetFontAndSize(page, HPDF_GetFont(peeceInvoicePDF, "Helvetica", NULL), body);
             for (const auto& stock : cur_invoice_->getStockQuantityMap()) {
-                draw_stock_item_row(page, *stock.first, table, i);
+                std::cout << stock.first->getName() << " " << stock.second << " x " << stock.first->getStdPrice()
+                          << "\n";
+                draw_stock_item_row(page, *stock.first, stock.second, table, i);
                 i++;
             }
 
@@ -192,12 +267,44 @@ bool InvoicePdfGenerator::peece_template() {
     return false;
 }
 
-void InvoicePdfGenerator::resize_place_image(HPDF_Page page,
-                                             const float img_width_max,
-                                             const float img_height_max,
-                                             const float place_x,
-                                             const float place_y,
-                                             HPDF_Image logo) {
+void InvoicePdfGenerator::underline_word(HPDF_Page page,
+                                         const char* text,
+                                         const float line_width,
+                                         const float x,
+                                         const float y,
+                                         const float r,
+                                         const float g,
+                                         const float b) {
+
+    /**
+     * @brief helper function to underline a string of text.
+     *
+     * @param text Text to be underlined.
+     * @param line_width Width of the underline.
+     * @param x x-axis of the line
+     * @param y y-axis of the line
+     * @param rgb the colour of the line from 0-1
+     *
+     * @return Bool flag of successful completion
+     * @pre An instance of this class should be created.
+     */
+    float text_width = HPDF_Page_TextWidth(page, text);
+    float underlineY = y - 3.0f;
+
+    // Draw underline
+    HPDF_Page_SetRGBStroke(page, r, g, b);
+    HPDF_Page_SetLineWidth(page, line_width);
+    HPDF_Page_MoveTo(page, x, underlineY);
+    HPDF_Page_LineTo(page, x + text_width, underlineY);
+    HPDF_Page_Stroke(page);
+}
+
+void InvoicePdfGenerator::resize_and_place_image(HPDF_Page page,
+                                                 const float img_width_max,
+                                                 const float img_height_max,
+                                                 const float place_x,
+                                                 const float place_y,
+                                                 HPDF_Image logo) {
     /**
      * @brief Resizes an image and places the image on the page.
      *
