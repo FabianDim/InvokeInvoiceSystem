@@ -10,7 +10,7 @@
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": {
           "type": "FILEPATH",
-          "value": "F:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          "value": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
         },
         "VCPKG_TARGET_TRIPLET": "x64-windows",
         "CMAKE_C_COMPILER": "cl",
