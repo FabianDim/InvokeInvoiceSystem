@@ -12,6 +12,7 @@ class TestPDFGen : public QObject {
 
   private:
     std::string delete_old_pdfs(fs::path dir);
+    const std::string pdf_out_path = "G:/misc/Test_Invoices/test_invoice"
 };
 
 void TestPDFGen::pdf_creation_test() {
@@ -69,7 +70,7 @@ void TestPDFGen::pdf_creation_test() {
 
     const std::string pdf_num = delete_old_pdfs(dir);
     test_invoice.setInvoiceID("INV-1001");
-    test_invoice.set_file_name("F:/misc/Test_Invoices/test_invoice" + pdf_num + ".pdf");
+    test_invoice.set_file_name(pdf_out_path + pdf_num + ".pdf");
     test_invoice.setCurrentDate("2024-10-01");
     test_invoice.setDueDate("2024-10-15");
     test_invoice.setTotalAmount(500.0f);
@@ -78,7 +79,7 @@ void TestPDFGen::pdf_creation_test() {
 
     pdf_gen.peece_template();
 
-    QVERIFY(fs::exists("F:/misc/Test_Invoices/test_invoice" + pdf_num + ".pdf"));
+    QVERIFY(fs::exists(pdf_out_path + pdf_num + ".pdf"));
 }
 
 QTEST_MAIN(TestPDFGen)

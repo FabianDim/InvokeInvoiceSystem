@@ -27,7 +27,7 @@ class InvoicePdfGenerator {
     HPDF_Doc createPDF(const char* font);
     HPDF_Page addPage(HPDF_Doc pdf);
     void addPageBefore(HPDF_Doc pdf, HPDF_Page page_1);
-    void savePDF(HPDF_Doc pdf, const char* name);
+    void save_pdf(HPDF_Doc pdf, const char* name);
     void createTestPDF(HPDF_Doc pdf, HPDF_Page page_1);
     std::string retrieveFileName();
     void draw_invoice_table_header(HPDF_Page page, TableHeader table_header, float start_x, const float start_y);

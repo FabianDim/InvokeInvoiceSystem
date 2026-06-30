@@ -101,5 +101,5 @@
     "xtree": "cpp",
     "xutility": "cpp"
   },
-  "sonarlint.pathToCompileCommands": "${workspaceFolder}\\vcpkg_installed\\vcpkg\\blds\\harfbuzz\\x64-windows-dbg\\compile_commands.json"
+  "sonarlint.pathToCompileCommands": "${workspaceFolder}\\vcpkg\\buildtrees\\pkgconf\\x64-windows-rel\\compile_commands.json"
 }

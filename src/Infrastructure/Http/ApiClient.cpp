@@ -99,7 +99,7 @@ void Infrastructure::Http::ApiClient::stock_list(const QJsonDocument& stock) {
         qDebug() << "Exception during login request:" << e.what();
     }
 }
-void ApiClient::do_login(const QString& email, const QString& password, bool remember) {
+void Infrastructure::Http::ApiClient::do_login(const QString& email, const QString& password, bool remember) {
     if (loginInProgress_)
         return;
     loginInProgress_ = true;

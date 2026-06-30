@@ -67,7 +67,7 @@ void InvoicePdfGenerator::addPageBefore(HPDF_Doc pdf, HPDF_Page page_1) {
     page_0 = HPDF_InsertPage(pdf, page_1);
 }
 
-void InvoicePdfGenerator::savePDF(HPDF_Doc pdf, const char* name) {
+void InvoicePdfGenerator::save_pdf(HPDF_Doc pdf, const char* name) {
     HPDF_SaveToFile(pdf, name);
 }
 
@@ -247,7 +247,7 @@ bool InvoicePdfGenerator::peece_template() {
             draw_invoice_table_header(page, headers, peece_margin, 660 + headers.rowHeight);
             HPDF_Page_SetRGBFill(page, 0, 0, 0);
             HPDF_Page_SetRGBStroke(page, 0, 0, 0);
-            int i = 0;
+            int i{0};
             HPDF_Page_SetFontAndSize(page, HPDF_GetFont(peeceInvoicePDF, "Helvetica", NULL), body);
             for (const auto& stock : cur_invoice_->getStockQuantityMap()) {
                 std::cout << stock.first->getName() << " " << stock.second << " x " << stock.first->getStdPrice()
@@ -256,10 +256,10 @@ bool InvoicePdfGenerator::peece_template() {
                 i++;
             }
 
-            savePDF(peeceInvoicePDF, cur_invoice_->get_file_name().c_str());
+            save_pdf(peeceInvoicePDF, cur_invoice_->get_file_name().c_str());
             qDebug() << "Saved PDF to" << cur_invoice_->get_file_name().c_str();
         } catch (std::exception e) {
-            qDebug() << "Exception at peece template: " << e.what();
+            qDebug() << "Error at peece template: " << e.what();
         }
     } catch (...) {
         std::cerr << "Error in the peece template\n";
