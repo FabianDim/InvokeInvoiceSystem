@@ -52,6 +52,7 @@ void Infrastructure::Services::InvoiceServices::begin_invoice_details(const QJso
     invoice_.setTemplate(template_converter(doc.object().value("invoice_theme").toString().toStdString()));
     invoice_.set_file_name(doc.object().value("file_dir").toString().toStdString() + "/" +
                            normalise_file_name(doc.object().value("file_name").toString().toStdString()));
+    invoice_.set_website(doc.object().value("website").toString().toStdString());
 }
 
 /**

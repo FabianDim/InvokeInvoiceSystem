@@ -74,6 +74,7 @@ void TestPDFGen::pdf_creation_test() {
     test_invoice.setCurrentDate("2024-10-01");
     test_invoice.setDueDate("2024-10-15");
     test_invoice.setTotalAmount(500.0f);
+    test_invoice.set_website("www.google.com");
 
     Infrastructure::PDF::InvoicePdfGenerator pdf_gen(std::make_shared<Invoice>(test_invoice));
 

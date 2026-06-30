@@ -29,7 +29,7 @@ void InvoiceDetailsInput::create_page_layout() {
         {"invoice_file_dir", "Save PDF to:", FormField::Type::DirBrowse, {}},
         {"date_created", "Date Created:", FormField::Type::DateEdit, {.defaultToday = true}},
         {"date_due", "Date Due:", FormField::Type::DateEdit, {.defaultToday = true}},
-    };
+        {"website", "Website", FormField::Type::LineEdit, {}}};
     QLineEdit* output_path_edit = new QLineEdit(this);
     output_path_edit->setReadOnly(true);
     output_path_edit->setHidden(true);
@@ -94,6 +94,7 @@ void InvoiceDetailsInput::create_page_layout() {
         auto created = qobject_cast<QDateEdit*>(base_invoice_form_fields_.value("date_created"));
         auto due = qobject_cast<QDateEdit*>(base_invoice_form_fields_.value("date_due"));
         auto dir_name = qobject_cast<QLineEdit*>(base_invoice_form_fields_.value("invoice_file_dir"));
+        auto website = qobject_cast<QLineEdit*>(base_invoice_form_fields_.value("website"));
         if (!idLe || !theme || !created || !due || !file_name || !dir_name) {
             return;
         }
@@ -103,7 +104,8 @@ void InvoiceDetailsInput::create_page_layout() {
                                {"file_name", file_name->text()},
                                {"date_created", created->date().toString(Qt::ISODate)},
                                {"date_due", due->date().toString(Qt::ISODate)},
-                               {"file_dir", dir_name->text()}};
+                               {"file_dir", dir_name->text()},
+                               {"website", website->text()}};
 
         QJsonDocument doc(inv_obj);
         emit set_invoice_details(doc);

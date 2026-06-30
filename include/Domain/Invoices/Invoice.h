@@ -11,30 +11,31 @@
 #include "InvoiceTemplateEnum.h"
 class Invoice {
   private:
-    std::string invoiceID;
-    std::string clientInvoiceID;
-    std::shared_ptr<BusinessRepository> business;
-    std::shared_ptr<Client> client;
-    std::string currentDate;
-    std::string dueDate;
+    std::string invoice_id_;
+    std::string client_invoice_id_;
+    std::shared_ptr<BusinessRepository> business_;
+    std::shared_ptr<Client> client_;
+    std::string current_date_;
+    std::string due_date_;
     std::string file_name_;
-    std::unordered_map<std::shared_ptr<StockItem>, int> stockQuantityMap; // stockID to quantity
-    InvoiceTemplateEnum invoiceTemplate;
-    float totalAmount = 0.0f;
-    float taxAmount = 0.0f;
-    float discountAmount = 0.0f;
-    bool isPaid = false;
-    bool gstIncluded = false;
-    std::string notes;
+    std::unordered_map<std::shared_ptr<StockItem>, int> stock_quantity_map_; // stockID to quantity
+    InvoiceTemplateEnum invoice_template_;
+    float total_amount_ = 0.0f;
+    float tax_amount_ = 0.0f;
+    float discount_amount_ = 0.0f;
+    bool is_paid_ = false;
+    bool gst_included_ = false;
+    std::string notes_;
+    std::string website_;
     // std::string invoiceTemplate;
 
   public:
     // invoiceID
     std::string getInvoiceID() const {
-        return invoiceID;
+        return invoice_id_;
     }
     void setInvoiceID(const std::string& id) {
-        invoiceID = id;
+        invoice_id_ = id;
     }
 
     // file_name
@@ -45,123 +46,131 @@ class Invoice {
         file_name_ = file_name;
     }
 
+    void set_website(const std::string& website) {
+        website_ = website;
+    }
+
     // clientInvoiceID
     std::string getCliInvoiceID() const {
-        return clientInvoiceID;
+        return client_invoice_id_;
     }
     void setCliInvoiceID(const std::string& id) {
-        clientInvoiceID = id;
+        client_invoice_id_ = id;
     }
 
     // business
     std::shared_ptr<BusinessRepository> getBusiness() const {
-        return business;
+        return business_;
     }
     void setBusiness(std::shared_ptr<BusinessRepository> biz) {
-        business = biz;
+        business_ = biz;
     }
 
     // client
     std::shared_ptr<Client> getClient() const {
-        return client;
+        return client_;
     }
     void setClient(std::shared_ptr<Client> cli) {
-        client = cli;
+        client_ = cli;
     }
 
     // currentDate
     std::string getCurrentDate() const {
-        return currentDate;
+        return current_date_;
     }
     void setCurrentDate(const std::string& date) {
-        currentDate = date;
+        current_date_ = date;
     }
 
     // dueDate
     std::string getDueDate() const {
-        return dueDate;
+        return due_date_;
     }
     void setDueDate(const std::string& date) {
-        dueDate = date;
+        due_date_ = date;
     }
 
     // stockQuantityMap
     std::unordered_map<std::shared_ptr<StockItem>, int>& getStockQuantityMap() {
-        return stockQuantityMap;
+        return stock_quantity_map_;
+    }
+    const std::unordered_map<std::shared_ptr<StockItem>, int>& getStockQuantityMap() const {
+        return stock_quantity_map_;
     }
     void setStockQuantityMap(const std::unordered_map<std::shared_ptr<StockItem>, int>& map) {
-        stockQuantityMap = map;
+        stock_quantity_map_ = map;
     }
     void addStockItem(const std::shared_ptr<StockItem>& item, int quantity) {
-        stockQuantityMap[item] = quantity;
+        stock_quantity_map_[item] = quantity;
     }
 
     // totalAmount
     float getTotalAmount() const {
-        return totalAmount;
+        return total_amount_;
     }
     void setTotalAmount(float total) {
-        totalAmount = total;
+        total_amount_ = total;
     }
 
     //// taxAmount
-    // float getTaxAmount() const { return taxAmount; }
-    // void setTaxAmount(float tax) { taxAmount = tax; }
+    // float getTaxAmount() const { return tax_amount_; }
+    // void setTaxAmount(float tax) { tax_amount_ = tax; }
 
     // Template
     InvoiceTemplateEnum getTemplate() const {
-        return invoiceTemplate;
+        return invoice_template_;
     }
     void setTemplate(InvoiceTemplateEnum invTemplate) {
-        invoiceTemplate = invTemplate;
+        invoice_template_ = invTemplate;
     }
 
     // UsingGST
     bool getTaxAmount() const {
-        return gstIncluded;
+        return gst_included_;
     }
     void setTaxAmount(bool gst) {
-        gstIncluded = gst;
+        gst_included_ = gst;
     }
 
     // discountAmount
     float getDiscountAmount() const {
-        return discountAmount;
+        return discount_amount_;
     }
     void setDiscountAmount(float discount) {
-        discountAmount = discount;
+        discount_amount_ = discount;
     }
 
     // isPaid
     bool getIsPaid() const {
-        return isPaid;
+        return is_paid_;
     }
     void setIsPaid(bool paid) {
-        isPaid = paid;
+        is_paid_ = paid;
     }
 
     // notes
     std::string getNotes() const {
-        return notes;
+        return notes_;
     }
     void setNotes(const std::string& n) {
-        notes = n;
+        notes_ = n;
     }
 
     void clear_invoice() {
-        invoiceID.clear();
-        clientInvoiceID.clear();
-        business = nullptr;
-        client = nullptr;
-        currentDate.clear();
-        dueDate.clear();
-        stockQuantityMap.clear();
-        invoiceTemplate = InvoiceTemplateEnum::PEECE;
-        totalAmount = 0.0f;
-        taxAmount = 0.0f;
-        discountAmount = 0.0f;
-        isPaid = false;
-        gstIncluded = false;
-        notes.clear();
+        invoice_id_.clear();
+        client_invoice_id_.clear();
+        business_ = nullptr;
+        client_ = nullptr;
+        current_date_.clear();
+        due_date_.clear();
+        stock_quantity_map_.clear();
+        invoice_template_ = InvoiceTemplateEnum::PEECE;
+        total_amount_ = 0.0f;
+        tax_amount_ = 0.0f;
+        discount_amount_ = 0.0f;
+        is_paid_ = false;
+        gst_included_ = false;
+        notes_.clear();
+        website_.clear();
     }
 };
