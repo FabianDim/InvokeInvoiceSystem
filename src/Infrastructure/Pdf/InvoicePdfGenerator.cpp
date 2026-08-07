@@ -1,8 +1,24 @@
 #include <sstream>
+#include <filesystem>
 #include "Infrastructure/Pdf/InvoicePdfGenerator.h"
 #include <QDebug>
 jmp_buf env;
 using namespace Infrastructure::PDF;
+
+namespace {
+constexpr float kTableRowHeight = 18.0f;
+constexpr float kDescriptionColumnWidth = 250.0f;
+constexpr float kFirstPageTableY = 650.0f;
+constexpr float kContinuationTableTopOffset = 145.0f;
+constexpr float kTableHeaderGap = 10.0f;
+constexpr float kFooterLimitY = 72.0f;
+constexpr float kFooterLineY = 54.0f;
+constexpr int kTitleFontSize = 32;
+constexpr int kContinuationTitleFontSize = 24;
+constexpr int kBodyFontSize = 12;
+constexpr int kFooterFontSize = 8;
+} // namespace
+
 Infrastructure::PDF::InvoicePdfGenerator::InvoicePdfGenerator(std::shared_ptr<Invoice> invoice)
     : cur_invoice_(invoice) {}
 
@@ -79,7 +95,7 @@ std::string InvoicePdfGenerator::retrieveFileName() {
 }
 
 void InvoicePdfGenerator::draw_invoice_table_header(HPDF_Page page,
-                                                    TableHeader table_header,
+                                                    const TableHeader& table_header,
                                                     float start_x,
                                                     const float start_y) {
 
@@ -148,7 +164,6 @@ void InvoicePdfGenerator::draw_stock_item_row(
         drawCell(layout.colWidths[2], ss.str());
     }
     {
-        const auto& stock_map = cur_invoice_->getStockQuantityMap();
         float total = item.getStdPrice() * stock_amount;
 
         std::ostringstream ss;
@@ -156,6 +171,150 @@ void InvoicePdfGenerator::draw_stock_item_row(
         drawCell(layout.colWidths[3], ss.str());
     }
 }
+
+InvoicePdfGenerator::TableHeader InvoicePdfGenerator::build_invoice_table_header(float page_width) const {
+    TableHeader headers;
+    const float usable_width = page_width - (peece_margin * 2.0f) - kDescriptionColumnWidth;
+    headers.x = peece_margin;
+    headers.y = 0.0f;
+    headers.rowHeight = kTableRowHeight;
+    headers.colWidths[0] = kDescriptionColumnWidth;
+    headers.colWidths[1] = usable_width / 3.0f;
+    headers.colWidths[2] = usable_width / 3.0f;
+    headers.colWidths[3] = usable_width / 3.0f;
+    headers.strings[0] = "Description";
+    headers.strings[1] = "Quantity Supplied";
+    headers.strings[2] = "Item Price";
+    headers.strings[3] = "Total Price";
+    return headers;
+}
+
+InvoicePdfGenerator::TableLayout InvoicePdfGenerator::build_invoice_table_layout(float page_width,
+                                                                                 float page_height,
+                                                                                 bool first_page) const {
+    TableLayout table;
+    const float usable_width = page_width - (peece_margin * 2.0f) - kDescriptionColumnWidth;
+    table.x = peece_margin;
+    table.y = first_page ? kFirstPageTableY : page_height - kContinuationTableTopOffset;
+    table.rowHeight = kTableRowHeight;
+    table.colWidths[0] = kDescriptionColumnWidth;
+    table.colWidths[1] = usable_width / 3.0f;
+    table.colWidths[2] = usable_width / 3.0f;
+    table.colWidths[3] = usable_width / 3.0f;
+    return table;
+}
+
+HPDF_Page InvoicePdfGenerator::start_invoice_table_page(HPDF_Doc pdf,
+                                                        bool first_page,
+                                                        int page_number,
+                                                        TableLayout& table) {
+    HPDF_Page page = first_page ? HPDF_GetPageByIndex(pdf, 0) : addPage(pdf);
+    const float page_width = HPDF_Page_GetWidth(page);
+    const float page_height = HPDF_Page_GetHeight(page);
+    TableHeader headers = build_invoice_table_header(page_width);
+
+    draw_invoice_page_header(pdf, page, first_page);
+    draw_invoice_footer(pdf, page, page_number);
+
+    table = build_invoice_table_layout(page_width, page_height, first_page);
+
+    HPDF_Page_SetFontAndSize(page, HPDF_GetFont(pdf, "Helvetica-Bold", NULL), kBodyFontSize);
+    draw_invoice_table_header(page, headers, headers.x, table.y + table.rowHeight + kTableHeaderGap);
+    HPDF_Page_SetFontAndSize(page, HPDF_GetFont(pdf, "Helvetica", NULL), kBodyFontSize);
+    HPDF_Page_SetRGBFill(page, 0.0f, 0.0f, 0.0f);
+    HPDF_Page_SetRGBStroke(page, 0.0f, 0.0f, 0.0f);
+
+    return page;
+}
+
+void InvoicePdfGenerator::draw_invoice_page_header(HPDF_Doc pdf, HPDF_Page page, bool first_page) {
+    const float page_width = HPDF_Page_GetWidth(page);
+    const float page_height = HPDF_Page_GetHeight(page);
+    const float title_y = first_page ? page_height - 62.0f : page_height - 42.0f;
+    const float details_x = first_page ? 100.0f : peece_margin;
+    const float details_y = first_page ? page_height - 44.0f : page_height - 42.0f;
+    const float link_y = details_y - 18.0f;
+    const char* tax_inv = "Tax Invoice";
+
+    HPDF_Font regular = HPDF_GetFont(pdf, "Helvetica", NULL);
+    HPDF_Font bold = HPDF_GetFont(pdf, "Helvetica-Bold", NULL);
+
+    HPDF_Page_BeginText(page);
+    HPDF_Page_SetTextRenderingMode(page, HPDF_FILL);
+    HPDF_Page_SetFontAndSize(page, regular, first_page ? kTitleFontSize : kContinuationTitleFontSize);
+    const float title_width = HPDF_Page_TextWidth(page, tax_inv);
+    HPDF_Page_TextOut(page, page_width - peece_margin - title_width, title_y, tax_inv);
+    HPDF_Page_EndText(page);
+
+    std::string business_name;
+    std::string website;
+    std::string logo_path;
+    if (cur_invoice_ && cur_invoice_->getBusiness()) {
+        const auto& business = cur_invoice_->getBusiness();
+        business_name = business->getName().empty() ? business->getBizName() : business->getName();
+        website = business->get_website_url();
+        logo_path = business->get_biz_logo_url();
+    }
+    if (website.empty() && cur_invoice_) {
+        website = cur_invoice_->get_website();
+    }
+
+    HPDF_Page_BeginText(page);
+    HPDF_Page_SetFontAndSize(page, bold, kBodyFontSize);
+    HPDF_Page_SetRGBFill(page, 0.0f, 0.0f, 0.0f);
+    if (!business_name.empty()) {
+        HPDF_Page_TextOut(page, details_x, details_y, business_name.c_str());
+    }
+    if (!website.empty()) {
+        HPDF_Page_SetFontAndSize(page, regular, kBodyFontSize);
+        HPDF_Page_SetRGBFill(page, 0.0f, 0.0f, 1.0f);
+        HPDF_Page_TextOut(page, details_x, link_y, website.c_str());
+    }
+    HPDF_Page_EndText(page);
+
+    if (!website.empty()) {
+        underline_word(page, website.c_str(), 0.1f, details_x, link_y, 0.0f, 0.0f, 1.0f);
+    }
+
+    if (first_page && !logo_path.empty() && std::filesystem::exists(logo_path)) {
+        HPDF_Image logo = HPDF_LoadPngImageFromFile(pdf, logo_path.c_str());
+        const float img_width_max = 50.0f;
+        const float img_height_max = 100.0f;
+        const float x_placement = 50.0f;
+        const float y_placement = page_height - 72.0f;
+        resize_and_place_image(page, img_width_max, img_height_max, x_placement, y_placement, logo);
+    }
+
+    HPDF_Page_SetRGBFill(page, 0.0f, 0.0f, 0.0f);
+    HPDF_Page_SetRGBStroke(page, 0.0f, 0.0f, 0.0f);
+}
+
+void InvoicePdfGenerator::draw_invoice_footer(HPDF_Doc pdf, HPDF_Page page, int page_number) {
+    const float page_width = HPDF_Page_GetWidth(page);
+    const std::string page_text = "Page " + std::to_string(page_number);
+
+    HPDF_Page_SetLineWidth(page, 0.25f);
+    HPDF_Page_SetRGBStroke(page, 0.72f, 0.72f, 0.72f);
+    HPDF_Page_MoveTo(page, peece_margin, kFooterLineY);
+    HPDF_Page_LineTo(page, page_width - peece_margin, kFooterLineY);
+    HPDF_Page_Stroke(page);
+
+    HPDF_Page_BeginText(page);
+    HPDF_Page_SetFontAndSize(page, HPDF_GetFont(pdf, "Helvetica", NULL), kFooterFontSize);
+    HPDF_Page_SetRGBFill(page, 0.35f, 0.35f, 0.35f);
+    const float page_text_width = HPDF_Page_TextWidth(page, page_text.c_str());
+    HPDF_Page_TextOut(page, page_width - peece_margin - page_text_width, kFooterLineY - 16.0f, page_text.c_str());
+    HPDF_Page_EndText(page);
+
+    HPDF_Page_SetRGBFill(page, 0.0f, 0.0f, 0.0f);
+    HPDF_Page_SetRGBStroke(page, 0.0f, 0.0f, 0.0f);
+}
+
+bool InvoicePdfGenerator::row_fits_on_page(const TableLayout& table, int rowIndex) const {
+    const float row_bottom = table.y - ((rowIndex + 1) * table.rowHeight);
+    return row_bottom >= kFooterLimitY;
+}
+
 /**
  * @brief Build a invoice using a template named peece.
  *
@@ -166,103 +325,51 @@ void InvoicePdfGenerator::draw_stock_item_row(
  * @pre An instance of this class should be created.
  */
 bool InvoicePdfGenerator::peece_template() {
-    const int h2 = 32;
-    const int h3 = 24;
-    const int body = 12;
-    const int biz_details_spacing = 18;
-    const int section_spacing = 32;
+    HPDF_Doc peeceInvoicePDF = nullptr;
     try {
-        auto peeceInvoicePDF = createPDF("Helvetica");
-        auto page = HPDF_GetPageByIndex(peeceInvoicePDF, 0);
-        HPDF_Font font = HPDF_Page_GetCurrentFont(page);
-
-        // begin the Tax Invoice text output.
-        HPDF_Page_BeginText(page);
-        HPDF_Page_SetTextRenderingMode(page, HPDF_FILL);
-
-        HPDF_Page_SetFontAndSize(page, font, h2);
-        // HPDF_Page_SetTextLeading(page, 18);
-        const char* tax_inv = "Tax Invoice";
-        float width = HPDF_Page_TextWidth(page, tax_inv);
-        float page_right = HPDF_Page_GetWidth(page);
-        // place the tax invoice 50 from the end of the page
-        float x_tax_inv_place = page_right - peece_margin - width;
-
-        HPDF_Page_TextOut(page, x_tax_inv_place, 780, tax_inv);
-        HPDF_Page_EndText(page);
-
-        HPDF_Page_BeginText(page);
-        HPDF_Page_SetFontAndSize(page, font, body);
-        HPDF_Page_TextOut(page, 100, 830 - h2, "");
-
-        HPDF_Page_SetTextLeading(page, biz_details_spacing);
-        try {
-            const auto& bizName = cur_invoice_->getBusiness()->getBizName();
-            const auto& name = cur_invoice_->getBusiness()->getName();
-            const auto& biz_logo = cur_invoice_->getBusiness()->get_biz_logo_url();
-            HPDF_Page_SetFontAndSize(page, HPDF_GetFont(peeceInvoicePDF, "Helvetica-Bold", NULL), body);
-            if (name == "") {
-                HPDF_Page_ShowText(page, cur_invoice_->getBusiness()->getBizName().c_str());
-            } else {
-                HPDF_Page_ShowText(page, cur_invoice_->getBusiness()->getName().c_str());
-            }
-            HPDF_Page_MoveToNextLine(page);
-            // show link blue
-            const char* link = cur_invoice_->getBusiness()->get_website_url().c_str();
-            HPDF_Page_SetFontAndSize(page, HPDF_GetFont(peeceInvoicePDF, "Helvetica", NULL), body);
-            HPDF_Page_SetRGBFill(page, 0, 0, 1);
-            const auto& cur_pos = HPDF_Page_GetCurrentTextPos(page);
-            HPDF_Page_ShowText(page, link);
-            HPDF_Image logo = HPDF_LoadPngImageFromFile(peeceInvoicePDF, biz_logo.c_str());
-            HPDF_Page_EndText(page);
-            underline_word(page, link, 0.1, cur_pos.x, cur_pos.y, 0.0f, 0.0f, 1.0f);
-
-            const float img_width_max = 50.0f;
-            const float img_height_max = 100.0f;
-            if (logo) {
-                float x_placement = 50.0f;
-                float y_placement = 770.0f;
-                resize_and_place_image(page, img_width_max, img_height_max, x_placement, y_placement, logo);
-            }
-
-            TableLayout table;
-            table.x = peece_margin;
-            table.y = 650.0f; // start near top
-            table.rowHeight = 18.0f;
-            table.colWidths[0] = 250.0f;
-            const float useable_width = (page_right - peece_margin) - (0 + peece_margin + table.colWidths[0]);
-            table.colWidths[1] = useable_width / 3;
-            table.colWidths[2] = useable_width / 3;
-            table.colWidths[3] = useable_width / 3;
-            TableHeader headers;
-            headers.colWidths[0] = 250.0f;
-            headers.colWidths[1] = useable_width / 3;
-            headers.colWidths[2] = useable_width / 3;
-            headers.colWidths[3] = useable_width / 3;
-            headers.rowHeight = 18.0f;
-            headers.strings[0] = "Description";
-            headers.strings[1] = "Quantity Supplied";
-            headers.strings[2] = "Item Price";
-            headers.strings[3] = "Total Price";
-            draw_invoice_table_header(page, headers, peece_margin, 660 + headers.rowHeight);
-            HPDF_Page_SetRGBFill(page, 0, 0, 0);
-            HPDF_Page_SetRGBStroke(page, 0, 0, 0);
-            int i{0};
-            HPDF_Page_SetFontAndSize(page, HPDF_GetFont(peeceInvoicePDF, "Helvetica", NULL), body);
-            for (const auto& stock : cur_invoice_->getStockQuantityMap()) {
-                std::cout << stock.first->getName() << " " << stock.second << " x " << stock.first->getStdPrice()
-                          << "\n";
-                draw_stock_item_row(page, *stock.first, stock.second, table, i);
-                i++;
-            }
-
-            save_pdf(peeceInvoicePDF, cur_invoice_->get_file_name().c_str());
-            qDebug() << "Saved PDF to" << cur_invoice_->get_file_name().c_str();
-        } catch (std::exception e) {
-            qDebug() << "Error at peece template: " << e.what();
+        if (!cur_invoice_ || cur_invoice_->get_file_name().empty()) {
+            return false;
         }
+
+        peeceInvoicePDF = createPDF("Helvetica");
+        if (!peeceInvoicePDF) {
+            return false;
+        }
+
+        TableLayout table;
+        int page_number = 1;
+        int row_index = 0;
+        auto page = start_invoice_table_page(peeceInvoicePDF, true, page_number, table);
+
+        for (const auto& stock : cur_invoice_->getStockQuantityMap()) {
+            if (!stock.first) {
+                continue;
+            }
+
+            if (!row_fits_on_page(table, row_index)) {
+                page = start_invoice_table_page(peeceInvoicePDF, false, ++page_number, table);
+                row_index = 0;
+            }
+
+            std::cout << stock.first->getName() << " " << stock.second << " x " << stock.first->getStdPrice()
+                      << "\n";
+            draw_stock_item_row(page, *stock.first, stock.second, table, row_index);
+            row_index++;
+        }
+
+        save_pdf(peeceInvoicePDF, cur_invoice_->get_file_name().c_str());
+        HPDF_Free(peeceInvoicePDF);
+        peeceInvoicePDF = nullptr;
+        qDebug() << "Saved PDF to" << cur_invoice_->get_file_name().c_str();
+        return true;
+    } catch (const std::exception& e) {
+        qDebug() << "Error at peece template: " << e.what();
     } catch (...) {
         std::cerr << "Error in the peece template\n";
+    }
+
+    if (peeceInvoicePDF) {
+        HPDF_Free(peeceInvoicePDF);
     }
     return false;
 }

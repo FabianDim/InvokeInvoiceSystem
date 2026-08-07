@@ -30,7 +30,7 @@ class InvoicePdfGenerator {
     void save_pdf(HPDF_Doc pdf, const char* name);
     void createTestPDF(HPDF_Doc pdf, HPDF_Page page_1);
     std::string retrieveFileName();
-    void draw_invoice_table_header(HPDF_Page page, TableHeader table_header, float start_x, const float start_y);
+    void draw_invoice_table_header(HPDF_Page page, const TableHeader& table_header, float start_x, const float start_y);
     void draw_stock_item_row(
         HPDF_Page page, const StockItem& item, const int stock_amount, const TableLayout& layout, int rowIndex);
     bool peece_template();
@@ -56,6 +56,12 @@ class InvoicePdfGenerator {
                                 const float place_x,
                                 const float place_y,
                                 HPDF_Image logo);
+    TableHeader build_invoice_table_header(float page_width) const;
+    TableLayout build_invoice_table_layout(float page_width, float page_height, bool first_page) const;
+    HPDF_Page start_invoice_table_page(HPDF_Doc pdf, bool first_page, int page_number, TableLayout& table);
+    void draw_invoice_page_header(HPDF_Doc pdf, HPDF_Page page, bool first_page);
+    void draw_invoice_footer(HPDF_Doc pdf, HPDF_Page page, int page_number);
+    bool row_fits_on_page(const TableLayout& table, int rowIndex) const;
     const float peece_margin = 25.0f;
     std::shared_ptr<Invoice> cur_invoice_;
 };

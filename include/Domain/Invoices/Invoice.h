@@ -49,6 +49,9 @@ class Invoice {
     void set_website(const std::string& website) {
         website_ = website;
     }
+    std::string get_website() const {
+        return website_;
+    }
 
     // clientInvoiceID
     std::string getCliInvoiceID() const {

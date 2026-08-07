@@ -70,9 +70,9 @@ void Infrastructure::Services::InvoiceServices::add_stock_to_invoice(const QJson
     qDebug() << "Adding stock to invoices.\n";
     for (const auto& obj : stock_array) {
         const auto& stock_object = obj.toObject();
-        std::shared_ptr<StockItem> item;
         try {
             if (!stock_object.empty()) {
+                auto item = std::make_shared<StockItem>();
                 item->setName(stock_object["Name"].toString().toStdString());
                 qDebug() << stock_object["Name"].toString().toStdString();
                 item->setStdPrice(stock_object["Price"].toDouble());

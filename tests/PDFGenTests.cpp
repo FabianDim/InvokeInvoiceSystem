@@ -9,11 +9,51 @@ class TestPDFGen : public QObject {
     Q_OBJECT
   private slots:
     void pdf_creation_test();
+    void pdf_multiple_page_creation_test();
 
   private:
     std::string delete_old_pdfs(fs::path dir);
-    const std::string pdf_out_path = "G:/misc/Test_Invoices/test_invoice"
+    const std::string pdf_out_path = "G:/misc/Test_Invoices/test_invoice";
 };
+
+void TestPDFGen::pdf_multiple_page_creation_test() {
+    Invoice test_invoice;
+    std::shared_ptr<BusinessRepository> biz = std::make_shared<BusinessRepository>();
+    biz->set_website_url("http://google.com");
+    biz->setName("My Business");
+    QString logoPath = QCoreApplication::applicationDirPath() + "../../../../tests/test_resources/logo.png";
+    std::cout << logoPath.toStdString() << std::endl;
+    biz->set_biz_logo_url(logoPath.toStdString());
+    test_invoice.setBusiness(biz);
+    const int items_to_generate = 75;
+    StockItem items[items_to_generate];
+    for (int i = 0; i < items_to_generate; i++) {
+        StockItem item;
+        const int RAND_MAX = 100;
+        int randomNum = rand() % 101;
+        float random_num = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+        item.setName("AAAAXXXX");
+        item.setStdPrice(random_num);
+        item.setStockOnHand(100);
+    }
+
+    // every ten test delete the oldest 5 tests.
+    fs::path dir = "F:/misc/Test_Invoices";
+
+    const std::string pdf_num = delete_old_pdfs(dir);
+    test_invoice.setInvoiceID("INV-1001");
+    test_invoice.set_file_name(pdf_out_path + pdf_num + ".pdf");
+    test_invoice.setCurrentDate("2024-10-01");
+    test_invoice.setDueDate("2024-10-15");
+    test_invoice.setTotalAmount(500.0f);
+    test_invoice.set_website("www.google.com");
+
+    Infrastructure::PDF::InvoicePdfGenerator pdf_gen(std::make_shared<Invoice>(test_invoice));
+
+    pdf_gen.peece_template();
+
+    QVERIFY(fs::exists(pdf_out_path + pdf_num + ".pdf"));
+}
 
 void TestPDFGen::pdf_creation_test() {
 
