@@ -10,7 +10,7 @@
 
     # Release configs you use
     set(CMAKE_CONFIGURATION_TYPES "Release;RelWithDebInfo" CACHE STRING "" FORCE)
-
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
     # ---------- Dependencies ----------
     find_package(fmt                CONFIG REQUIRED)
     find_package(bsoncxx            CONFIG REQUIRED)
@@ -20,7 +20,7 @@
     find_package(Qt6 COMPONENTS Widgets HttpServer Network Test REQUIRED)
     find_package(Qt6Keychain CONFIG REQUIRED)
     qt_standard_project_setup()  # enables AUTOMOC/AUTORCC/AUTOUIC
-
+    set(CMAKE_INCLUDE_CURRENT_DIR ON)
     # Let AUTOUIC find ui files under /forms
     set(CMAKE_AUTOUIC_SEARCH_PATHS
         ${CMAKE_AUTOUIC_SEARCH_PATHS}

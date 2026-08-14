@@ -58,7 +58,6 @@ void BusinessInvoiceChoice::create_form_layout() {
 void BusinessInvoiceChoice::set_business_list(const QJsonDocument& doc) {
     business_select->clear();
     rows.clear();
-
     if (!doc.isObject()) {
         qWarning() << "Business list JSON is not object";
         return;

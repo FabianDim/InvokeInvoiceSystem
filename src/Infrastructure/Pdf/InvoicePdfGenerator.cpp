@@ -136,7 +136,7 @@ void InvoicePdfGenerator::draw_stock_item_row(
 
     float x = layout.x;
 
-    auto drawCell = [&](float width, const std::string& text) {
+    auto drawCell = [&](float width, const std::string& text, std::string fall_back = "") {
         // Cell border
         HPDF_Page_SetRGBStroke(page, 1.0f, 1.0f, 1.0f);
         HPDF_Page_Rectangle(page, x, yBottom, width, layout.rowHeight);
@@ -144,6 +144,19 @@ void InvoicePdfGenerator::draw_stock_item_row(
 
         // Text
         HPDF_Page_BeginText(page);
+        if (text == "") {
+            HPDF_Page_TextRect(page,
+                               x + 4.0f,    // left padding
+                               yTop + 4.0f, // top padding
+                               x + width - 4.0f,
+                               yBottom,
+                               fall_back.c_str(),
+                               HPDF_TALIGN_LEFT,
+                               nullptr);
+            HPDF_Page_EndText(page);
+            x += width;
+            return;
+        }
         HPDF_Page_TextRect(page,
                            x + 4.0f,    // left padding
                            yTop + 4.0f, // top padding
@@ -156,8 +169,13 @@ void InvoicePdfGenerator::draw_stock_item_row(
 
         x += width;
     };
-    drawCell(layout.colWidths[0], item.getName());
-    drawCell(layout.colWidths[1], std::to_string(stock_amount));
+    if (item.getStockID() != "") {
+        drawCell(layout.colWidths[0], item.getStockID());
+    } else {
+        drawCell(layout.colWidths[0], item.getStockID());
+    }
+    drawCell(layout.colWidths[1], item.getName());
+    drawCell(layout.colWidths[2], std::to_string(stock_amount));
     {
         std::ostringstream ss;
         ss << std::fixed << std::setprecision(2) << item.getStdPrice();
@@ -178,36 +196,46 @@ InvoicePdfGenerator::TableHeader InvoicePdfGenerator::build_invoice_table_header
     headers.x = peece_margin;
     headers.y = 0.0f;
     headers.rowHeight = kTableRowHeight;
-    headers.colWidths[0] = kDescriptionColumnWidth;
-    headers.colWidths[1] = usable_width / 3.0f;
-    headers.colWidths[2] = usable_width / 3.0f;
-    headers.colWidths[3] = usable_width / 3.0f;
-    headers.strings[0] = "Description";
-    headers.strings[1] = "Quantity Supplied";
-    headers.strings[2] = "Item Price";
-    headers.strings[3] = "Total Price";
+    int id_index = 0;
+    int description_index = 1;
+    int quantity_index = 2;
+    int item_price_index = 3;
+    int total_price_index = 4;
+    headers.colWidths[id_index] = usable_width / 4.0f;
+    headers.colWidths[description_index] = kDescriptionColumnWidth;
+    headers.colWidths[quantity_index] = usable_width / 4.0f;
+    headers.colWidths[item_price_index] = usable_width / 4.0f;
+    headers.colWidths[total_price_index] = usable_width / 4.0f;
+    headers.strings[id_index] = "Product ID";
+    headers.strings[description_index] = "Description";
+    headers.strings[quantity_index] = "Quantity Supplied";
+    headers.strings[item_price_index] = "Item Price";
+    headers.strings[total_price_index] = "Total Price";
     return headers;
 }
 
-InvoicePdfGenerator::TableLayout InvoicePdfGenerator::build_invoice_table_layout(float page_width,
-                                                                                 float page_height,
-                                                                                 bool first_page) const {
+InvoicePdfGenerator::TableLayout
+InvoicePdfGenerator::build_invoice_table_layout(float page_width, float page_height, bool first_page) const {
     TableLayout table;
     const float usable_width = page_width - (peece_margin * 2.0f) - kDescriptionColumnWidth;
     table.x = peece_margin;
     table.y = first_page ? kFirstPageTableY : page_height - kContinuationTableTopOffset;
     table.rowHeight = kTableRowHeight;
-    table.colWidths[0] = kDescriptionColumnWidth;
-    table.colWidths[1] = usable_width / 3.0f;
-    table.colWidths[2] = usable_width / 3.0f;
-    table.colWidths[3] = usable_width / 3.0f;
+    int id_index = 0;
+    int description_index = 1;
+    int quantity_index = 2;
+    int item_price_index = 3;
+    int total_price_index = 4;
+    table.colWidths[id_index] = usable_width / 4.0f;
+    table.colWidths[description_index] = kDescriptionColumnWidth;
+    table.colWidths[quantity_index] = usable_width / 4.0f;
+    table.colWidths[item_price_index] = usable_width / 4.0f;
+    table.colWidths[total_price_index] = usable_width / 4.0f;
     return table;
 }
 
-HPDF_Page InvoicePdfGenerator::start_invoice_table_page(HPDF_Doc pdf,
-                                                        bool first_page,
-                                                        int page_number,
-                                                        TableLayout& table) {
+HPDF_Page
+InvoicePdfGenerator::start_invoice_table_page(HPDF_Doc pdf, bool first_page, int page_number, TableLayout& table) {
     HPDF_Page page = first_page ? HPDF_GetPageByIndex(pdf, 0) : addPage(pdf);
     const float page_width = HPDF_Page_GetWidth(page);
     const float page_height = HPDF_Page_GetHeight(page);
@@ -351,8 +379,7 @@ bool InvoicePdfGenerator::peece_template() {
                 row_index = 0;
             }
 
-            std::cout << stock.first->getName() << " " << stock.second << " x " << stock.first->getStdPrice()
-                      << "\n";
+            std::cout << stock.first->getName() << " " << stock.second << " x " << stock.first->getStdPrice() << "\n";
             draw_stock_item_row(page, *stock.first, stock.second, table, row_index);
             row_index++;
         }
