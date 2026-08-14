@@ -38,7 +38,7 @@ ipch/
 *.autosave
 
 # vcpkg cache/build directories (but **not** vcpkg.json or installed ports)
-vcpkg_installed/
+vcpkg_installed/*
 vcpkg_buildtrees/
 vcpkg_downloads/
 vcpkg_out/
