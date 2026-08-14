@@ -85,3 +85,20 @@ test_output/
 *.pdf
 *.html
 CMakePresets.json
+
+# --- vcpkg: keep source/config, ignore generated artifacts ---
+vcpkg/buildtrees/
+vcpkg/packages/
+vcpkg/downloads/
+vcpkg/installed/
+
+# Optional: if you use classic manifests/binaries outside vcpkg/
+*.obj
+*.o
+*.pdb
+*.ilk
+*.idb
+*.exe
+*.dll
+*.lib
+*.exp
