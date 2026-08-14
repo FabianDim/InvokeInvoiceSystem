@@ -3,11 +3,13 @@
 #include <QJsonObject>
 #include <functional>
 #include <QJsonArray>
-
+#include "Infrastructure/Pdf/InvoicePdfGenerator.h"
 using namespace Infrastructure::Services;
 
 InvoiceServices::InvoiceServices(MongoDBDataManager& db_manager) : db_manager_(db_manager) {}
-
+/**
+ * @brief this shit does nothing shlawg.
+ */
 bool InvoiceServices::save_invoice(QJsonDocument& doc) {
     QJsonObject obj = doc.object();
     try {
@@ -48,6 +50,9 @@ void Infrastructure::Services::InvoiceServices::begin_invoice_details(const QJso
     invoice_.setDueDate(doc.object().value("date_due").toString().toStdString());
     invoice_.setCurrentDate(doc.object().value("date_created").toString().toStdString());
     invoice_.setTemplate(template_converter(doc.object().value("invoice_theme").toString().toStdString()));
+    invoice_.set_file_name(doc.object().value("file_dir").toString().toStdString() + "/" +
+                           normalise_file_name(doc.object().value("file_name").toString().toStdString()));
+    invoice_.set_website(doc.object().value("website").toString().toStdString());
 }
 
 /**
@@ -65,10 +70,10 @@ void Infrastructure::Services::InvoiceServices::add_stock_to_invoice(const QJson
     qDebug() << "Adding stock to invoices.\n";
     for (const auto& obj : stock_array) {
         const auto& stock_object = obj.toObject();
-        std::shared_ptr<StockItem> item;
         try {
             if (!stock_object.empty()) {
-                item->setName(stock_object["Name"].toString().toStdString());
+                auto item = std::make_shared<StockItem>();
+                item->set_description(stock_object["Name"].toString().toStdString());
                 qDebug() << stock_object["Name"].toString().toStdString();
                 item->setStdPrice(stock_object["Price"].toDouble());
 
@@ -79,4 +84,48 @@ void Infrastructure::Services::InvoiceServices::add_stock_to_invoice(const QJson
             std::cerr << err.what();
         }
     }
+    try {
+        build_invoice();
+    } catch (std::exception err) {
+        qDebug() << err.what();
+    }
+}
+
+/**
+ * @brief Create an instance of the PDF builder and build the Invoice.
+ *
+ * Uses the invoice object to build the InvoicePDFGenerator class and generate
+ * the invoice in a specified format.
+ *
+ * @return Bool flag of successful completion
+ * @pre An invoice object should be created.
+ */
+bool Infrastructure::Services::InvoiceServices::build_invoice() {
+    try {
+        qDebug() << "Building invoice...";
+        Infrastructure::PDF::InvoicePdfGenerator* pdf_gen =
+            new Infrastructure::PDF::InvoicePdfGenerator(std::make_shared<Invoice>(invoice_));
+        pdf_gen->peece_template();
+        return true;
+    } catch (std::exception e) {
+        std::cerr << e.what();
+        throw e;
+    }
+    return false;
+}
+
+/**
+ * @brief Takes the file name and normalises it to not have spaces and end with pdf.
+ *
+ *
+ * @param file_name the raw file name from the front end.
+ * @return String with normalised name
+ */
+std::string Infrastructure::Services::InvoiceServices::normalise_file_name(const std::string& file_name) {
+    std::string new_file_name = file_name;
+    std::replace(new_file_name.begin(), new_file_name.end(), ' ', '_');
+    if (!new_file_name.ends_with(".pdf")) {
+        new_file_name.append(".pdf");
+    }
+    return new_file_name;
 }

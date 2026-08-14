@@ -15,6 +15,7 @@ void NewInvoiceStock::create_page_layout() {
     QGroupBox* groupBox = new QGroupBox(tr("Invoice"));
     QVBoxLayout* groupVbox = new QVBoxLayout;
     QGridLayout* main_form_layout = new QGridLayout(this);
+    create_invoice_pdf = new QPushButton("Finish Invoice", item_form_layout_);
     main_form_layout->setAlignment(Qt::AlignCenter);
     main_form_layout->setObjectName("form_grid_layout");
 
@@ -54,7 +55,6 @@ void NewInvoiceStock::create_page_layout() {
     main_form_layout->addWidget(groupBox, 0, 0, 1, 2);
     main_form_layout->addLayout(create_item_entry_form(), 10, 0, 1, 2);
 
-    create_invoice_pdf = new QPushButton("Finish Invoice", item_form_layout_);
     main_form_layout->addWidget(create_invoice_pdf, 20, 0, 1, 2, Qt::AlignCenter);
     std::vector<FormField> fields = {
 
@@ -148,9 +148,15 @@ QLayout* App::Views::NewInvoiceStock::create_item_entry_form() {
     });
 
     /*send the json document to the app controller to send to the backend*/
-    const QJsonDocument json = QJsonDocument(stock_items);
-    connect(
-        create_invoice_pdf, &QPushButton::clicked, this, [json, this](bool) { emit add_item_list_to_invoice(json); });
+    connect(create_invoice_pdf, &QPushButton::clicked, this, [this](bool) {
+        if (stock_items.empty()) {
+            return;
+        }
+        qDebug() << "emit add_item_list;";
+        const QJsonDocument json(stock_items);
+        emit add_item_list_to_invoice(json);
+        create_invoice_pdf->setDisabled(true);
+    });
 
     return row;
 }

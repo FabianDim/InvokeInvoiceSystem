@@ -10,7 +10,7 @@
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": {
           "type": "FILEPATH",
-          "value": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
         },
         "VCPKG_TARGET_TRIPLET": "x64-windows",
         "CMAKE_C_COMPILER": "cl",
@@ -24,7 +24,9 @@
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
           "hostOS": ["Windows"],
-          "vcvarsall": { "arch": ["x64"] }
+          "vcvarsall": {
+            "arch": ["x64"]
+          }
         }
       }
     },
@@ -45,7 +47,6 @@
       }
     }
   ],
-
   "buildPresets": [
     {
       "name": "x64-release",

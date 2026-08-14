@@ -20,7 +20,6 @@ void Infrastructure::Http::ApiClient::get_business_list() {
                 QByteArray data = reply->readAll();
                 QJsonDocument jsonResponse = QJsonDocument::fromJson(data);
                 emit business_list_received(jsonResponse);
-                qDebug() << "Received data:" << data;
             } else {
                 qDebug() << "Network error:" << reply->errorString();
             }
@@ -72,7 +71,6 @@ void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoi
                 if (reply->error() == QNetworkReply::NoError) {
                     QByteArray data = reply->readAll();
                     QJsonDocument jsonResponse = QJsonDocument::fromJson(data);
-                    qDebug() << "Invoice details added to invoice" << jsonResponse;
                 } else {
                     qDebug() << "Network error during invoice objectification:" << reply->errorString();
                 }
@@ -101,7 +99,7 @@ void Infrastructure::Http::ApiClient::stock_list(const QJsonDocument& stock) {
         qDebug() << "Exception during login request:" << e.what();
     }
 }
-void ApiClient::do_login(const QString& email, const QString& password, bool remember) {
+void Infrastructure::Http::ApiClient::do_login(const QString& email, const QString& password, bool remember) {
     if (loginInProgress_)
         return;
     loginInProgress_ = true;

@@ -19,6 +19,8 @@ class InvoiceServices {
     void add_stock_to_invoice(const QJsonDocument& doc);
 
   private:
+    bool build_invoice();
+    std::string normalise_file_name(const std::string& file_name);
     Invoice invoice_;
     MongoDBDataManager& db_manager_;
 };

@@ -42,7 +42,7 @@ class StockItem {
     void setBusinessID(const std::string& biz) {
         bizID = biz;
     }
-    void setName(const std::string& n) {
+    void set_description(const std::string& n) {
         name = n;
     }
     void setStdPrice(float price) {

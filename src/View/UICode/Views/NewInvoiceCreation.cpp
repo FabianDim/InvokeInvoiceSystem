@@ -10,6 +10,7 @@
 #include "Domain/Invoices/InvoiceTemplateEnum.h"
 #include "Domain/Invoices/Invoice.h"
 #include <QJsonObject>
+#include <qfiledialog.h>
 using namespace App::Views;
 InvoiceDetailsInput::InvoiceDetailsInput(QWidget* parent) {
     parent_widget_ = new QWidget(this);
@@ -24,10 +25,14 @@ void InvoiceDetailsInput::create_page_layout() {
     std::vector<FormField> fields = {
         {"invoice_theme", "Invoice Theme:", FormField::Type::ComboBox, {}},
         {"invoice_number", "Invoice Number:", FormField::Type::LineEdit, {.placeholder = "e.g. INV-000123"}},
+        {"invoice_file_name", "File Name:", FormField::Type::LineEdit, {.placeholder = "Name"}},
+        {"invoice_file_dir", "Save PDF to:", FormField::Type::DirBrowse, {}},
         {"date_created", "Date Created:", FormField::Type::DateEdit, {.defaultToday = true}},
-        {"date_due", "Date Due:", FormField::Type::DateEdit, {.defaultToday = false}},
-    };
-
+        {"date_due", "Date Due:", FormField::Type::DateEdit, {.defaultToday = true}},
+        {"website", "Website", FormField::Type::LineEdit, {}}};
+    QLineEdit* output_path_edit = new QLineEdit(this);
+    output_path_edit->setReadOnly(true);
+    output_path_edit->setHidden(true);
     for (auto& element : fields) {
         QLabel* label = new QLabel(element.label, form_layout_);
         label->setObjectName("form_label");
@@ -63,6 +68,17 @@ void InvoiceDetailsInput::create_page_layout() {
             input->setCalendarPopup(true);
             main_form_layout->addWidget(input, row, 1);
             base_invoice_form_fields_[element.key] = input;
+        } else if (element.type == FormField::Type::DirBrowse) {
+            dir_button_ = new QPushButton("Browse...", form_layout_);
+            dir_button_->setObjectName("form_dir_input");
+            main_form_layout->addWidget(dir_button_, row, 1);
+            connect(dir_button_, &QPushButton::clicked, this, [this, output_path_edit, element]() {
+                QString file = QFileDialog::getExistingDirectory();
+                if (!file.isEmpty()) {
+                    output_path_edit->setText(file);
+                }
+                base_invoice_form_fields_[element.key] = output_path_edit;
+            });
         }
     }
 
@@ -74,19 +90,22 @@ void InvoiceDetailsInput::create_page_layout() {
     connect(next_page_button, &QPushButton::clicked, this, [this]() {
         auto idLe = qobject_cast<QLineEdit*>(base_invoice_form_fields_.value("invoice_number"));
         auto theme = qobject_cast<QComboBox*>(base_invoice_form_fields_.value("invoice_theme"));
+        auto file_name = qobject_cast<QLineEdit*>(base_invoice_form_fields_.value("invoice_file_name"));
         auto created = qobject_cast<QDateEdit*>(base_invoice_form_fields_.value("date_created"));
         auto due = qobject_cast<QDateEdit*>(base_invoice_form_fields_.value("date_due"));
-
-        if (!idLe || !theme || !created || !due) {
+        auto dir_name = qobject_cast<QLineEdit*>(base_invoice_form_fields_.value("invoice_file_dir"));
+        auto website = qobject_cast<QLineEdit*>(base_invoice_form_fields_.value("website"));
+        if (!idLe || !theme || !created || !due || !file_name || !dir_name) {
             return;
         }
 
-        QJsonObject inv_obj = {
-            {"invoice_number", idLe->text()},
-            {"invoice_theme", theme->currentText()},
-            {"date_created", created->date().toString(Qt::ISODate)},
-            {"date_due", due->date().toString(Qt::ISODate)},
-        };
+        QJsonObject inv_obj = {{"invoice_number", idLe->text()},
+                               {"invoice_theme", theme->currentText()},
+                               {"file_name", file_name->text()},
+                               {"date_created", created->date().toString(Qt::ISODate)},
+                               {"date_due", due->date().toString(Qt::ISODate)},
+                               {"file_dir", dir_name->text()},
+                               {"website", website->text()}};
 
         QJsonDocument doc(inv_obj);
         emit set_invoice_details(doc);

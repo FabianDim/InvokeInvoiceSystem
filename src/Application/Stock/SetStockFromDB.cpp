@@ -29,7 +29,7 @@ std::shared_ptr<StockItem> SetStockItem::setStockItem(const std::string& stockID
 
             stockItem->setStockID(stockID);
             stockItem->setBusinessID(businessID);
-            stockItem->setName(name);
+            stockItem->set_description(name);
             stockItem->setStockOnHand(quantity);
             stockItem->setStdPrice(price);
             stockItem->setProfitMargin(profitMargin);
