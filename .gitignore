@@ -1,112 +1,83 @@
-# CMake build directories
-build/
-out/
+# === OS-specific ===
+.DS_Store
+Thumbs.db
+
+# === CMake ===
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 Makefile
-install_manifest.txt
-
-# Visual Studio build
-*.sln
-*.vcxproj*
-*.user
-*.opensdf
-*.sdf
-*.VC.db
-*.VC.VC.opendb
-ipch/
-.vs/
-*.dbmdl
-
-# Qt generated files
-*.moc
-*.rcc
-*.qmlc
-*.jsc
-*.qrc.depends
-*.autosave
-*.pro.user*
-*.pro.user
-*.pro.user.*
-
-# Qt Creator
-*.pro.user*
-*.qbs.user*
-*.creator.user*
-*.creator*
-*.autosave
-
-# vcpkg cache/build directories (but **not** vcpkg.json or installed ports)
-/vcpkg/
-/vcpkg_installed/
-/vcpkg_buildtrees/
-/vcpkg_downloads/
-/vcpkg_out/
-/vcpkg/**
-/vcpkg_installed/**
-# Do NOT ignore vcpkg.json or vcpkg-configuration.json
-!vcpkg.json
-!vcpkg-configuration.json
-
-# --- vcpkg: keep source/config, ignore generated artifacts ---
-/vcpkg/buildtrees/
-/vcpkg/packages/
-/vcpkg/downloads/
-/vcpkg/installed/
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs and temp
-*.log
-*.tmp
-*.bak
-*.swp
-
-# User/project local config
-*.local
-*.cache
-*.plist
-
-# Test outputs
+build/
+build-*/
+compile_commands.json
 Testing/
-test_output/
+CTestTestfile.cmake
+_install/
+_install/*
+_install
 
-# Ignore generated docs (optional, uncomment if using Doxygen)
-# docs/
+# === Visual Studio (.vs, .vcxproj, user data) ===
+.vs/
+*.vcxproj*
+*.sln
+*.user
+*.suo
+*.VC.db
+*.VC.opendb
+ipch/
 
-# Ignore binaries and libs
-*.exe
-*.dll
+# === Compiler output ===
+*.obj
+*.o
+*.lo
+*.a
 *.lib
 *.so
-*.a
-*.app
-*.dylib
-*.obj
-*.o
-*.pch
-
-# Ignore generated PDF/HTML (optional)
-*.pdf
-*.html
-CMakePresets.json
-
-# --- vcpkg: keep source/config, ignore generated artifacts ---
-vcpkg/buildtrees/
-vcpkg/packages/
-vcpkg/downloads/
-vcpkg/installed/
-
-# Optional: if you use classic manifests/binaries outside vcpkg/
-*.obj
-*.o
-*.pdb
-*.ilk
-*.idb
-*.exe
 *.dll
-*.lib
-*.exp
+*.dylib
+*.exe
+*.out
+
+# === Debug/Release folders ===
+Debug/
+Release/
+x64/
+x86/
+bin/
+Bin/
+obj/
+Obj/
+
+# === Logs and temp ===
+*.log
+*.tmp
+
+# === Editor/IDE-specific ===
+*.swp
+*~
+*.bak
+*.orig
+
+# === CLion / JetBrains ===
+.idea/
+cmake-build-*/
+
+# === CodeBlocks ===
+*.depend
+*.layout
+*.cbp
+*.layout.save
+
+# === Qt Creator ===
+*.pro.user
+*.qbs.user
+*.pro.user.*
+*.qbs.user.*
+*.autosave
+
+# === Backup files ===
+*.old
+*.save
+
+# === Custom ===
+# Add your own folders here, e.g. test-generated data, etc.
