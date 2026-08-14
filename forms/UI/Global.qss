@@ -1,0 +1,65 @@
+/* --- Buttons --- */
+
+QPushButton#login_button_ {
+  font-size: 18px;
+  padding: 10px;
+  background-color: transparent;
+  color: white;
+  border-radius: 10px;
+  border: 2px solid white;
+}
+
+QPushButton#login_button_:hover {
+  background: white;
+  color: #222;
+  border: 2px solid #222;
+}
+
+QPushButton#login_button_:pressed {
+  background: grey;
+  color: white;
+}
+
+QPushButton#register_button_ {
+  font-size: 18px;
+  padding: 10px;
+  background-color: #2196F3;
+  color: white;
+  border-radius: 10px;
+}
+
+QPushButton#register_button_:hover {
+  /* QSS has no CSS filters; intentionally left blank */
+}
+
+QPushButton#register_button_:pressed {
+  background: white;
+  color: #222;
+  border: 2px solid #222;
+}
+
+/* --- Title label --- */
+
+QLabel#titleLabel {
+  font-size: 32px;
+  font-weight: bold;
+  color: white;
+}
+
+
+/* --- Input fields --- */
+
+QLineEdit {
+  font-size: 14px;
+  padding: 5px;
+  border: 2px solid purple;
+  border-radius: 3px;
+  color: black;
+  background-color: white;
+}
+
+QLabel#form_label {
+  font-size: 16px;
+  color: white;
+  font-weight: bold;	
+}
