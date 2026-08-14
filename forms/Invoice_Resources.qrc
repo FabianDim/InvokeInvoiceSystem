@@ -1,8 +1,0 @@
-<RCC>
-  <qresource prefix="/icons">
-    <file>C:/Users/fdime/Repos/InvokeInvoiceSystem/forms/resources/icons/invoice_icon.png</file>
-  </qresource>
-  <qresource prefix="/styles">
-    <file>UI/Global.qss</file>
-  </qresource>
-</RCC>
