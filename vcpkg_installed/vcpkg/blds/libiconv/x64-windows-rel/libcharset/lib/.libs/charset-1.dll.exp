@@ -1,3 +1,0 @@
--link -EXPORT:?_OptionsStorage@?1??__local_stdio_printf_options@@9@9,DATA
--link -EXPORT:libcharset_set_relocation_prefix
--link -EXPORT:locale_charset

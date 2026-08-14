@@ -1,3 +1,0 @@
-C:\dev\Repos\InvokeInvoiceSystem\vcpkg_installed\vcpkg\blds\utf8proc\config-x64-windows-dbg-CMakeCache.txt.log
-C:\dev\Repos\InvokeInvoiceSystem\vcpkg_installed\vcpkg\blds\utf8proc\config-x64-windows-rel-CMakeCache.txt.log
-C:\dev\Repos\InvokeInvoiceSystem\vcpkg_installed\vcpkg\blds\utf8proc\config-x64-windows-out.log

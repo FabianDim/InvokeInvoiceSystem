@@ -38,14 +38,22 @@ ipch/
 *.autosave
 
 # vcpkg cache/build directories (but **not** vcpkg.json or installed ports)
-vcpkg_installed/*
-vcpkg_buildtrees/
-vcpkg_downloads/
-vcpkg_out/
-vcpkg/packages/
-vcpkg/installed/
-vcpkg_installed/vcpkg/blds
+/vcpkg/
+/vcpkg_installed/
+/vcpkg_buildtrees/
+/vcpkg_downloads/
+/vcpkg_out/
+/vcpkg/**
+/vcpkg_installed/**
 # Do NOT ignore vcpkg.json or vcpkg-configuration.json
+!vcpkg.json
+!vcpkg-configuration.json
+
+# --- vcpkg: keep source/config, ignore generated artifacts ---
+/vcpkg/buildtrees/
+/vcpkg/packages/
+/vcpkg/downloads/
+/vcpkg/installed/
 
 # OS files
 .DS_Store
