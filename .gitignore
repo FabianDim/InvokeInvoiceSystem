@@ -44,6 +44,7 @@ vcpkg_downloads/
 vcpkg_out/
 vcpkg/packages/
 vcpkg/installed/
+vcpkg_installed/vcpkg/blds
 # Do NOT ignore vcpkg.json or vcpkg-configuration.json
 
 # OS files
