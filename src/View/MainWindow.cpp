@@ -31,9 +31,14 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
     auto* business_invoice_choice = business_invoice_choice_page();
     auto* landing = landing_page();
     auto* invoice = new_invoice_page();
+    auto* client = client_page();
+    auto* business = business_settings_page();
+    auto* stock = stock_settings_page();
+    auto* account = account_settings_page();
 
     // start page
-    pagesStack->setCurrentWidget(business_invoice_choice);
+    QWidget* start_page = acctMgr.is_logged_in() ? static_cast<QWidget*>(dashboard_page()) : static_cast<QWidget*>(landing);
+    pagesStack->setCurrentWidget(start_page);
     // start page
 
     vbox->addWidget(pagesStack, /*stretch*/ 1, Qt::AlignCenter);
@@ -42,6 +47,17 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
     createAccountActions();
     createFileActions();
     createMenus();
+    connect(loginAct, &QAction::triggered, this, [this]() { show_page(login_page()); });
+    connect(login_page(), &App::Views::LoginPage::login_succeeded, this, [this]() {
+        loginAct->setVisible(false);
+        logoutAct->setVisible(true);
+    });
+    connect(logoutAct, &QAction::triggered, this, [this]() {
+        this->acctMgr.logOut();
+        loginAct->setVisible(true);
+        logoutAct->setVisible(false);
+        show_page(landing_page());
+    });
     // Window bits
     setWindowTitle("Invoke Invoice System");
 }
@@ -55,11 +71,10 @@ void App::Views::MainWindow::createMenus() {
     fileMenu->addAction(saveAct);
 
     accountMenu = menuBar()->addMenu(tr("&Account"));
-    if (acctMgr.is_logged_in()) {
-        accountMenu->addAction(logoutAct);
-    } else {
-        accountMenu->addAction(loginAct);
-    }
+    accountMenu->addAction(loginAct);
+    accountMenu->addAction(logoutAct);
+    loginAct->setVisible(!acctMgr.is_logged_in());
+    logoutAct->setVisible(acctMgr.is_logged_in());
 }
 
 void App::Views::MainWindow::createAccountActions() {
@@ -128,4 +143,44 @@ App::Views::BusinessInvoiceChoice* App::Views::MainWindow::business_invoice_choi
         pagesStack->addWidget(business_invoice_choice_);
     }
     return business_invoice_choice_;
+}
+
+App::Views::ManagementForm* App::Views::MainWindow::client_page() {
+    if (!client_page_) {
+        client_page_ = new ManagementForm(
+            "Create New Client",
+            {"Name", "Phone", "Email", "Country", "State or province", "City", "Street address", "Postcode"},
+            this);
+        pagesStack->addWidget(client_page_);
+    }
+    return client_page_;
+}
+
+App::Views::ManagementForm* App::Views::MainWindow::business_settings_page() {
+    if (!business_settings_page_) {
+        business_settings_page_ = new ManagementForm(
+            "Configure Business",
+            {"ABN", "Business name", "Business phone", "Country", "State or province", "City", "Street address", "Postcode", "ACN"},
+            this);
+        pagesStack->addWidget(business_settings_page_);
+    }
+    return business_settings_page_;
+}
+
+App::Views::ManagementForm* App::Views::MainWindow::stock_settings_page() {
+    if (!stock_settings_page_) {
+        stock_settings_page_ = new ManagementForm(
+            "Create Stock Item", {"Name", "Quantity", "Price", "Margin", "Keywords", "Unit"}, this);
+        pagesStack->addWidget(stock_settings_page_);
+    }
+    return stock_settings_page_;
+}
+
+App::Views::ManagementForm* App::Views::MainWindow::account_settings_page() {
+    if (!account_settings_page_) {
+        account_settings_page_ = new ManagementForm(
+            "Account Settings", {"First name", "Last name", "Email", "Password"}, this);
+        pagesStack->addWidget(account_settings_page_);
+    }
+    return account_settings_page_;
 }

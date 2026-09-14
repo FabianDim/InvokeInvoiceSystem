@@ -22,6 +22,7 @@
 #include <qpointer.h>
 #include <QLayout>
 #include "Domain/Stock/StockItem.h"
+#include "Infrastructure/Enums/RouteEnums.h"
 class StockItem;
 class Invoice;
 namespace App::Views {
@@ -44,6 +45,7 @@ class NewInvoiceStock : public QWidget {
     void add_item_to_invoice(const QJsonObject& doc);
 
     void add_item_list_to_invoice(const QJsonDocument& doc);
+    void invoice_navigation(Page page);
 
     // private slots:
     //   void on_add_item_clicked();

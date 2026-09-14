@@ -16,6 +16,7 @@ void NewInvoiceStock::create_page_layout() {
     QVBoxLayout* groupVbox = new QVBoxLayout;
     QGridLayout* main_form_layout = new QGridLayout(this);
     create_invoice_pdf = new QPushButton("Finish Invoice", item_form_layout_);
+    auto* back_button = new QPushButton("Back to dashboard", item_form_layout_);
     main_form_layout->setAlignment(Qt::AlignCenter);
     main_form_layout->setObjectName("form_grid_layout");
 
@@ -56,6 +57,8 @@ void NewInvoiceStock::create_page_layout() {
     main_form_layout->addLayout(create_item_entry_form(), 10, 0, 1, 2);
 
     main_form_layout->addWidget(create_invoice_pdf, 20, 0, 1, 2, Qt::AlignCenter);
+    main_form_layout->addWidget(back_button, 21, 0, 1, 2, Qt::AlignCenter);
+    connect(back_button, &QPushButton::clicked, this, [this]() { emit invoice_navigation(Page::Dashboard); });
     std::vector<FormField> fields = {
 
     };

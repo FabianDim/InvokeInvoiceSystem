@@ -20,6 +20,10 @@ class Dashboard : public QWidget {
     QHBoxLayout* main_layout_;
     void button_connections();
     QPushButton* invoice_button;
+    QPushButton* client_button;
+    QPushButton* business_button;
+    QPushButton* stock_button;
+    QPushButton* account_button;
 
   signals:
     void dash_navigation(Page page);

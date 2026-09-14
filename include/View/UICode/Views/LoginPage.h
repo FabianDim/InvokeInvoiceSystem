@@ -18,6 +18,7 @@ class LoginPage : public QWidget {
 
   signals:
     void login_requested(const QString& email, const QString& password, bool remember);
+    void login_succeeded();
 
   private:
     void createPageLayout();

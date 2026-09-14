@@ -1,4 +1,4 @@
-﻿{
+{
   "version": 3,
   "configurePresets": [
     {
@@ -50,13 +50,13 @@
   "buildPresets": [
     {
       "name": "x64-release",
-      "configurePreset": "x64-release",
-      "description": "Build Release"
+      "displayName": "Build x64 Release",
+      "configurePreset": "x64-release"
     },
     {
       "name": "x64-relwithdebinfo",
-      "configurePreset": "x64-relwithdebinfo",
-      "description": "Build RelWithDebInfo"
+      "displayName": "Build x64 RelWithDebInfo",
+      "configurePreset": "x64-relwithdebinfo"
     }
   ]
 }

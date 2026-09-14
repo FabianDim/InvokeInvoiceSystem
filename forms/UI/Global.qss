@@ -63,3 +63,21 @@ QLabel#form_label {
   color: white;
   font-weight: bold;	
 }
+
+QPushButton#dashboard_button {
+  min-width: 190px;
+  min-height: 48px;
+  padding: 8px;
+  font-size: 15px;
+  background-color: #2196F3;
+  color: white;
+  border-radius: 6px;
+}
+
+QPushButton#dashboard_button:hover {
+  background-color: #1976D2;
+}
+
+QPushButton#dashboard_button:pressed {
+  background-color: #1565C0;
+}
