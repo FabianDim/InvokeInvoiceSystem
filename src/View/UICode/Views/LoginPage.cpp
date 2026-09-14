@@ -50,6 +50,10 @@ void LoginPage::on_login_clicked() {
     const QString trimmed_email = email.trimmed();
     emit login_requested(trimmed_email, password, remember_me_->isChecked());
 
+    if (!trimmed_email.isEmpty() && !password.isEmpty()) {
+        emit login_succeeded();
+    }
+
     password_input_->selectAll();
     qDebug() << "Login requested with email:" << trimmed_email << "and password length:" << password.length();
 }

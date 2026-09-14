@@ -86,6 +86,7 @@ void InvoiceDetailsInput::create_page_layout() {
     this->setLayout(main_form_layout);
 
     QPushButton* next_page_button = new QPushButton("Next >>", parent_widget_);
+    QPushButton* back_button = new QPushButton("Back to dashboard", parent_widget_);
 
     connect(next_page_button, &QPushButton::clicked, this, [this]() {
         auto idLe = qobject_cast<QLineEdit*>(base_invoice_form_fields_.value("invoice_number"));
@@ -114,6 +115,8 @@ void InvoiceDetailsInput::create_page_layout() {
     });
 
     main_form_layout->addWidget(next_page_button, main_form_layout->rowCount(), 1, Qt::AlignRight);
+    main_form_layout->addWidget(back_button, main_form_layout->rowCount(), 1, Qt::AlignRight);
+    connect(back_button, &QPushButton::clicked, this, [this]() { emit invoice_navigation(Page::Dashboard); });
 }
 
 void InvoiceDetailsInput::create_form_layout() {

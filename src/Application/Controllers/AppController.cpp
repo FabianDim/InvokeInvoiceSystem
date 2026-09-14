@@ -14,6 +14,9 @@ AppController::AppController(App::Views::MainWindow* main,
         main_->landing_page(), &App::Views::LandingPage::navigate_to, this, &AppController::page_navigation);
     QObject::connect(
         main_->login_page(), &App::Views::LoginPage::login_requested, api_, &Infrastructure::Http::ApiClient::do_login);
+    QObject::connect(main_->login_page(), &App::Views::LoginPage::login_succeeded, this, [this]() {
+        page_navigation(Page::Dashboard);
+    });
     QObject::connect(main->business_invoice_choice_page(),
                      &App::Views::BusinessInvoiceChoice::find_businesses,
                      api_,
@@ -40,8 +43,16 @@ AppController::AppController(App::Views::MainWindow* main,
 
     QObject::connect(
         main_->dashboard_page(), &App::Views::Dashboard::dash_navigation, this, &AppController::page_navigation);
+    QObject::connect(main_->client_page(), &App::Views::ManagementForm::navigate_to, this, &AppController::page_navigation);
+    QObject::connect(main_->business_settings_page(), &App::Views::ManagementForm::navigate_to, this, &AppController::page_navigation);
+    QObject::connect(main_->stock_settings_page(), &App::Views::ManagementForm::navigate_to, this, &AppController::page_navigation);
+    QObject::connect(main_->account_settings_page(), &App::Views::ManagementForm::navigate_to, this, &AppController::page_navigation);
     QObject::connect(main_->new_invoice_page(),
                      &App::Views::InvoiceDetailsInput::invoice_navigation,
+                     this,
+                     &AppController::page_navigation);
+    QObject::connect(main_->new_invoice_stock_page(),
+                     &App::Views::NewInvoiceStock::invoice_navigation,
                      this,
                      &AppController::page_navigation);
 
@@ -79,6 +90,18 @@ void AppController::page_navigation(Page page) {
         break;
     case Page::StockInput:
         main_->show_page(main_->new_invoice_stock_page());
+        break;
+    case Page::NewClient:
+        main_->show_page(main_->client_page());
+        break;
+    case Page::BusinessSettings:
+        main_->show_page(main_->business_settings_page());
+        break;
+    case Page::StockSettings:
+        main_->show_page(main_->stock_settings_page());
+        break;
+    case Page::AccountSettings:
+        main_->show_page(main_->account_settings_page());
         break;
     case Page::InvoiceBusinessChoice:
         main_->show_page(main_->business_invoice_choice_page());
