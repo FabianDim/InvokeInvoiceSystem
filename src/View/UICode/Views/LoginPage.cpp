@@ -1,5 +1,7 @@
 #include "View/UICode/Views/LoginPage.h"
 #include <QDebug>
+#include <QFormLayout>
+#include <QLabel>
 using namespace App::Views;
 
 LoginPage::LoginPage(QWidget* parent) {
@@ -13,35 +15,49 @@ LoginPage::LoginPage(QWidget* parent) {
 }
 
 void LoginPage::createPageLayout() {
+    inner_layout_->setContentsMargins(36, 32, 36, 32);
+    inner_layout_->setSpacing(14);
+    auto* title = new QLabel("Welcome back", parent_widget_);
+    title->setObjectName("titleLabel");
+    title->setAlignment(Qt::AlignCenter);
+    auto* subtitle = new QLabel("Sign in to continue to your invoice workspace.", parent_widget_);
+    subtitle->setObjectName("subtitleLabel");
+    subtitle->setAlignment(Qt::AlignCenter);
     email_input_ = new QLineEdit(form_layout_);
     password_input_ = new QLineEdit(form_layout_);
     login_button_ = new QPushButton("Login", button_layout_);
+    status_label_ = new QLabel(button_layout_);
     login_button_->setObjectName("login_button_");
-    email_input_->setPlaceholderText("Email");
-    password_input_->setPlaceholderText("Password");
+    email_input_->setPlaceholderText("you@example.com");
+    password_input_->setPlaceholderText("Your password");
     password_input_->setEchoMode(QLineEdit::Password);
 
     connect(login_button_, &QPushButton::clicked, this, &LoginPage::on_login_clicked);
 
     connect(password_input_, &QLineEdit::returnPressed, login_button_, &QPushButton::click);
 
-    auto* form = new QHBoxLayout(form_layout_);
+    auto* form = new QFormLayout(form_layout_);
+    form->setSpacing(10);
 
     remember_me_ = new QCheckBox("Remember Me");
-    form->addWidget(email_input_);
-    form->addWidget(password_input_);
-
-    form->setSpacing(6);
+    form->addRow("Email:", email_input_);
+    form->addRow("Password:", password_input_);
 
     auto* buttons = new QHBoxLayout(button_layout_);
     buttons->addWidget(login_button_);
+    auto* signup_button = new QPushButton("Create an account", button_layout_);
+    buttons->addWidget(signup_button);
+    connect(signup_button, &QPushButton::clicked, this, [this]() { emit navigate_to(Page::Signup); });
 
     auto* remember = new QHBoxLayout(remember_me_layout_);
     remember->addWidget(remember_me_);
 
-    inner_layout_->addWidget(form_layout_, 0, Qt::AlignCenter);
+    inner_layout_->addWidget(title);
+    inner_layout_->addWidget(subtitle);
+    inner_layout_->addWidget(form_layout_);
     inner_layout_->addWidget(remember_me_layout_);
     inner_layout_->addWidget(button_layout_);
+    inner_layout_->addWidget(status_label_);
 }
 
 void LoginPage::on_login_clicked() {
@@ -50,10 +66,10 @@ void LoginPage::on_login_clicked() {
     const QString trimmed_email = email.trimmed();
     emit login_requested(trimmed_email, password, remember_me_->isChecked());
 
-    if (!trimmed_email.isEmpty() && !password.isEmpty()) {
-        emit login_succeeded();
-    }
-
     password_input_->selectAll();
     qDebug() << "Login requested with email:" << trimmed_email << "and password length:" << password.length();
+}
+
+void LoginPage::set_status(const QString& message) {
+    status_label_->setText(message);
 }

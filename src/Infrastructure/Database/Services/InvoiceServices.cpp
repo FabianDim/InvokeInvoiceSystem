@@ -15,9 +15,9 @@ bool InvoiceServices::save_invoice(QJsonDocument& doc) {
     try {
         db_manager_.get_account_businesses(obj.value("UserID").toString().toStdString());
     } catch (const std::exception& e) {
-        return true;
+        return false;
     }
-    return false;
+    return true;
 }
 
 void InvoiceServices::add_business_to_invoice(const QJsonDocument& doc) {

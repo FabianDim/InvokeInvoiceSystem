@@ -10,6 +10,16 @@ NewInvoiceStock::NewInvoiceStock(QWidget* parent) : QWidget(parent) {
     item_form_layout_ = new QWidget(parent_widget_);
     create_page_layout();
 }
+
+void NewInvoiceStock::populate_stock_list(const QJsonDocument& list) {
+    auto* selector = qobject_cast<QComboBox*>(invoice_body_form_fields.value("stock_selector"));
+    if (!selector || !list.isArray()) return;
+    selector->clear();
+    for (const auto& value : list.array()) {
+        const auto item = value.toObject();
+        selector->addItem(item.value("Name").toString(), item);
+    }
+}
 /*Create the page layout*/
 void NewInvoiceStock::create_page_layout() {
     QGroupBox* groupBox = new QGroupBox(tr("Invoice"));
@@ -108,7 +118,7 @@ QLayout* App::Views::NewInvoiceStock::create_item_entry_form() {
     row->setContentsMargins(0, 0, 0, 0);
     row->setSpacing(8);
 
-    auto* item_name_entry = new QLineEdit();
+    auto* item_name_entry = new QComboBox();
     auto* item_quantity_entry = new QLineEdit();
     auto* item_price_entry = new QLineEdit();
     auto* item_notes_entry = new QLineEdit();
@@ -133,13 +143,20 @@ QLayout* App::Views::NewInvoiceStock::create_item_entry_form() {
     addPair("Notes:", item_notes_entry);
 
     row->addWidget(add_item_button);
+    invoice_body_form_fields["stock_selector"] = item_name_entry;
+    emit find_stock();
 
     /*Create a JSon object and add it to a JSon document*/
     connect(add_item_button, &QPushButton::clicked, this, [=, this]() {
         QJsonObject item;
         item["Quantity"] = (item_quantity_entry->text().toInt());
         item["Price"] = (item_price_entry->text().toFloat());
-        item["Name"] = (item_name_entry->text());
+        item["Name"] = item_name_entry->currentText();
+        const auto selected = item_name_entry->currentData().toJsonObject();
+        if (!selected.isEmpty()) {
+            item["StockID"] = selected.value("StockID");
+            if (item_price_entry->text().isEmpty()) item["Price"] = selected.value("Price");
+        }
         item["Notes"] = (item_notes_entry->text());
 
         item_name_entry->clear();

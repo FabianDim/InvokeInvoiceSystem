@@ -49,7 +49,7 @@ int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
 
     app.setWindowIcon(QIcon(":/icons/invoice_icon.ico"));
-    QFile f("C:/Users/fdime/Repos/InvokeInvoiceSystem/forms/UI/Global.qss");
+    QFile f(":/styles/UI/Global.qss");
     if (f.open(QIODevice::ReadOnly)) {
         QString StyleSheet = QLatin1String(f.readAll());
         app.setStyleSheet(StyleSheet);
@@ -61,9 +61,6 @@ int main(int argc, char* argv[]) {
     QCoreApplication::setApplicationName("InvokeInvoiceSystem");
 
     AccountManager accountManager(data_manager);
-    auto user = std::make_shared<User>("test@email.com", "password123");
-    user->setMongoUserID("USR00000001");
-    accountManager.setTestUser(user);
     Server server(data_manager, &accountManager);
     auto api = new Infrastructure::Http::ApiClient(QUrl("http://127.0.0.1:1234"), &accountManager, &app);
     App::Views::MainWindow window(accountManager);

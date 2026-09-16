@@ -67,7 +67,7 @@ namespace App::Views {
     }
 
     void LandingPage::on_register_clicked() {
-        emit navigate_to(Page::Login);
+        emit navigate_to(Page::Signup);
     }
 
     void LandingPage::on_login_clicked() {

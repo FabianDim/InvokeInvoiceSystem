@@ -123,6 +123,29 @@
         NO_UNSUPPORTED_PLATFORM_ERROR
     )
     install(SCRIPT ${deploy_script})
-    qt_finalize_executable(InvokeInvoiceSystem)
+    qt_finalize_executable(InvokeInvoiceSystem
+        src/View/UICode/Views/SignupPage.cpp)
     qt_finalize_executable(InvokeInvoiceSystemTests)
+
+    # Live, read-only MongoDB health checks use the same environment as the application.
+    qt_add_executable(DatabaseTests
+        tests/DatabaseTests.cpp
+        src/Infrastructure/Database/Mongo/MongoDBHandler.cpp
+    )
+    set_target_properties(DatabaseTests PROPERTIES WIN32_EXECUTABLE OFF MACOSX_BUNDLE OFF)
+    target_include_directories(DatabaseTests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(DatabaseTests PRIVATE
+        Qt6::Test
+        fmt::fmt
+        unofficial::libharu::hpdf
+        $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
+        $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
+    )
+    enable_testing()
+    add_test(NAME DatabaseHealth COMMAND DatabaseTests)
+    set_tests_properties(DatabaseHealth PROPERTIES
+        LABELS "database;integration"
+        TIMEOUT 60
+        ENVIRONMENT "QT_ASSUME_STDERR_HAS_CONSOLE=1"
+    )
 

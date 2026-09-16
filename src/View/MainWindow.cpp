@@ -36,8 +36,8 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
     auto* stock = stock_settings_page();
     auto* account = account_settings_page();
 
-    // start page
-    QWidget* start_page = acctMgr.is_logged_in() ? static_cast<QWidget*>(dashboard_page()) : static_cast<QWidget*>(landing);
+    // Start at login so the account flow always establishes the current user first.
+    QWidget* start_page = login_page();
     pagesStack->setCurrentWidget(start_page);
     // start page
 
@@ -48,10 +48,6 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
     createFileActions();
     createMenus();
     connect(loginAct, &QAction::triggered, this, [this]() { show_page(login_page()); });
-    connect(login_page(), &App::Views::LoginPage::login_succeeded, this, [this]() {
-        loginAct->setVisible(false);
-        logoutAct->setVisible(true);
-    });
     connect(logoutAct, &QAction::triggered, this, [this]() {
         this->acctMgr.logOut();
         loginAct->setVisible(true);
@@ -113,6 +109,14 @@ App::Views::LoginPage* App::Views::MainWindow::login_page() {
     return login_page_;
 }
 
+App::Views::SignupPage* App::Views::MainWindow::signup_page() {
+    if (!signup_page_) {
+        signup_page_ = new App::Views::SignupPage(this);
+        pagesStack->addWidget(signup_page_);
+    }
+    return signup_page_;
+}
+
 App::Views::Dashboard* App::Views::MainWindow::dashboard_page() {
     if (!dashboard_page_) {
         dashboard_page_ = new App::Views::Dashboard(this);
@@ -148,7 +152,7 @@ App::Views::BusinessInvoiceChoice* App::Views::MainWindow::business_invoice_choi
 App::Views::ManagementForm* App::Views::MainWindow::client_page() {
     if (!client_page_) {
         client_page_ = new ManagementForm(
-            "Create New Client",
+            "Create New Client", "client",
             {"Name", "Phone", "Email", "Country", "State or province", "City", "Street address", "Postcode"},
             this);
         pagesStack->addWidget(client_page_);
@@ -159,7 +163,7 @@ App::Views::ManagementForm* App::Views::MainWindow::client_page() {
 App::Views::ManagementForm* App::Views::MainWindow::business_settings_page() {
     if (!business_settings_page_) {
         business_settings_page_ = new ManagementForm(
-            "Configure Business",
+            "Configure Business", "business",
             {"ABN", "Business name", "Business phone", "Country", "State or province", "City", "Street address", "Postcode", "ACN"},
             this);
         pagesStack->addWidget(business_settings_page_);
@@ -170,7 +174,7 @@ App::Views::ManagementForm* App::Views::MainWindow::business_settings_page() {
 App::Views::ManagementForm* App::Views::MainWindow::stock_settings_page() {
     if (!stock_settings_page_) {
         stock_settings_page_ = new ManagementForm(
-            "Create Stock Item", {"Name", "Quantity", "Price", "Margin", "Keywords", "Unit"}, this);
+            "Create Stock Item", "stock", {"Name", "Quantity", "Price", "Margin", "Keywords", "Unit"}, this);
         pagesStack->addWidget(stock_settings_page_);
     }
     return stock_settings_page_;
@@ -179,7 +183,7 @@ App::Views::ManagementForm* App::Views::MainWindow::stock_settings_page() {
 App::Views::ManagementForm* App::Views::MainWindow::account_settings_page() {
     if (!account_settings_page_) {
         account_settings_page_ = new ManagementForm(
-            "Account Settings", {"First name", "Last name", "Email", "Password"}, this);
+            "Account Settings", "account", {"First name", "Last name", "Email", "Password"}, this);
         pagesStack->addWidget(account_settings_page_);
     }
     return account_settings_page_;

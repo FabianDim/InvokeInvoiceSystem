@@ -42,10 +42,14 @@ class NewInvoiceStock : public QWidget {
 
   public:
   signals:
+    void find_stock();
     void add_item_to_invoice(const QJsonObject& doc);
 
     void add_item_list_to_invoice(const QJsonDocument& doc);
     void invoice_navigation(Page page);
+
+  public slots:
+    void populate_stock_list(const QJsonDocument& list);
 
     // private slots:
     //   void on_add_item_clicked();

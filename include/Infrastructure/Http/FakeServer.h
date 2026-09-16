@@ -27,4 +27,5 @@ class Server {
     void create_routes_invoices();
     void create_routes_auth();
     void create_routes_business();
+    void create_routes_data();
 };

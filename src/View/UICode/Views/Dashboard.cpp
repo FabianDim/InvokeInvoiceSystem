@@ -21,10 +21,14 @@ void App::Views::Dashboard::create_page_layout() {
     layout->setAlignment(Qt::AlignCenter);
     layout->setSpacing(12);
 
-    auto* title = new QLabel("Invoke Invoice System", content);
+    auto* title = new QLabel("Your workspace", content);
     title->setObjectName("titleLabel");
     title->setAlignment(Qt::AlignCenter);
     layout->addWidget(title, 0, 0, 1, 2);
+    auto* subtitle = new QLabel("Create invoices from the business data you already manage.", content);
+    subtitle->setObjectName("subtitleLabel");
+    subtitle->setAlignment(Qt::AlignCenter);
+    layout->addWidget(subtitle, 1, 0, 1, 2);
 
     QIcon icon(":/icons/invoice_icon.png");
     invoice_button = new QPushButton(icon, "Create new invoice", content);
@@ -33,11 +37,16 @@ void App::Views::Dashboard::create_page_layout() {
     stock_button = new QPushButton("Create stock item", content);
     account_button = new QPushButton("Account settings", content);
 
-    layout->addWidget(invoice_button, 1, 0);
-    layout->addWidget(client_button, 1, 1);
-    layout->addWidget(business_button, 2, 0);
-    layout->addWidget(stock_button, 2, 1);
-    layout->addWidget(account_button, 3, 0, 1, 2);
+    invoice_button->setObjectName("primary_dashboard_button");
+    client_button->setObjectName("dashboard_button");
+    business_button->setObjectName("dashboard_button");
+    stock_button->setObjectName("dashboard_button");
+    account_button->setObjectName("dashboard_button");
+    layout->addWidget(invoice_button, 2, 0);
+    layout->addWidget(client_button, 2, 1);
+    layout->addWidget(business_button, 3, 0);
+    layout->addWidget(stock_button, 3, 1);
+    layout->addWidget(account_button, 4, 0, 1, 2);
     main_layout_->addWidget(content);
 
     button_group_->addButton(invoice_button);

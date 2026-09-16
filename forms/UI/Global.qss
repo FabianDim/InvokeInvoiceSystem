@@ -1,31 +1,45 @@
+QWidget {
+  background-color: #101820;
+  color: #edf2f4;
+  font-family: "Segoe UI";
+  font-size: 14px;
+}
+
+QLabel#subtitleLabel {
+  color: #9bb0b7;
+  padding-bottom: 10px;
+}
+
+QFormLayout QLabel {
+  color: #d9e2e5;
+  font-weight: 600;
+}
+
 /* --- Buttons --- */
 
 QPushButton#login_button_ {
   font-size: 18px;
   padding: 10px;
-  background-color: transparent;
+  background-color: #2a9d8f;
   color: white;
-  border-radius: 10px;
-  border: 2px solid white;
+  border-radius: 6px;
+  border: 0;
 }
 
 QPushButton#login_button_:hover {
-  background: white;
-  color: #222;
-  border: 2px solid #222;
+  background: #f4a261;
 }
 
 QPushButton#login_button_:pressed {
-  background: grey;
-  color: white;
+  background: #c8553d;
 }
 
 QPushButton#register_button_ {
   font-size: 18px;
   padding: 10px;
-  background-color: #2196F3;
+  background-color: #e76f51;
   color: white;
-  border-radius: 10px;
+  border-radius: 6px;
 }
 
 QPushButton#register_button_:hover {
@@ -80,4 +94,45 @@ QPushButton#dashboard_button:hover {
 
 QPushButton#dashboard_button:pressed {
   background-color: #1565C0;
+}
+
+QLabel#subtitleLabel {
+  color: #9bb0b7;
+  font-size: 14px;
+  padding-bottom: 12px;
+}
+
+QPushButton#dashboard_button, QPushButton#primary_dashboard_button {
+  min-width: 190px;
+  min-height: 48px;
+  padding: 8px 14px;
+  font-size: 15px;
+  background-color: #2a9d8f;
+  color: #fffaf5;
+  border-radius: 6px;
+}
+
+QPushButton#primary_dashboard_button {
+  min-height: 58px;
+  background-color: #e76f51;
+  font-size: 17px;
+}
+
+QPushButton#dashboard_button:hover, QPushButton#primary_dashboard_button:hover {
+  background-color: #f4a261;
+}
+
+QComboBox {
+  padding: 6px;
+  border: 1px solid #49616a;
+  border-radius: 5px;
+  background: #18262d;
+  color: #edf2f4;
+}
+
+QGroupBox {
+  border: 1px solid #334b54;
+  border-radius: 6px;
+  margin-top: 12px;
+  padding: 14px;
 }

@@ -5,10 +5,12 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 namespace App::Views {
-ManagementForm::ManagementForm(const QString& title, const QVector<QString>& fields, QWidget* parent)
-    : QWidget(parent) {
+ManagementForm::ManagementForm(const QString& title, const QString& resource, const QVector<QString>& fields, QWidget* parent)
+    : QWidget(parent), resource_(resource) {
     auto* layout = new QVBoxLayout(this);
     auto* heading = new QLabel(title, this);
     heading->setObjectName("titleLabel");
@@ -25,6 +27,7 @@ ManagementForm::ManagementForm(const QString& title, const QVector<QString>& fie
         label->setObjectName("form_label");
         form_layout_->addRow(label, input);
         inputs_.append(input);
+        field_names_.append(field);
     }
     layout->addLayout(form_layout_);
 
@@ -52,6 +55,22 @@ void ManagementForm::submit_form() {
             return;
         }
     }
-    status_label_->setText("Saved successfully.");
+    QJsonObject data;
+    for (int index = 0; index < inputs_.size(); ++index) {
+        const QString key = field_names_[index];
+        data[key] = inputs_[index]->text().trimmed();
+    }
+    if (resource_ == "business") {
+        const QString address = data.value("Street address").toString() + ", " +
+                                data.value("City").toString() + ", " +
+                                data.value("State or province").toString() + ", " +
+                                data.value("Country").toString() + " " + data.value("Postcode").toString();
+        data["Address"] = address;
+    }
+    emit submit_resource(resource_, QJsonDocument(data));
+}
+
+void ManagementForm::set_status(const QString& message) {
+    status_label_->setText(message);
 }
 } // namespace App::Views
