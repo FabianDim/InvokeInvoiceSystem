@@ -32,6 +32,7 @@ class Dashboard : public QWidget {
     QPushButton* business_button;
     QPushButton* stock_button;
     QPushButton* account_button;
+    QPushButton* items_button;
 
   signals:
     void dash_navigation(Page page);

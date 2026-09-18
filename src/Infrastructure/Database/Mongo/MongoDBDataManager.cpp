@@ -208,9 +208,12 @@ QJsonDocument MongoDBDataManager::get_account_businesses(const std::string& user
     }
 }
 
-QJsonDocument MongoDBDataManager::list_resources(const std::string& resource, const std::string& user_id) {
+QJsonDocument MongoDBDataManager::list_resources(const std::string& resource, const std::string& user_id,
+                                                 const std::string& selected_business_id) {
     QJsonArray result;
-    const auto user = findOne("Users", make_document(kvp("UserID", user_id)));
+    // Let read errors reach the HTTP handler instead of caching an empty result
+    // when the database is unavailable.
+    const auto user = InvokeDB["Users"].find_one(make_document(kvp("UserID", user_id)));
     if (!user)
         return QJsonDocument(result);
 
@@ -220,7 +223,9 @@ QJsonDocument MongoDBDataManager::list_resources(const std::string& resource, co
             for (const auto& id : business_ids.get_array().value) {
                 if (id.type() != bsoncxx::type::k_string)
                     continue;
-                const auto business = findOne("Business", make_document(kvp("BusinessID", id.get_string().value)));
+                if (!selected_business_id.empty() && std::string(id.get_string().value) != selected_business_id)
+                    continue;
+                const auto business = InvokeDB["Business"].find_one(make_document(kvp("BusinessID", id.get_string().value)));
                 if (business) {
                     const auto view = business->view();
                     QJsonObject item{
@@ -229,6 +234,9 @@ QJsonDocument MongoDBDataManager::list_resources(const std::string& resource, co
                         {"ABN", QString::fromUtf8(view["ABN"].get_string().value)},
                         {"Phone", QString::fromUtf8(view["Phone"].get_string().value)},
                         {"BusinessAddress", QString::fromUtf8(view["BusinessAddress"].get_string().value)}};
+                    const auto acn = view["ACN"];
+                    if (acn && acn.type() == bsoncxx::type::k_string)
+                        item["ACN"] = QString::fromUtf8(acn.get_string().value);
                     result.append(item);
                 }
             }
@@ -243,7 +251,9 @@ QJsonDocument MongoDBDataManager::list_resources(const std::string& resource, co
     for (const auto& business_id : business_ids.get_array().value) {
         if (business_id.type() != bsoncxx::type::k_string)
             continue;
-        const auto business = findOne("Business", make_document(kvp("BusinessID", business_id.get_string().value)));
+        if (!selected_business_id.empty() && std::string(business_id.get_string().value) != selected_business_id)
+            continue;
+        const auto business = InvokeDB["Business"].find_one(make_document(kvp("BusinessID", business_id.get_string().value)));
         if (!business)
             continue;
         const auto ids = business->view()[array_name];
@@ -253,7 +263,7 @@ QJsonDocument MongoDBDataManager::list_resources(const std::string& resource, co
             if (id.type() != bsoncxx::type::k_string)
                 continue;
             const std::string id_key = resource == "clients" ? "ClientID" : "StockID";
-            const auto item = findOne(collection, make_document(kvp(id_key, id.get_string().value)));
+            const auto item = InvokeDB[collection].find_one(make_document(kvp(id_key, id.get_string().value)));
             if (!item)
                 continue;
             const auto view = item->view();
@@ -264,10 +274,25 @@ QJsonDocument MongoDBDataManager::list_resources(const std::string& resource, co
             if (resource == "clients") {
                 json["Phone"] = QString::fromUtf8(view["Phone"].get_string().value);
                 json["Email"] = QString::fromUtf8(view["Email"].get_string().value);
+                const auto address = view["Address"];
+                if (address && address.type() == bsoncxx::type::k_string)
+                    json["Address"] = QString::fromUtf8(address.get_string().value);
             } else {
                 json["Price"] = view["StdPrice"].get_double().value;
                 json["Quantity"] = view["Quantity"].get_int32().value;
                 json["Unit"] = QString::fromUtf8(view["Unit Type"].get_string().value);
+                const auto margin = view["ProfitMargin"];
+                if (margin && margin.type() == bsoncxx::type::k_double)
+                    json["Margin"] = margin.get_double().value;
+                QJsonArray keywords;
+                const auto stored_keywords = view["ProductKeywords"];
+                if (stored_keywords && stored_keywords.type() == bsoncxx::type::k_array) {
+                    for (const auto& keyword : stored_keywords.get_array().value) {
+                        if (keyword.type() == bsoncxx::type::k_string)
+                            keywords.append(QString::fromUtf8(keyword.get_string().value));
+                    }
+                }
+                json["Keywords"] = keywords;
             }
             result.append(json);
         }

@@ -11,5 +11,6 @@ enum class Page {
     NewClient,
     BusinessSettings,
     StockSettings,
-    AccountSettings
+    AccountSettings,
+    Items
 };

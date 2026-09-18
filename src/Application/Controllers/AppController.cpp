@@ -38,6 +38,7 @@ AppController::AppController(App::Views::MainWindow* main,
         page_navigation(Page::Dashboard);
     });
     QObject::connect(main_, &App::Views::MainWindow::logged_out, this, [this]() {
+        api_->clear_session();
         main_->dashboard_page()->populate_business_list(QJsonDocument(QJsonObject{}));
         main_->new_invoice_stock_page()->reset_invoice();
     });
@@ -53,6 +54,16 @@ AppController::AppController(App::Views::MainWindow* main,
                      &App::Views::Dashboard::business_chosen,
                      api_,
                      &Infrastructure::Http::ApiClient::business_selected);
+    QObject::connect(main_->dashboard_page(), &App::Views::Dashboard::business_chosen,
+                     main_->items_page(), &App::Views::ItemsPage::business_selected);
+    QObject::connect(main_->items_page(), &App::Views::ItemsPage::navigate_to,
+                     this, &AppController::page_navigation);
+    QObject::connect(main_->items_page(), &App::Views::ItemsPage::items_requested,
+                     api_, &Infrastructure::Http::ApiClient::get_business_items);
+    QObject::connect(api_, &Infrastructure::Http::ApiClient::business_items_received,
+                     main_->items_page(), &App::Views::ItemsPage::populate_items);
+    QObject::connect(api_, &Infrastructure::Http::ApiClient::business_items_failed,
+                     main_->items_page(), &App::Views::ItemsPage::set_error);
 
     QObject::connect(main_->new_invoice_page(),
                      &App::Views::InvoiceDetailsInput::set_invoice_details,
@@ -109,6 +120,8 @@ AppController::AppController(App::Views::MainWindow* main,
 }
 
 void AppController::resource_saved(const QString& resource) {
+    if (main_->items_page()->isVisible())
+        main_->items_page()->load_items();
     if (resource == "client")
         main_->client_page()->set_status("Client saved.");
     else if (resource == "business") {
@@ -132,7 +145,7 @@ void AppController::resource_saved(const QString& resource) {
  */
 void AppController::page_navigation(Page page) {
     if ((page == Page::NewInvoice || page == Page::NewClient || page == Page::StockSettings ||
-         page == Page::StockInput) && !main_->dashboard_page()->has_business()) {
+         page == Page::StockInput || page == Page::Items) && !main_->dashboard_page()->has_business()) {
         main_->show_page(main_->dashboard_page());
         return;
     }
@@ -148,6 +161,10 @@ void AppController::page_navigation(Page page) {
         break;
     case Page::Dashboard:
         main_->show_page(main_->dashboard_page());
+        break;
+    case Page::Items:
+        main_->show_page(main_->items_page());
+        main_->items_page()->load_items();
         break;
     case Page::NewInvoice:
         main_->new_invoice_stock_page()->reset_invoice();

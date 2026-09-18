@@ -60,6 +60,14 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
 
 App::Views::MainWindow::~MainWindow() = default;
 
+App::Views::ItemsPage* App::Views::MainWindow::items_page() {
+    if (!items_page_) {
+        items_page_ = new ItemsPage(this);
+        pagesStack->addWidget(items_page_);
+    }
+    return items_page_;
+}
+
 void App::Views::MainWindow::createMenus() {
     fileMenu = menuBar()->addMenu(tr("&File"));
     fileMenu->addAction(newAct);

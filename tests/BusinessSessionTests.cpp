@@ -10,6 +10,7 @@
 #include "View/UICode/Views/Dashboard.h"
 #include "View/UICode/Views/NewInvoiceStock.h"
 #include "Infrastructure/Http/ApiClient.h"
+#include "Application/Controllers/AppController.h"
 
 using App::Views::Dashboard;
 using Infrastructure::Http::ApiClient;
@@ -37,6 +38,15 @@ QJsonDocument business_list() {
         {"BUSB", QJsonObject{{"BusinessID", "BUSB"}, {"BusinessName", "Beta Electrical"}}}});
 }
 
+QJsonDocument business_items(const QString& id) {
+    return QJsonDocument(QJsonObject{
+        {"BusinessID", id},
+        {"businesses", QJsonArray{business_list().object().value(id)}},
+        {"clients", QJsonArray{QJsonObject{{"ClientID", "CLI1"}, {"Name", "Example client"}, {"Email", "client@example.com"}}}},
+        {"stocks", QJsonArray{QJsonObject{{"StockID", "STK1"}, {"Name", "Copper pipe"}, {"Quantity", 10},
+                                         {"Price", 12.5}, {"Keywords", QJsonArray{"pipe", "copper"}}}}}});
+}
+
 QPushButton* button(Dashboard& dashboard, const QString& text) {
     for (auto* button : dashboard.findChildren<QPushButton*>()) {
         if (button->text() == text)
@@ -52,8 +62,20 @@ struct RecordingServer {
     QList<QJsonObject> saves;
     QList<QJsonObject> invoices;
     QList<QString> stock_businesses;
+    QList<QString> items_businesses;
+    bool invalid_items = false;
+    bool fail_items = false;
 
     bool start() {
+        http.route("/business/items", QHttpServerRequest::Method::Get,
+                   [this](const QHttpServerRequest& request) {
+                       const auto id = QUrlQuery(request.url()).queryItemValue("BusinessID");
+                       items_businesses.append(id);
+                       if (fail_items)
+                           return QHttpServerResponse(QJsonObject{{"error", "Database unavailable"}},
+                                                      QHttpServerResponder::StatusCode::InternalServerError);
+                       return QHttpServerResponse(invalid_items ? QJsonObject{} : business_items(id).object());
+                   });
         http.route("/data/<arg>", QHttpServerRequest::Method::Post,
                    [this](const QString&, const QHttpServerRequest& request) {
                        saves.append(QJsonDocument::fromJson(request.body()).object());
@@ -180,6 +202,7 @@ class BusinessSessionTests : public QObject {
             {"invoice-items", window.new_invoice_stock_page()}, {"client", window.client_page()},
             {"business", window.business_settings_page()}, {"stock", window.stock_settings_page()},
             {"account", window.account_settings_page()}, {"landing", window.landing_page()},
+            {"records", window.items_page()},
             {"business-choice", window.business_invoice_choice_page()}};
         for (const auto& [name, page] : pages) {
             window.show_page(page);
@@ -288,6 +311,138 @@ class BusinessSessionTests : public QObject {
         QCOMPARE(qobject_cast<QComboBox*>(page.invoice_body_form_fields.value("stock_selector"))->count(), 0);
         for (auto* label : page.findChildren<QLabel*>())
             QVERIFY(label->text() != "Old business stock");
+    }
+
+    void business_records_navigation_and_tables() {
+        RecordingServer server;
+        QVERIFY(server.start());
+        TestAccountManager account;
+        ApiClient api(server.url(), &account);
+        App::Views::MainWindow window(account);
+        Application::Controllers::AppController controller(&window, account, &api);
+        window.resize(1000, 650);
+        window.show();
+        auto* dashboard = window.dashboard_page();
+        auto* browse = button(*dashboard, "Browse business records");
+        QVERIFY(browse);
+        QVERIFY(!browse->isEnabled());
+        controller.page_navigation(Page::Items);
+        QCOMPARE(window.findChild<QStackedWidget*>()->currentWidget(), dashboard);
+        dashboard->populate_business_list(business_list());
+        dashboard->findChild<QComboBox*>("business_selector")->setCurrentIndex(1);
+        QVERIFY(browse->isEnabled());
+        browse->click();
+        auto* page = window.items_page();
+        QCOMPARE(window.findChild<QStackedWidget*>()->currentWidget(), page);
+        auto* stock = page->findChild<QTableWidget*>("stock_records");
+        QTRY_COMPARE(stock->rowCount(), 1);
+        QCOMPARE(stock->item(0, 0)->text(), "Copper pipe");
+        QCOMPARE(stock->item(0, 2)->data(Qt::DisplayRole).toInt(), 10);
+        QCOMPARE(stock->item(0, 6)->text(), "pipe, copper");
+        QCOMPARE(stock->editTriggers(), QAbstractItemView::NoEditTriggers);
+        auto* tabs = page->findChild<QTabWidget*>();
+        QCOMPARE(tabs->count(), 3);
+        tabs->setCurrentIndex(1);
+        tabs->setCurrentIndex(2);
+        QCOMPARE(server.items_businesses.size(), 1);
+        QVERIFY(window.grab().save("business-records-stock.png"));
+        controller.page_navigation(Page::Dashboard);
+        browse->click();
+        QCOMPARE(server.items_businesses.size(), 1);
+        page->findChild<QPushButton*>("refresh_items")->click();
+        QTRY_COMPARE(server.items_businesses.size(), 2);
+        QTRY_VERIFY(page->findChild<QPushButton*>("refresh_items")->isEnabled());
+        auto empty = business_items("BUSA").object();
+        empty["clients"] = QJsonArray{};
+        empty["stocks"] = QJsonArray{};
+        page->populate_items(QJsonDocument(empty));
+        QCOMPARE(stock->rowCount(), 0);
+        QCOMPARE(tabs->tabText(2), "Stock (0)");
+        page->populate_items(business_items("BUSB"));
+        QCOMPARE(stock->rowCount(), 0);
+        emit window.logged_out();
+        QVERIFY(!browse->isEnabled());
+        QCOMPARE(page->findChild<QTableWidget*>("business_records")->rowCount(), 0);
+    }
+
+    void business_records_cache_refresh_save_and_selection() {
+        RecordingServer server;
+        QVERIFY(server.start());
+        ApiClient api(server.url(), nullptr);
+        QSignalSpy received(&api, &ApiClient::business_items_received);
+        QSignalSpy saved(&api, &ApiClient::resource_saved);
+        api.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+        api.get_business_items();
+        api.get_business_items();
+        QTRY_COMPARE(received.count(), 1);
+        QCOMPARE(server.items_businesses.size(), 1);
+        api.get_business_items();
+        QCOMPARE(received.count(), 2);
+        QCOMPARE(server.items_businesses.size(), 1);
+        api.get_business_items(true);
+        QTRY_COMPARE(received.count(), 3);
+        QCOMPARE(server.items_businesses.size(), 2);
+        for (const auto& resource : {QString("client"), QString("stock"), QString("business")}) {
+            api.save_resource(resource, QJsonDocument(QJsonObject{}));
+            QTRY_COMPARE(saved.count(), 1);
+            saved.clear();
+            const auto previous = received.count();
+            api.get_business_items();
+            QTRY_COMPARE(received.count(), previous + 1);
+        }
+        QCOMPARE(server.items_businesses.size(), 5);
+        api.business_selected(QJsonObject{{"BusinessID", "BUSB"}});
+        api.get_business_items();
+        QTRY_COMPARE(received.count(), 7);
+        QCOMPARE(server.items_businesses.last(), "BUSB");
+        QCOMPARE(qvariant_cast<QJsonDocument>(received.last().at(0)).object().value("BusinessID").toString(), "BUSB");
+        api.clear_session();
+        api.business_selected(QJsonObject{{"BusinessID", "BUSB"}});
+        api.get_business_items();
+        QTRY_COMPARE(received.count(), 8);
+        QCOMPARE(server.items_businesses.size(), 7);
+    }
+
+    void business_records_failures_are_retryable_and_not_cached() {
+        RecordingServer server;
+        QVERIFY(server.start());
+        ApiClient api(server.url(), nullptr);
+        QSignalSpy received(&api, &ApiClient::business_items_received);
+        QSignalSpy failed(&api, &ApiClient::business_items_failed);
+        api.get_business_items();
+        QCOMPARE(failed.count(), 1);
+        QVERIFY(server.items_businesses.isEmpty());
+        api.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+        server.invalid_items = true;
+        api.get_business_items();
+        QTRY_COMPARE(failed.count(), 2);
+        server.invalid_items = false;
+        server.fail_items = true;
+        api.get_business_items();
+        QTRY_COMPARE(failed.count(), 3);
+        QCOMPARE(failed.last().at(0).toString(), "Database unavailable");
+        server.fail_items = false;
+        api.get_business_items();
+        QTRY_COMPARE(received.count(), 1);
+        QCOMPARE(server.items_businesses.size(), 3);
+    }
+
+    void business_records_pending_requests_cannot_cross_sessions() {
+        RecordingServer server;
+        QVERIFY(server.start());
+        ApiClient api(server.url(), nullptr);
+        QSignalSpy received(&api, &ApiClient::business_items_received);
+        QSignalSpy failed(&api, &ApiClient::business_items_failed);
+        api.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+        api.get_business_items();
+        api.business_selected(QJsonObject{{"BusinessID", "BUSB"}});
+        api.get_business_items();
+        api.clear_session();
+        api.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+        api.get_business_items();
+        QTRY_COMPARE(received.count(), 1);
+        QCOMPARE(qvariant_cast<QJsonDocument>(received.at(0).at(0)).object().value("BusinessID").toString(), "BUSA");
+        QVERIFY(failed.isEmpty());
     }
 };
 

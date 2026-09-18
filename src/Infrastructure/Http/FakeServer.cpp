@@ -58,6 +58,32 @@ void Server::create_routes_invoices() {
 }
 
 void Server::create_routes_business() {
+    httpServer_.route("/business/items", QHttpServerRequest::Method::Get,
+                      [this](const QHttpServerRequest& request) -> QHttpServerResponse {
+        if (!account_manager_ || !account_manager_->is_logged_in())
+            return QHttpServerResponse("application/json", "{\"error\":\"unauthorized\"}",
+                                       QHttpServerResponder::StatusCode::Unauthorized);
+        const auto user = account_manager_->getAccount();
+        const auto business_id = QUrlQuery(request.url()).queryItemValue("BusinessID");
+        if (!user || business_id.isEmpty())
+            return QHttpServerResponse("application/json", "{\"error\":\"Choose a business first\"}",
+                                       QHttpServerResponder::StatusCode::BadRequest);
+        try {
+            const auto id = business_id.toStdString();
+            const auto user_id = user->getMongoUserID();
+            const auto businesses = db_manager_.list_resources("businesses", user_id, id).array();
+            if (businesses.isEmpty())
+                return QHttpServerResponse("application/json", "{\"error\":\"Business is not available for this account\"}",
+                                           QHttpServerResponder::StatusCode::Forbidden);
+            const QJsonObject items{{"BusinessID", business_id}, {"businesses", businesses},
+                                    {"clients", db_manager_.list_resources("clients", user_id, id).array()},
+                                    {"stocks", db_manager_.list_resources("stocks", user_id, id).array()}};
+            return QHttpServerResponse(items);
+        } catch (const std::exception&) {
+            return QHttpServerResponse("application/json", "{\"error\":\"Could not load business records\"}",
+                                       QHttpServerResponder::StatusCode::InternalServerError);
+        }
+    });
     httpServer_.route("/business/list", QHttpServerRequest::Method::Get, [this]() -> QHttpServerResponse {
         if (!account_manager_ || !account_manager_->is_logged_in()) {
             QJsonObject err{{"error", "unauthorized"}};
@@ -96,14 +122,14 @@ void Server::create_routes_business() {
         if (!user || business_id.isEmpty())
             return QHttpServerResponse("application/json", "{\"error\":\"Choose a business first\"}",
                                        QHttpServerResponder::StatusCode::BadRequest);
-        const auto stock = db_manager_.list_resources("stocks", user->getMongoUserID());
-        QJsonArray selected_stock;
-        for (const auto& item : stock.array()) {
-            if (item.toObject().value("BusinessID").toString() == business_id)
-                selected_stock.append(item);
+        try {
+            const auto stock = db_manager_.list_resources("stocks", user->getMongoUserID(), business_id.toStdString());
+            return QHttpServerResponse("application/json", stock.toJson(QJsonDocument::Compact),
+                                       QHttpServerResponder::StatusCode::Ok);
+        } catch (const std::exception&) {
+            return QHttpServerResponse("application/json", "{\"error\":\"Could not load stock\"}",
+                                       QHttpServerResponder::StatusCode::InternalServerError);
         }
-        return QHttpServerResponse("application/json", QJsonDocument(selected_stock).toJson(QJsonDocument::Compact),
-                                   QHttpServerResponder::StatusCode::Ok);
     });
 }
 void Server::create_routes_auth() {

@@ -144,6 +144,10 @@
     enable_testing()
     qt_add_executable(BusinessSessionTests
         tests/BusinessSessionTests.cpp
+        src/View/UICode/Views/ItemsPage.cpp
+        include/View/UICode/Views/ItemsPage.h
+        src/Application/Controllers/AppController.cpp
+        include/Application/Controllers/AppController.h
         src/View/UICode/Views/Dashboard.cpp
         src/View/UICode/Views/NewInvoiceStock.cpp
         src/Infrastructure/Http/ApiClient.cpp

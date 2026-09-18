@@ -81,3 +81,18 @@ QMenu { background-color: #18262d; border: 1px solid #49616a; padding: 4px; }
 QMenu::item { padding: 6px 24px; }
 QGroupBox { border: 1px solid #334b54; border-radius: 6px; margin-top: 16px; padding: 16px; }
 QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; }
+
+QTabWidget::pane { border: 1px solid #49616a; }
+QTabBar::tab { background: #18262d; color: #9bb0b7; padding: 12px 20px; border-bottom: 3px solid #334b54; }
+QTabBar::tab:selected { color: white; border-bottom-color: #2a9d8f; }
+QTabBar::tab:hover { background: #29414b; }
+QTabBar::tab:focus { color: #f4a261; }
+QTableWidget {
+  background: #101820;
+  alternate-background-color: #18262d;
+  gridline-color: #334b54;
+  selection-background-color: #2a9d8f;
+  selection-color: white;
+  border: none;
+}
+QHeaderView::section { background: #18262d; color: #d9e2e5; padding: 10px; border: 1px solid #334b54; }

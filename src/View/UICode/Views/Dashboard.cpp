@@ -58,6 +58,8 @@ void App::Views::Dashboard::create_page_layout() {
     business_button = new QPushButton("Configure business", content);
     stock_button = new QPushButton("Create stock item", content);
     account_button = new QPushButton("Account settings", content);
+    items_button = new QPushButton("Browse business records", content);
+    items_button->setObjectName("browse_items_button");
 
     invoice_button->setObjectName("primary_dashboard_button");
     client_button->setObjectName("dashboard_button");
@@ -65,19 +67,21 @@ void App::Views::Dashboard::create_page_layout() {
     stock_button->setObjectName("dashboard_button");
     account_button->setObjectName("dashboard_button");
     UiStyle::button(invoice_button, "accent", true);
-    for (auto* button : {client_button, business_button, stock_button, account_button})
+    for (auto* button : {client_button, business_button, stock_button, account_button, items_button})
         UiStyle::button(button, "primary", true);
     layout->addWidget(invoice_button, 3, 0);
     layout->addWidget(client_button, 3, 1);
     layout->addWidget(business_button, 4, 0);
     layout->addWidget(stock_button, 4, 1);
-    layout->addWidget(account_button, 5, 0, 1, 2);
+    layout->addWidget(items_button, 5, 0);
+    layout->addWidget(account_button, 5, 1);
 
     button_group_->addButton(invoice_button);
     button_group_->addButton(client_button);
     button_group_->addButton(business_button);
     button_group_->addButton(stock_button);
     button_group_->addButton(account_button);
+    button_group_->addButton(items_button);
 }
 
 void Dashboard::button_connections() {
@@ -87,6 +91,7 @@ void Dashboard::button_connections() {
     connect(business_button, &QPushButton::clicked, this, [this]() { emit dash_navigation(Page::BusinessSettings); });
     connect(stock_button, &QPushButton::clicked, this, [this]() { emit dash_navigation(Page::StockSettings); });
     connect(account_button, &QPushButton::clicked, this, [this]() { emit dash_navigation(Page::AccountSettings); });
+    connect(items_button, &QPushButton::clicked, this, [this]() { emit dash_navigation(Page::Items); });
 }
 
 bool Dashboard::has_business() const {
@@ -129,5 +134,6 @@ void Dashboard::update_business_selection() {
     invoice_button->setEnabled(selected);
     client_button->setEnabled(selected);
     stock_button->setEnabled(selected);
+    items_button->setEnabled(selected);
     emit business_chosen(business_select_->currentData().toJsonObject());
 }

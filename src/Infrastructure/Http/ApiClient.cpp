@@ -8,7 +8,75 @@ using namespace Infrastructure::Http;
 ApiClient::ApiClient(const QUrl& baseUrl, Invoke::Domain::Accounts::IAccountManager* mgr, QObject* parent)
     : QObject(parent), networkManager_(new QNetworkAccessManager(this)), baseUrl_(baseUrl), account_manager_(mgr) {}
 
+void ApiClient::invalidate_business_items() {
+    ++business_items_generation_;
+    business_items_cache_ = QJsonDocument{};
+    business_items_age_.invalidate();
+    if (business_items_reply_) {
+        business_items_reply_->abort();
+        business_items_reply_ = nullptr;
+    }
+}
+
+void ApiClient::clear_session() {
+    ++session_generation_;
+    current_business_id_.clear();
+    invalidate_business_items();
+}
+
+void ApiClient::get_business_items(bool refresh) {
+    if (current_business_id_.isEmpty()) {
+        emit business_items_failed("Choose a business on the home page first.");
+        return;
+    }
+    if (refresh)
+        invalidate_business_items();
+    // Cache only the active business in memory for five minutes. Switching
+    // businesses, signing out, or saving records discards the snapshot.
+    if (!business_items_cache_.isNull() && business_items_age_.isValid() && business_items_age_.elapsed() < 300000) {
+        emit business_items_received(business_items_cache_);
+        return;
+    }
+    if (business_items_reply_)
+        return;
+    const auto business_id = current_business_id_;
+    const auto generation = business_items_generation_;
+    QUrl url = baseUrl_;
+    url.setPath("/business/items");
+    QUrlQuery query;
+    query.addQueryItem("BusinessID", business_id);
+    url.setQuery(query);
+    QNetworkRequest request(url);
+    request.setTransferTimeout(30000);
+    auto* reply = networkManager_->get(request);
+    business_items_reply_ = reply;
+    connect(reply, &QNetworkReply::finished, this, [this, reply, business_id, generation]() {
+        reply->deleteLater();
+        // An old request must never repopulate a new business or account.
+        if (generation != business_items_generation_ || business_id != current_business_id_)
+            return;
+        business_items_reply_ = nullptr;
+        QJsonParseError error{};
+        const auto data = QJsonDocument::fromJson(reply->readAll(), &error);
+        if (reply->error() != QNetworkReply::NoError) {
+            emit business_items_failed(data.object().value("error").toString(reply->errorString()));
+            return;
+        }
+        const auto object = data.object();
+        if (error.error != QJsonParseError::NoError || !data.isObject() ||
+            object.value("BusinessID").toString() != business_id || !object.value("businesses").isArray() ||
+            !object.value("clients").isArray() || !object.value("stocks").isArray()) {
+            emit business_items_failed("The server returned invalid business records.");
+            return;
+        }
+        business_items_cache_ = data;
+        business_items_age_.start();
+        emit business_items_received(data);
+    });
+}
+
 void Infrastructure::Http::ApiClient::get_business_list() {
+    const auto session = session_generation_;
     QUrl url = baseUrl_;
     url.setPath("/business/list");
     QNetworkRequest request;
@@ -17,7 +85,7 @@ void Infrastructure::Http::ApiClient::get_business_list() {
     try {
         auto reply = networkManager_->get(request);
         connect(reply, &QNetworkReply::finished, this, [=]() {
-            if (reply->error() == QNetworkReply::NoError) {
+            if (reply->error() == QNetworkReply::NoError && session == session_generation_) {
                 QByteArray data = reply->readAll();
                 QJsonDocument jsonResponse = QJsonDocument::fromJson(data);
                 emit business_list_received(jsonResponse);
@@ -101,7 +169,11 @@ void Infrastructure::Http::ApiClient::get_stock_list() {
 }
 
 void Infrastructure::Http::ApiClient::business_selected(const QJsonObject& biz) {
-    current_business_id_ = biz.value("BusinessID").toString();
+    const auto id = biz.value("BusinessID").toString();
+    if (id != current_business_id_) {
+        current_business_id_ = id;
+        invalidate_business_items();
+    }
 }
 
 void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoice) {
@@ -152,6 +224,8 @@ void Infrastructure::Http::ApiClient::stock_list(const QJsonDocument& stock) {
     }
 }
 void Infrastructure::Http::ApiClient::save_resource(const QString& resource, const QJsonDocument& data) {
+    const auto business_id = current_business_id_;
+    const auto session = session_generation_;
     QJsonObject payload = data.object();
     if (resource == "client" || resource == "stock") {
         if (current_business_id_.isEmpty()) {
@@ -165,16 +239,20 @@ void Infrastructure::Http::ApiClient::save_resource(const QString& resource, con
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     auto* reply = networkManager_->post(request, QJsonDocument(payload).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply, resource]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, resource, business_id, session]() {
+        reply->deleteLater();
+        if (session != session_generation_)
+            return;
         const auto body = reply->readAll();
         if (reply->error() == QNetworkReply::NoError) {
+            if (business_id == current_business_id_)
+                invalidate_business_items();
             emit resource_saved(resource);
         } else {
             QJsonParseError error{};
             const auto response = QJsonDocument::fromJson(body, &error);
             emit resource_save_failed(response.object().value("error").toString(reply->errorString()));
         }
-        reply->deleteLater();
     });
 }
 void Infrastructure::Http::ApiClient::do_login(const QString& email, const QString& password, bool remember) {
@@ -198,7 +276,7 @@ void Infrastructure::Http::ApiClient::do_login(const QString& email, const QStri
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         loginInProgress_ = false;
         if (reply->error() == QNetworkReply::NoError) {
-            current_business_id_.clear();
+            clear_session();
             emit login_succeeded();
         } else {
             emit login_failed(reply->errorString());

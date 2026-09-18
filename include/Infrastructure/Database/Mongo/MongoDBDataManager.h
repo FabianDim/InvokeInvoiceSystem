@@ -50,7 +50,8 @@ class MongoDBDataManager {
     bool valid_password(const std::string& password, const std::string& email);
     AccountCreationResult create_account(const QJsonObject& details);
     QJsonDocument get_account_businesses(const std::string& user_id);
-    QJsonDocument list_resources(const std::string& resource, const std::string& user_id);
+    QJsonDocument list_resources(const std::string& resource, const std::string& user_id,
+                                 const std::string& business_id = {});
     bool save_resource(const std::string& resource, QJsonObject resource_data, const std::string& user_id);
 
   private:
