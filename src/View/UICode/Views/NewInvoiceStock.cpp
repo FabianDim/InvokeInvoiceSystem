@@ -1,14 +1,27 @@
-#include "View/UICode/Views/NewInvoiceStock.h"
-#include "Domain/Stock/StockItem.h"
-#include "Domain/Invoices/Invoice.h"
+﻿#include "View/UICode/Views/NewInvoiceStock.h"
+#include "View/UiStyle.h"
 #include <QGroupBox>
 #include <QJsonDocument>
+#include <QScrollArea>
+
 using namespace App::Views;
 
 NewInvoiceStock::NewInvoiceStock(QWidget* parent) : QWidget(parent) {
-    parent_widget_ = new QWidget(this);
-    item_form_layout_ = new QWidget(parent_widget_);
     create_page_layout();
+}
+
+void NewInvoiceStock::reset_invoice() {
+    stock_items = QJsonArray{};
+    for (auto* label : item_labels_)
+        delete label;
+    item_labels_.clear();
+    for (auto* field : invoice_body_form_fields) {
+        if (auto* selector = qobject_cast<QComboBox*>(field))
+            selector->clear();
+        else if (auto* input = qobject_cast<QLineEdit*>(field))
+            input->clear();
+    }
+    create_invoice_pdf->setEnabled(true);
 }
 
 void NewInvoiceStock::populate_stock_list(const QJsonDocument& list) {
@@ -20,163 +33,120 @@ void NewInvoiceStock::populate_stock_list(const QJsonDocument& list) {
         selector->addItem(item.value("Name").toString(), item);
     }
 }
-/*Create the page layout*/
+
 void NewInvoiceStock::create_page_layout() {
-    QGroupBox* groupBox = new QGroupBox(tr("Invoice"));
-    QVBoxLayout* groupVbox = new QVBoxLayout;
-    QGridLayout* main_form_layout = new QGridLayout(this);
-    create_invoice_pdf = new QPushButton("Finish Invoice", item_form_layout_);
-    auto* back_button = new QPushButton("Back to dashboard", item_form_layout_);
-    main_form_layout->setAlignment(Qt::AlignCenter);
-    main_form_layout->setObjectName("form_grid_layout");
+    auto* content = UiStyle::page_content(this);
+    auto* layout = new QVBoxLayout(content);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(16);
+    auto* title = UiStyle::label("Invoice items", content, "title");
+    title->setAlignment(Qt::AlignCenter);
+    layout->addWidget(title);
 
-    QWidget* item_list = new QWidget(item_form_layout_);
-    auto* hbox = new QHBoxLayout(item_list);
-    auto* name_col = new QVBoxLayout();
-    auto* qty_col = new QVBoxLayout();
-    auto* price_col = new QVBoxLayout();
-    auto* name_label = new QLabel("Item Name", item_list);
-    auto* qty_label = new QLabel("Quantity", item_list);
-    auto* price_label = new QLabel("Price", item_list);
-    name_label->setObjectName("form_label");
-    qty_label->setObjectName("form_label");
-    price_label->setObjectName("form_label");
-
-    name_col->addWidget(name_label);
-    qty_col->addWidget(qty_label);
-    price_col->addWidget(price_label);
-    hbox->addLayout(name_col);
-    hbox->addLayout(qty_col);
-    hbox->addLayout(price_col);
-    hbox->setAlignment(Qt::AlignTop);
-    connect(this,
-            &NewInvoiceStock::add_item_to_invoice,
-            this,
-            [name_col, qty_col, price_col, item_list](const QJsonObject& doc) {
-                auto* item_label_ = new QLabel(doc.value("Name").toString(), item_list);
-                auto* qty_label_ = new QLabel(QString::number(doc.value("Quantity").toInt()), item_list);
-                auto* price_label_ = new QLabel(QString::number(doc.value("Price").toDouble(), 'f', 2), item_list);
-                name_col->addWidget(item_label_);
-                qty_col->addWidget(qty_label_);
-                price_col->addWidget(price_label_);
+    auto* group = new QGroupBox("Items added", content);
+    auto* group_layout = new QVBoxLayout(group);
+    auto* scroll = new QScrollArea(group);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setMinimumHeight(140);
+    scroll->setMaximumHeight(200);
+    auto* item_list = new QWidget(scroll);
+    auto* columns = new QHBoxLayout(item_list);
+    auto* names = new QVBoxLayout;
+    auto* quantities = new QVBoxLayout;
+    auto* prices = new QVBoxLayout;
+    names->addWidget(UiStyle::label("Item name", item_list));
+    quantities->addWidget(UiStyle::label("Quantity", item_list));
+    prices->addWidget(UiStyle::label("Price", item_list));
+    for (auto* column : {names, quantities, prices}) {
+        column->setAlignment(Qt::AlignTop);
+        column->setSpacing(10);
+    }
+    columns->addLayout(names, 2);
+    columns->addLayout(quantities, 1);
+    columns->addLayout(prices, 1);
+    scroll->setWidget(item_list);
+    group_layout->addWidget(scroll);
+    layout->addWidget(group);
+    connect(this, &NewInvoiceStock::add_item_to_invoice, this,
+            [this, names, quantities, prices, item_list](const QJsonObject& item) {
+                auto* name = UiStyle::label(item.value("Name").toString(), item_list, "body");
+                auto* quantity = UiStyle::label(QString::number(item.value("Quantity").toInt()), item_list, "body");
+                auto* price = UiStyle::label(QString::number(item.value("Price").toDouble(), 'f', 2), item_list, "body");
+                names->addWidget(name);
+                quantities->addWidget(quantity);
+                prices->addWidget(price);
+                item_labels_ << name << quantity << price;
             });
 
-    groupBox->setLayout(groupVbox);
-    groupVbox->addWidget(item_list);
-    main_form_layout->addWidget(groupBox, 0, 0, 1, 2);
-    main_form_layout->addLayout(create_item_entry_form(), 10, 0, 1, 2);
-
-    main_form_layout->addWidget(create_invoice_pdf, 20, 0, 1, 2, Qt::AlignCenter);
-    main_form_layout->addWidget(back_button, 21, 0, 1, 2, Qt::AlignCenter);
-    connect(back_button, &QPushButton::clicked, this, [this]() { emit invoice_navigation(Page::Dashboard); });
-    std::vector<FormField> fields = {
-
-    };
-
-    for (auto& element : fields) {
-        QLabel* label = new QLabel(element.label, item_form_layout_);
-        label->setObjectName("form_label");
-        int row = main_form_layout->rowCount();
-        main_form_layout->addWidget(label, row, 0);
-        if (element.type == FormField::Type::LineEdit) {
-            QLineEdit* input = new QLineEdit(item_form_layout_);
-            input->setObjectName("form_input");
-            input->setPlaceholderText(element.opt.placeholder);
-            main_form_layout->addWidget(input, row, 1);
-            invoice_body_form_fields[element.key] = input;
-        } else if (element.type == FormField::Type::ComboBox) {
-            QComboBox* input = new QComboBox(item_form_layout_);
-            input->setObjectName("form_input");
-            main_form_layout->addWidget(input, row, 1);
-            invoice_body_form_fields[element.key] = input;
-        } else if (element.type == FormField::Type::DateEdit && element.opt.fromNow) {
-            QDateEdit* input = new QDateEdit(QDate::currentDate(), item_form_layout_);
-            input->setDateRange(QDate::currentDate(), QDate::currentDate().addYears(100));
-            input->setObjectName("form_date_input");
-            input->setCalendarPopup(true);
-            main_form_layout->addWidget(input, row, 1);
-            invoice_body_form_fields[element.key] = input;
-        } else if (element.type == FormField::Type::DateEdit && element.opt.defaultToday) {
-            QDateEdit* input = new QDateEdit(QDate::currentDate(), item_form_layout_);
-            input->setObjectName("form_date_input");
-            input->setCalendarPopup(true);
-            main_form_layout->addWidget(input, row, 1);
-            invoice_body_form_fields[element.key] = input;
-        } else if (element.type == FormField::Type::DateEdit && !element.opt.defaultToday) {
-            QDateEdit* input = new QDateEdit(item_form_layout_);
-            input->setObjectName("form_date_input");
-            input->setCalendarPopup(true);
-            main_form_layout->addWidget(input, row, 1);
-            invoice_body_form_fields[element.key] = input;
-        }
-    }
-    this->setLayout(main_form_layout);
+    create_invoice_pdf = new QPushButton("Finish invoice", content);
+    auto* back = new QPushButton("Back to dashboard", content);
+    UiStyle::button(create_invoice_pdf, "primary");
+    UiStyle::button(back);
+    layout->addLayout(create_item_entry_form());
+    auto* buttons = new QHBoxLayout;
+    buttons->setSpacing(12);
+    buttons->addWidget(back, 1);
+    buttons->addWidget(create_invoice_pdf, 1);
+    layout->addLayout(buttons);
+    connect(back, &QPushButton::clicked, this, [this]() { emit invoice_navigation(Page::Dashboard); });
 }
-/*create the item entry and connect buttons to frontend and backend tasks*/
-QLayout* App::Views::NewInvoiceStock::create_item_entry_form() {
-    auto* row = new QHBoxLayout();
-    row->setContentsMargins(0, 0, 0, 0);
-    row->setSpacing(8);
 
-    auto* item_name_entry = new QComboBox();
-    auto* item_quantity_entry = new QLineEdit();
-    auto* item_price_entry = new QLineEdit();
-    auto* item_notes_entry = new QLineEdit();
-    auto* add_item_button = new QPushButton("Add Item");
-
-    item_quantity_entry->setValidator(new QIntValidator(1, 1'000'000, item_quantity_entry));
-    item_price_entry->setValidator(new QDoubleValidator(0, 1e9, 2, item_price_entry));
-
-    auto addPair = [&](const QString& text, QWidget* edit) {
-        auto* pair = new QWidget(this);
-        auto* h = new QHBoxLayout(pair);
-        h->setContentsMargins(0, 0, 0, 0);
-        h->setSpacing(4);
-        h->addWidget(new QLabel(text, pair));
-        h->addWidget(edit, 1);
-        row->addWidget(pair, 1);
+QLayout* NewInvoiceStock::create_item_entry_form() {
+    auto* form = new QGridLayout;
+    form->setHorizontalSpacing(12);
+    form->setVerticalSpacing(8);
+    form->setColumnStretch(0, 1);
+    form->setColumnStretch(1, 1);
+    auto* name = new QComboBox(this);
+    name->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    auto* quantity = new QLineEdit(this);
+    auto* price = new QLineEdit(this);
+    auto* notes = new QLineEdit(this);
+    auto* add = new QPushButton("Add item", this);
+    UiStyle::button(add);
+    quantity->setValidator(new QIntValidator(1, 1'000'000, quantity));
+    price->setValidator(new QDoubleValidator(0, 1e9, 2, price));
+    quantity->setPlaceholderText("Quantity");
+    price->setPlaceholderText("Use stock price");
+    notes->setPlaceholderText("Optional notes");
+    const auto add_field = [this, form](const QString& text, QWidget* edit, int row, int column) {
+        auto* label = UiStyle::label(text, this);
+        label->setBuddy(edit);
+        edit->setProperty("role", "input");
+        edit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        form->addWidget(label, row, column);
+        form->addWidget(edit, row + 1, column);
     };
+    add_field("Stock item", name, 0, 0);
+    add_field("Quantity", quantity, 0, 1);
+    add_field("Price each", price, 2, 0);
+    add_field("Notes", notes, 2, 1);
+    form->addWidget(add, 4, 1);
+    invoice_body_form_fields["stock_selector"] = name;
+    invoice_body_form_fields["quantity"] = quantity;
+    invoice_body_form_fields["price"] = price;
+    invoice_body_form_fields["notes"] = notes;
 
-    addPair("Item Name:", item_name_entry);
-    addPair("Quantity:", item_quantity_entry);
-    addPair("Price (each):", item_price_entry);
-    addPair("Notes:", item_notes_entry);
-
-    row->addWidget(add_item_button);
-    invoice_body_form_fields["stock_selector"] = item_name_entry;
-    emit find_stock();
-
-    /*Create a JSon object and add it to a JSon document*/
-    connect(add_item_button, &QPushButton::clicked, this, [=, this]() {
-        QJsonObject item;
-        item["Quantity"] = (item_quantity_entry->text().toInt());
-        item["Price"] = (item_price_entry->text().toFloat());
-        item["Name"] = item_name_entry->currentText();
-        const auto selected = item_name_entry->currentData().toJsonObject();
+    connect(add, &QPushButton::clicked, this, [=, this]() {
+        if (name->currentIndex() < 0) return;
+        QJsonObject item{{"Quantity", quantity->text().toInt()}, {"Price", price->text().toDouble()},
+                         {"Name", name->currentText()}, {"Notes", notes->text()}};
+        const auto selected = name->currentData().toJsonObject();
         if (!selected.isEmpty()) {
             item["StockID"] = selected.value("StockID");
-            if (item_price_entry->text().isEmpty()) item["Price"] = selected.value("Price");
+            if (price->text().isEmpty()) item["Price"] = selected.value("Price");
         }
-        item["Notes"] = (item_notes_entry->text());
-
-        item_name_entry->clear();
-        item_quantity_entry->clear();
-        item_price_entry->clear();
-        item_notes_entry->clear();
+        quantity->clear();
+        price->clear();
+        notes->clear();
         stock_items.append(item);
         emit add_item_to_invoice(item);
     });
-
-    /*send the json document to the app controller to send to the backend*/
-    connect(create_invoice_pdf, &QPushButton::clicked, this, [this](bool) {
-        if (stock_items.empty()) {
-            return;
-        }
-        qDebug() << "emit add_item_list;";
-        const QJsonDocument json(stock_items);
-        emit add_item_list_to_invoice(json);
+    connect(create_invoice_pdf, &QPushButton::clicked, this, [this]() {
+        if (stock_items.empty()) return;
+        emit add_item_list_to_invoice(QJsonDocument(stock_items));
         create_invoice_pdf->setDisabled(true);
     });
-
-    return row;
+    return form;
 }

@@ -22,6 +22,8 @@ class ApiClient : public QObject {
   signals:
     void business_list_received(const QJsonDocument& list);
     void stock_list_received(const QJsonDocument& list);
+    void invoice_started();
+    void invoice_failed(const QString& message);
     void login_succeeded();
     void login_failed(const QString& message);
     void signup_succeeded();

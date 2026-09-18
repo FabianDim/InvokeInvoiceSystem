@@ -20,11 +20,7 @@ class InvoiceDetailsInput : public QWidget {
 
   private:
     void create_page_layout();
-    void create_form_layout();
 
     QMap<QString, QWidget*> base_invoice_form_fields_;
-    QPushButton* dir_button_;
-    QWidget* parent_widget_;
-    QWidget* form_layout_;
 };
 } // namespace App::Views

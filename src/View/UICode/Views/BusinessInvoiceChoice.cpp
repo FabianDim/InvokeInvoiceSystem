@@ -1,10 +1,10 @@
 ﻿#include <QAbstractItemView> // Add this include at the top of the file
 #include "Application/Business/BusinessRepository.h"
 #include "View/UICode/Views/BusinessInvoiceChoice.h"
+#include "View/UiStyle.h"
 using namespace App::Views;
-App::Views::BusinessInvoiceChoice::BusinessInvoiceChoice(QWidget* parent) {
-    parent_widget_ = new QWidget(this);
-    form_layout_ = new QWidget(parent_widget_);
+App::Views::BusinessInvoiceChoice::BusinessInvoiceChoice(QWidget* parent) : QWidget(parent) {
+    form_layout_ = UiStyle::page_content(this);
     create_form_layout();
 }
 
@@ -16,10 +16,13 @@ void BusinessInvoiceChoice::create_form_layout() {
 
     business_select = new QComboBox(form_layout_);
     business_label->setObjectName("form_label");
+    business_label->setProperty("role", "field");
     business_select->setObjectName("form_input");
+    business_select->setProperty("role", "input");
 
     QPushButton* continue_button = new QPushButton("Continue", form_layout_);
     continue_button->setObjectName("form_button");
+    UiStyle::button(continue_button, "primary");
 
     main_form_layout->addWidget(business_label, 0, 0, Qt::AlignRight);
 
@@ -32,7 +35,6 @@ void BusinessInvoiceChoice::create_form_layout() {
         business_select->setDisabled(false);
         continue_button->setDisabled(false);
     });
-    this->setLayout(main_form_layout);
 
     connect(continue_button, &QPushButton::clicked, this, [this]() {
         emit business_selected();

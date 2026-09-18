@@ -1,11 +1,12 @@
 #include "Infrastructure/Http/ApiClient.h"
 #include "Infrastructure/Http/FakeServer.h"
 #include "Domain/Accounts/User.h"
+#include <QUrlQuery>
 
 using namespace Infrastructure::Http;
 
 ApiClient::ApiClient(const QUrl& baseUrl, Invoke::Domain::Accounts::IAccountManager* mgr, QObject* parent)
-    : networkManager_(new QNetworkAccessManager), baseUrl_(baseUrl), account_manager_(mgr) {}
+    : QObject(parent), networkManager_(new QNetworkAccessManager(this)), baseUrl_(baseUrl), account_manager_(mgr) {}
 
 void Infrastructure::Http::ApiClient::get_business_list() {
     QUrl url = baseUrl_;
@@ -70,15 +71,23 @@ void Infrastructure::Http::ApiClient::do_signup(const QJsonDocument& details) {
 }
 
 void Infrastructure::Http::ApiClient::get_stock_list() {
+    if (current_business_id_.isEmpty()) {
+        emit stock_list_received(QJsonDocument(QJsonArray{}));
+        return;
+    }
+    const auto business_id = current_business_id_;
     QUrl url = baseUrl_;
     url.setPath("/stock/list");
+    QUrlQuery query;
+    query.addQueryItem("BusinessID", business_id);
+    url.setQuery(query);
     QNetworkRequest request;
     request.setUrl(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     try {
         auto reply = networkManager_->get(request);
         connect(reply, &QNetworkReply::finished, this, [=]() {
-            if (reply->error() == QNetworkReply::NoError) {
+            if (reply->error() == QNetworkReply::NoError && current_business_id_ == business_id) {
                 const auto data = reply->readAll();
                 emit stock_list_received(QJsonDocument::fromJson(data));
             } else {
@@ -93,33 +102,15 @@ void Infrastructure::Http::ApiClient::get_stock_list() {
 
 void Infrastructure::Http::ApiClient::business_selected(const QJsonObject& biz) {
     current_business_id_ = biz.value("BusinessID").toString();
-    QUrl url = baseUrl_;
-    url.setPath("/business/objectify");
-    QNetworkRequest request;
-    request.setUrl(url);
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    try {
-        request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-        QJsonObject json = biz;
-        try {
-            auto reply = networkManager_->post(request, QJsonDocument(json).toJson());
-            connect(reply, &QNetworkReply::finished, this, [=]() {
-                if (reply->error() == QNetworkReply::NoError) {
-                    QByteArray data = reply->readAll();
-                } else {
-                    qDebug() << "Network error during business objectification:" << reply->errorString();
-                }
-                reply->deleteLater();
-            });
-        } catch (const std::exception& e) {
-            qDebug() << "Exception business object request:" << e.what();
-        }
-    } catch (const std::exception& e) {
-        qDebug() << "Exception during business object request:" << e.what();
-    }
 }
 
 void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoice) {
+    if (current_business_id_.isEmpty()) {
+        emit invoice_failed("Choose a business on the dashboard first.");
+        return;
+    }
+    auto payload = invoice.object();
+    payload["BusinessID"] = current_business_id_;
     QUrl url = baseUrl_;
     url.setPath("/invoices/invoice_start");
     QNetworkRequest request;
@@ -128,13 +119,12 @@ void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoi
     try {
         request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
         try {
-            auto reply = networkManager_->post(request, invoice.toJson());
+            auto reply = networkManager_->post(request, QJsonDocument(payload).toJson());
             connect(reply, &QNetworkReply::finished, this, [=]() {
                 if (reply->error() == QNetworkReply::NoError) {
-                    QByteArray data = reply->readAll();
-                    QJsonDocument jsonResponse = QJsonDocument::fromJson(data);
+                    emit invoice_started();
                 } else {
-                    qDebug() << "Network error during invoice objectification:" << reply->errorString();
+                    emit invoice_failed(reply->errorString());
                 }
                 reply->deleteLater();
             });
@@ -163,8 +153,13 @@ void Infrastructure::Http::ApiClient::stock_list(const QJsonDocument& stock) {
 }
 void Infrastructure::Http::ApiClient::save_resource(const QString& resource, const QJsonDocument& data) {
     QJsonObject payload = data.object();
-    if ((resource == "client" || resource == "stock") && !payload.contains("BusinessID"))
+    if (resource == "client" || resource == "stock") {
+        if (current_business_id_.isEmpty()) {
+            emit resource_save_failed("Choose a business on the dashboard first.");
+            return;
+        }
         payload["BusinessID"] = current_business_id_;
+    }
     QUrl url = baseUrl_;
     url.setPath("/data/" + resource);
     QNetworkRequest request(url);
@@ -203,6 +198,7 @@ void Infrastructure::Http::ApiClient::do_login(const QString& email, const QStri
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         loginInProgress_ = false;
         if (reply->error() == QNetworkReply::NoError) {
+            current_business_id_.clear();
             emit login_succeeded();
         } else {
             emit login_failed(reply->errorString());

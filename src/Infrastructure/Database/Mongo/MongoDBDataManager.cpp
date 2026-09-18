@@ -303,6 +303,10 @@ bool MongoDBDataManager::save_resource(const std::string& resource, QJsonObject 
         const auto business_id = data.value("BusinessID").toString().toStdString();
         if (business_id.empty())
             return false;
+        const auto user = findOne("Users", make_document(kvp("UserID", user_id), kvp("BusinessIDs", business_id)));
+        const auto business = findOne("Business", make_document(kvp("BusinessID", business_id)));
+        if (!user || !business)
+            return false;
         bsoncxx::builder::basic::document doc;
         if (resource == "client") {
             doc.append(kvp("ClientID", id.toStdString()));
@@ -329,7 +333,6 @@ bool MongoDBDataManager::save_resource(const std::string& resource, QJsonObject 
         const std::string key = resource == "client" ? "ClientIDs" : "StockIDs";
         const auto value = id.toStdString();
         const auto update = make_document(kvp("$addToSet", make_document(kvp(key, value))));
-        const auto business = findOne("Business", make_document(kvp("BusinessID", business_id)));
         return business && static_cast<bool>(InvokeDB["Business"].update_one(business->view(), update.view()));
     } catch (const std::exception& error) {
         qWarning() << "Could not save resource:" << error.what();

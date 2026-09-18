@@ -1,6 +1,8 @@
 <RCC>
   <qresource prefix="/icons">
-    <file>resources/icons/invoice_icon.png</file>
+    <file alias="invoice_icon.png">resources/icons/invoice_icon.png</file>
+    <file alias="caret-down.xpm">resources/icons/caret-down.xpm</file>
+    <file alias="check.xpm">resources/icons/check.xpm</file>
   </qresource>
   <qresource prefix="/styles">
     <file>UI/Global.qss</file>

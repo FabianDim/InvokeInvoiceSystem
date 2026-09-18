@@ -4,6 +4,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QVBoxLayout>
+#include "View/UiStyle.h"
 
 namespace App::Views {
 SignupPage::SignupPage(QWidget* parent) : QWidget(parent) {
@@ -11,29 +12,35 @@ SignupPage::SignupPage(QWidget* parent) : QWidget(parent) {
 }
 
 void SignupPage::create_page_layout() {
-    auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(36, 28, 36, 28);
+    auto* content = UiStyle::page_content(this);
+    auto* layout = new QVBoxLayout(content);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(12);
 
     auto* title = new QLabel("Create your account", this);
     title->setObjectName("titleLabel");
+    title->setProperty("role", "title");
     title->setAlignment(Qt::AlignCenter);
     layout->addWidget(title);
 
     auto* subtitle = new QLabel("Set up your workspace and start creating invoices.", this);
     subtitle->setObjectName("subtitleLabel");
+    subtitle->setProperty("role", "subtitle");
+    subtitle->setWordWrap(true);
     subtitle->setAlignment(Qt::AlignCenter);
     layout->addWidget(subtitle);
 
     auto* form = new QFormLayout;
     form->setSpacing(10);
+    form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     auto add_field = [form, this](const QString& label, QLineEdit*& target, bool password = false) {
         target = new QLineEdit(this);
         target->setObjectName("form_input");
+        target->setProperty("role", "input");
         target->setPlaceholderText(label);
         if (password)
             target->setEchoMode(QLineEdit::Password);
-        form->addRow(label + ":", target);
+        form->addRow(UiStyle::label(label, this), target);
     };
     add_field("First name", first_name_input_);
     add_field("Last name", last_name_input_);
@@ -47,11 +54,15 @@ void SignupPage::create_page_layout() {
     create->setObjectName("register_button_");
     auto* back = new QPushButton("Back to login", this);
     back->setObjectName("login_button_");
-    buttons->addWidget(back);
-    buttons->addWidget(create);
+    UiStyle::button(create, "primary");
+    UiStyle::button(back);
+    buttons->setSpacing(12);
+    buttons->addWidget(back, 1);
+    buttons->addWidget(create, 1);
     layout->addLayout(buttons);
 
     status_label_ = new QLabel(this);
+    status_label_->setProperty("role", "status");
     status_label_->setWordWrap(true);
     status_label_->setAlignment(Qt::AlignCenter);
     layout->addWidget(status_label_);

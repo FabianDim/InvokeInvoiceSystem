@@ -48,13 +48,13 @@ int main(int argc, char* argv[]) {
     MongoDBDataManager data_manager;
     QApplication app(argc, argv);
 
-    app.setWindowIcon(QIcon(":/icons/invoice_icon.ico"));
+    app.setWindowIcon(QIcon(":/icons/invoice_icon.png"));
     QFile f(":/styles/UI/Global.qss");
     if (f.open(QIODevice::ReadOnly)) {
-        QString StyleSheet = QLatin1String(f.readAll());
+        QString StyleSheet = QString::fromUtf8(f.readAll());
         app.setStyleSheet(StyleSheet);
     } else {
-        qWarning() << "Failed to load stylesheet";
+        qWarning() << "Failed to load stylesheet" << f.fileName() << f.errorString();
     }
     Invoke::Application::Auth::QSettingsSessionManager session_manager;
     QCoreApplication::setOrganizationName("Invoke");

@@ -17,6 +17,14 @@ std::string User::getMongoUserID() const {
 	return mongoUserID;
 }
 
+std::vector<std::string> User::get_user_businesses() {
+    return business_ids_;
+}
+
+void User::set_user_business(const std::vector<std::string>& business_array) {
+    business_ids_ = business_array;
+}
+
 void User::setUserEmail(const std::string& newEmail) {
 	this->email = newEmail;
 }

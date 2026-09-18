@@ -13,13 +13,12 @@
 
 App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& acctMgr, QWidget* parent)
     : QMainWindow(parent), fileMenu(nullptr), newAct(nullptr), openAct(nullptr), saveAct(nullptr), loginAct(nullptr),
-      logoutAct(nullptr), acctMgr(acctMgr), landingPage_(new App::Views::LandingPage(acctMgr, this)),
+      logoutAct(nullptr), acctMgr(acctMgr),
       pagesStack(new QStackedWidget(this)) {
 
     auto* central = new QWidget(this);
     auto* vbox = new QVBoxLayout(central);
-    vbox->setAlignment(Qt::AlignCenter);
-    // vbox->setContentsMargins(0, 0, 0, 0);
+    vbox->setContentsMargins(0, 0, 0, 0);
     vbox->setSpacing(6);
     setCentralWidget(central);
 
@@ -41,7 +40,7 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
     pagesStack->setCurrentWidget(start_page);
     // start page
 
-    vbox->addWidget(pagesStack, /*stretch*/ 1, Qt::AlignCenter);
+    vbox->addWidget(pagesStack, /*stretch*/ 1);
 
     // Menus & actions
     createAccountActions();
@@ -50,6 +49,7 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
     connect(loginAct, &QAction::triggered, this, [this]() { show_page(login_page()); });
     connect(logoutAct, &QAction::triggered, this, [this]() {
         this->acctMgr.logOut();
+        emit logged_out();
         loginAct->setVisible(true);
         logoutAct->setVisible(false);
         show_page(landing_page());
@@ -90,6 +90,8 @@ void App::Views::MainWindow::createFileActions() {
 
 // application could pass in the page instance instead of using a switch
 void App::Views::MainWindow::show_page(QWidget* widget) {
+    loginAct->setVisible(!acctMgr.is_logged_in());
+    logoutAct->setVisible(acctMgr.is_logged_in());
     pagesStack->setCurrentWidget(widget);
 }
 

@@ -50,6 +50,9 @@ class MainWindow : public QMainWindow {
     ManagementForm* stock_settings_page();
     ManagementForm* account_settings_page();
 
+  signals:
+    void logged_out();
+
   private:
     Ui::MainWindow* ui;
 
