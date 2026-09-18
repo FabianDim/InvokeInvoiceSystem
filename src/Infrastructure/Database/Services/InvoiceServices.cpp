@@ -24,7 +24,6 @@ void InvoiceServices::add_business_to_invoice(const QJsonDocument& doc) {
     invoice_.clear_invoice();
     auto biz = std::shared_ptr<BusinessRepository>(new BusinessRepository());
     QJsonObject obj = doc.object();
-    qDebug() << "document: " << doc;
     if (!obj["BusinessID"].isUndefined())
         biz->setBizID(obj["BusinessID"].toString().toStdString());
     if (!obj["ABN"].isUndefined())
@@ -35,9 +34,23 @@ void InvoiceServices::add_business_to_invoice(const QJsonDocument& doc) {
         biz->setBizName(obj["BusinessName"].toString().toStdString());
     if (!obj["Phone"].isUndefined())
         biz->setPhone(obj["Phone"].toString().toStdString());
+    biz->set_website_url(obj.value("Website").toString().toStdString());
+    biz->set_business_logo_path(obj.value("LogoPath").toString().toStdString());
+    biz->set_business_logo_data(obj.value("LogoData").toString().toStdString());
 
     invoice_.setBusiness(biz);
     qDebug() << "Business added to invoice." << QString::fromStdString(biz->getBizName());
+}
+
+void InvoiceServices::add_client_to_invoice(const QJsonDocument& doc) {
+    const auto data = doc.object();
+    auto client = std::make_shared<Client>();
+    client->setClientID(data.value("ClientID").toString().toStdString());
+    client->setName(data.value("Name").toString().toStdString());
+    client->setAddress(data.value("Address").toString().toStdString());
+    client->setEmail(data.value("Email").toString().toStdString());
+    client->setPhoneNumber(data.value("Phone").toString().toStdString());
+    invoice_.setClient(client);
 }
 
 void Infrastructure::Services::InvoiceServices::begin_invoice_details(const QJsonDocument& doc) {
@@ -52,7 +65,6 @@ void Infrastructure::Services::InvoiceServices::begin_invoice_details(const QJso
     invoice_.setTemplate(template_converter(doc.object().value("invoice_theme").toString().toStdString()));
     invoice_.set_file_name(doc.object().value("file_dir").toString().toStdString() + "/" +
                            normalise_file_name(doc.object().value("file_name").toString().toStdString()));
-    invoice_.set_website(doc.object().value("website").toString().toStdString());
 }
 
 /**
@@ -73,6 +85,7 @@ void Infrastructure::Services::InvoiceServices::add_stock_to_invoice(const QJson
         try {
             if (!stock_object.empty()) {
                 auto item = std::make_shared<StockItem>();
+                item->setStockID(stock_object.value("StockID").toString().toStdString());
                 item->set_description(stock_object["Name"].toString().toStdString());
                 qDebug() << stock_object["Name"].toString().toStdString();
                 item->setStdPrice(stock_object["Price"].toDouble());

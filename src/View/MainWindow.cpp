@@ -174,7 +174,7 @@ App::Views::ManagementForm* App::Views::MainWindow::business_settings_page() {
     if (!business_settings_page_) {
         business_settings_page_ = new ManagementForm(
             "Configure Business", "business",
-            {"ABN", "Business name", "Business phone", "Country", "State or province", "City", "Street address", "Postcode", "ACN"},
+            {"ABN", "Business name", "Business phone", "Country", "State or province", "City", "Street address", "Postcode", "ACN", "Website"},
             this);
         pagesStack->addWidget(business_settings_page_);
     }

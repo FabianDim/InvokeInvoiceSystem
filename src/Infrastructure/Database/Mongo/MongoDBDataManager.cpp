@@ -10,6 +10,7 @@
 #include <QUuid>
 #include "Application/Business/SetBusinessFromDB.h"
 #include "Infrastructure/Security/PasswordHashing/bcrypt.h"
+#include "Utils/BusinessLogo.h"
 bsoncxx::document::value MongoDBDataManager::buildNewUser(const std::shared_ptr<User>& newUser) {
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
@@ -194,6 +195,9 @@ QJsonDocument MongoDBDataManager::get_account_businesses(const std::string& user
                         json_object["ABN"] = QString::fromStdString(item->getAbn());
                         json_object["ACN"] = QString::fromStdString(item->getAcn());
                         json_object["Phone"] = QString::fromStdString(item->getPhone());
+                        json_object["Website"] = QString::fromStdString(item->get_website_url());
+                        json_object["LogoPath"] = QString::fromStdString(item->get_business_logo_path());
+                        json_object["LogoData"] = QString::fromStdString(item->get_business_logo_data());
                         json_id[QString::fromStdString(std::string(elem.get_string().value))] = json_object;
                     }
                 }
@@ -237,6 +241,11 @@ QJsonDocument MongoDBDataManager::list_resources(const std::string& resource, co
                     const auto acn = view["ACN"];
                     if (acn && acn.type() == bsoncxx::type::k_string)
                         item["ACN"] = QString::fromUtf8(acn.get_string().value);
+                    for (const auto* field : {"Website", "LogoPath"}) {
+                        const auto value = view[field];
+                        if (value && value.type() == bsoncxx::type::k_string)
+                            item[field] = QString::fromUtf8(value.get_string().value);
+                    }
                     result.append(item);
                 }
             }
@@ -300,13 +309,22 @@ QJsonDocument MongoDBDataManager::list_resources(const std::string& resource, co
     return QJsonDocument(result);
 }
 
-bool MongoDBDataManager::save_resource(const std::string& resource, QJsonObject data, const std::string& user_id) {
+bool MongoDBDataManager::save_resource(const std::string& resource, QJsonObject data, const std::string& user_id,
+                                       QString* saved_id) {
     try {
         const auto id = QString::fromStdString(resource == "business" ? "BUS"
                                                : resource == "client" ? "CLI"
                                                                       : "STK") +
                         QUuid::createUuid().toString(QUuid::WithoutBraces).left(8).toUpper();
         if (resource == "business") {
+            QByteArray logo;
+            const auto encoded = data.value("LogoData").toString().toLatin1();
+            if (!encoded.isEmpty()) {
+                QString error;
+                if (encoded.size() > (BusinessLogo::maximum_bytes + 2) / 3 * 4 ||
+                    !BusinessLogo::normalise(QByteArray::fromBase64(encoded), logo, error))
+                    return false;
+            }
             const auto doc = make_document(kvp("BusinessID", id.toStdString()),
                                            kvp("UserID", user_id),
                                            kvp("ABN", data.value("ABN").toString().toStdString()),
@@ -314,6 +332,9 @@ bool MongoDBDataManager::save_resource(const std::string& resource, QJsonObject 
                                            kvp("BusinessName", data.value("Business name").toString().toStdString()),
                                            kvp("BusinessAddress", data.value("Address").toString().toStdString()),
                                            kvp("ACN", data.value("ACN").toString().toStdString()),
+                                           kvp("Website", data.value("Website").toString().toStdString()),
+                                           kvp("LogoPath", data.value("LogoPath").toString().toStdString()),
+                                           kvp("LogoData", logo.toBase64().toStdString()),
                                            kvp("ClientIDs", bsoncxx::builder::basic::array{}),
                                            kvp("StockIDs", bsoncxx::builder::basic::array{}));
             if (!insertDocument("Business", doc.view()))
@@ -322,7 +343,10 @@ bool MongoDBDataManager::save_resource(const std::string& resource, QJsonObject 
             if (!user)
                 return false;
             const auto update = make_document(kvp("$addToSet", make_document(kvp("BusinessIDs", id.toStdString()))));
-            return static_cast<bool>(InvokeDB["Users"].update_one(user->view(), update.view()));
+            const auto result = InvokeDB["Users"].update_one(user->view(), update.view());
+            if (result && saved_id)
+                *saved_id = id;
+            return static_cast<bool>(result);
         }
 
         const auto business_id = data.value("BusinessID").toString().toStdString();
@@ -358,7 +382,10 @@ bool MongoDBDataManager::save_resource(const std::string& resource, QJsonObject 
         const std::string key = resource == "client" ? "ClientIDs" : "StockIDs";
         const auto value = id.toStdString();
         const auto update = make_document(kvp("$addToSet", make_document(kvp(key, value))));
-        return business && static_cast<bool>(InvokeDB["Business"].update_one(business->view(), update.view()));
+        const auto result = InvokeDB["Business"].update_one(business->view(), update.view());
+        if (result && saved_id)
+            *saved_id = id;
+        return static_cast<bool>(result);
     } catch (const std::exception& error) {
         qWarning() << "Could not save resource:" << error.what();
         return false;

@@ -44,7 +44,13 @@ class BusinessRepository {
         return website_url_;
     }
     const std::string& get_biz_logo_url() const {
-        return biz_logo_;
+        return business_logo_path_;
+    }
+    const std::string& get_business_logo_path() const {
+        return business_logo_path_;
+    }
+    const std::string& get_business_logo_data() const {
+        return business_logo_data_;
     }
 
     // Setters
@@ -79,7 +85,13 @@ class BusinessRepository {
         website_url_ = value;
     }
     void set_biz_logo_url(const std::string& value) {
-        biz_logo_ = value;
+        set_business_logo_path(value);
+    }
+    void set_business_logo_path(const std::string& value) {
+        business_logo_path_ = value;
+    }
+    void set_business_logo_data(const std::string& value) {
+        business_logo_data_ = value;
     }
 
   private:
@@ -93,7 +105,8 @@ class BusinessRepository {
     std::string address;
     std::string acn;
     std::string website_url_;
-    std::string biz_logo_;
+    std::string business_logo_path_;
+    std::string business_logo_data_;
 
     std::shared_ptr<User> current_user_;
     std::string current_user_id_;

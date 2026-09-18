@@ -60,6 +60,7 @@ class InvoicePdfGenerator {
     TableLayout build_invoice_table_layout(float page_width, float page_height, bool first_page) const;
     HPDF_Page start_invoice_table_page(HPDF_Doc pdf, bool first_page, int page_number, TableLayout& table);
     void draw_invoice_page_header(HPDF_Doc pdf, HPDF_Page page, bool first_page);
+    float draw_invoice_client(HPDF_Doc pdf, HPDF_Page page);
     void draw_invoice_footer(HPDF_Doc pdf, HPDF_Page page, int page_number);
     bool row_fits_on_page(const TableLayout& table, int rowIndex) const;
     const float peece_margin = 25.0f;

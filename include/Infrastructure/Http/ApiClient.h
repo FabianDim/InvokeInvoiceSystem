@@ -23,6 +23,7 @@ class ApiClient : public QObject {
     void invoice_details(const QJsonDocument& invoice);
     void stock_list(const QJsonDocument& stock);
     void save_resource(const QString& resource, const QJsonDocument& data);
+    void save_invoice_stock(const QJsonDocument& item, quint64 request_id);
     void get_business_items(bool refresh = false);
     void clear_session();
   signals:
@@ -38,6 +39,8 @@ class ApiClient : public QObject {
     void resource_save_failed(const QString& message);
     void business_items_received(const QJsonDocument& items);
     void business_items_failed(const QString& message);
+    void invoice_stock_saved(const QJsonDocument& item, quint64 request_id);
+    void invoice_stock_save_failed(const QString& message, quint64 request_id);
 
   private:
     bool loginInProgress_ = false;
@@ -51,5 +54,7 @@ class ApiClient : public QObject {
     QPointer<QNetworkReply> business_items_reply_;
     quint64 business_items_generation_ = 0;
     quint64 session_generation_ = 0;
+    void post_resource(const QString& resource, const QJsonDocument& data,
+                       const QJsonDocument& invoice_item = {}, quint64 request_id = 0);
 };
 } // namespace Infrastructure::Http

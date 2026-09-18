@@ -64,6 +64,14 @@ AppController::AppController(App::Views::MainWindow* main,
                      main_->items_page(), &App::Views::ItemsPage::populate_items);
     QObject::connect(api_, &Infrastructure::Http::ApiClient::business_items_failed,
                      main_->items_page(), &App::Views::ItemsPage::set_error);
+    QObject::connect(main_->dashboard_page(), &App::Views::Dashboard::business_chosen,
+                     main_->new_invoice_page(), &App::Views::InvoiceDetailsInput::business_selected);
+    QObject::connect(main_->new_invoice_page(), &App::Views::InvoiceDetailsInput::clients_requested,
+                     api_, &Infrastructure::Http::ApiClient::get_business_items);
+    QObject::connect(api_, &Infrastructure::Http::ApiClient::business_items_received,
+                     main_->new_invoice_page(), &App::Views::InvoiceDetailsInput::populate_clients);
+    QObject::connect(api_, &Infrastructure::Http::ApiClient::business_items_failed,
+                     main_->new_invoice_page(), &App::Views::InvoiceDetailsInput::set_client_error);
 
     QObject::connect(main_->new_invoice_page(),
                      &App::Views::InvoiceDetailsInput::set_invoice_details,
@@ -117,11 +125,21 @@ AppController::AppController(App::Views::MainWindow* main,
                      &Infrastructure::Http::ApiClient::stock_list_received,
                      main_->new_invoice_stock_page(),
                      &App::Views::NewInvoiceStock::populate_stock_list);
+    QObject::connect(main_->dashboard_page(), &App::Views::Dashboard::business_chosen,
+                     main_->new_invoice_stock_page(), &App::Views::NewInvoiceStock::business_selected);
+    QObject::connect(main_->new_invoice_stock_page(), &App::Views::NewInvoiceStock::save_invoice_stock,
+                     api_, &Infrastructure::Http::ApiClient::save_invoice_stock);
+    QObject::connect(api_, &Infrastructure::Http::ApiClient::invoice_stock_saved,
+                     main_->new_invoice_stock_page(), &App::Views::NewInvoiceStock::stock_saved);
+    QObject::connect(api_, &Infrastructure::Http::ApiClient::invoice_stock_save_failed,
+                     main_->new_invoice_stock_page(), &App::Views::NewInvoiceStock::stock_save_failed);
 }
 
 void AppController::resource_saved(const QString& resource) {
     if (main_->items_page()->isVisible())
         main_->items_page()->load_items();
+    if (main_->new_invoice_page()->isVisible())
+        main_->new_invoice_page()->load_clients();
     if (resource == "client")
         main_->client_page()->set_status("Client saved.");
     else if (resource == "business") {
@@ -169,6 +187,7 @@ void AppController::page_navigation(Page page) {
     case Page::NewInvoice:
         main_->new_invoice_stock_page()->reset_invoice();
         main_->show_page(main_->new_invoice_page());
+        main_->new_invoice_page()->load_clients();
         break;
     case Page::StockInput:
         api_->get_stock_list();

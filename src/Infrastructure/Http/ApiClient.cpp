@@ -182,6 +182,10 @@ void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoi
         return;
     }
     auto payload = invoice.object();
+    if (payload.value("ClientID").toString().isEmpty()) {
+        emit invoice_failed("Choose a client for this invoice first.");
+        return;
+    }
     payload["BusinessID"] = current_business_id_;
     QUrl url = baseUrl_;
     url.setPath("/invoices/invoice_start");
@@ -196,7 +200,8 @@ void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoi
                 if (reply->error() == QNetworkReply::NoError) {
                     emit invoice_started();
                 } else {
-                    emit invoice_failed(reply->errorString());
+                    const auto response = QJsonDocument::fromJson(reply->readAll());
+                    emit invoice_failed(response.object().value("error").toString(reply->errorString()));
                 }
                 reply->deleteLater();
             });
@@ -224,12 +229,29 @@ void Infrastructure::Http::ApiClient::stock_list(const QJsonDocument& stock) {
     }
 }
 void Infrastructure::Http::ApiClient::save_resource(const QString& resource, const QJsonDocument& data) {
+    post_resource(resource, data);
+}
+
+void ApiClient::save_invoice_stock(const QJsonDocument& item, quint64 request_id) {
+    auto data = item.object();
+    // Invoice quantity and inventory on hand have different meanings.
+    data["Quantity"] = data.value("StockOnHand");
+    data.remove("StockOnHand");
+    data.remove("Notes");
+    post_resource("stock", QJsonDocument(data), item, request_id);
+}
+
+void ApiClient::post_resource(const QString& resource, const QJsonDocument& data,
+                              const QJsonDocument& invoice_item, quint64 request_id) {
     const auto business_id = current_business_id_;
     const auto session = session_generation_;
     QJsonObject payload = data.object();
     if (resource == "client" || resource == "stock") {
         if (current_business_id_.isEmpty()) {
-            emit resource_save_failed("Choose a business on the dashboard first.");
+            if (invoice_item.isNull())
+                emit resource_save_failed("Choose a business on the dashboard first.");
+            else
+                emit invoice_stock_save_failed("Choose a business on the dashboard first.", request_id);
             return;
         }
         payload["BusinessID"] = current_business_id_;
@@ -237,9 +259,10 @@ void Infrastructure::Http::ApiClient::save_resource(const QString& resource, con
     QUrl url = baseUrl_;
     url.setPath("/data/" + resource);
     QNetworkRequest request(url);
+    request.setTransferTimeout(30000);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     auto* reply = networkManager_->post(request, QJsonDocument(payload).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply, resource, business_id, session]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, resource, business_id, session, invoice_item, request_id]() {
         reply->deleteLater();
         if (session != session_generation_)
             return;
@@ -248,10 +271,19 @@ void Infrastructure::Http::ApiClient::save_resource(const QString& resource, con
             if (business_id == current_business_id_)
                 invalidate_business_items();
             emit resource_saved(resource);
+            if (!invoice_item.isNull() && business_id == current_business_id_) {
+                auto saved = invoice_item.object();
+                saved["StockID"] = QJsonDocument::fromJson(body).object().value("id");
+                emit invoice_stock_saved(QJsonDocument(saved), request_id);
+            }
         } else {
             QJsonParseError error{};
             const auto response = QJsonDocument::fromJson(body, &error);
-            emit resource_save_failed(response.object().value("error").toString(reply->errorString()));
+            const auto message = response.object().value("error").toString(reply->errorString());
+            if (invoice_item.isNull())
+                emit resource_save_failed(message);
+            else if (business_id == current_business_id_)
+                emit invoice_stock_save_failed(message, request_id);
         }
     });
 }

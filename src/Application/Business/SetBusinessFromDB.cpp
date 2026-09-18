@@ -39,6 +39,16 @@ std::shared_ptr<BusinessRepository> SetBusiness::setUpBusiness(const std::string
         business->setPhone(phone);
         business->setBizName(name);
         business->setAcn(acn);
+        business->setAddress(address);
+        const auto website = view["Website"];
+        if (website && website.type() == bsoncxx::type::k_string)
+            business->set_website_url(std::string(website.get_string().value));
+        const auto logo_path = view["LogoPath"];
+        if (logo_path && logo_path.type() == bsoncxx::type::k_string)
+            business->set_business_logo_path(std::string(logo_path.get_string().value));
+        const auto logo_data = view["LogoData"];
+        if (logo_data && logo_data.type() == bsoncxx::type::k_string)
+            business->set_business_logo_data(std::string(logo_data.get_string().value));
         business->setClients(clients);
         business->setStock(stock);
 
