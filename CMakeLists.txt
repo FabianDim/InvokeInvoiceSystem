@@ -64,9 +64,9 @@
     )
 
     # Qt resources
-    qt_add_resources(InvokeInvoiceSystem app_resources
-    FILES forms/Invoice_Resources.qrc
-    )
+    set(CMAKE_AUTORCC ON)
+    set_target_properties(InvokeInvoiceSystem PROPERTIES AUTORCC ON)
+    target_sources(InvokeInvoiceSystem PRIVATE forms/Invoice_Resources.qrc)
 
     # Public include root
     target_include_directories(InvokeInvoiceSystem PUBLIC ${CMAKE_SOURCE_DIR}/include)
@@ -123,6 +123,71 @@
         NO_UNSUPPORTED_PLATFORM_ERROR
     )
     install(SCRIPT ${deploy_script})
-    qt_finalize_executable(InvokeInvoiceSystem)
+    qt_finalize_executable(InvokeInvoiceSystem
+        src/View/UICode/Views/SignupPage.cpp)
     qt_finalize_executable(InvokeInvoiceSystemTests)
+
+    # Live, read-only MongoDB health checks use the same environment as the application.
+    qt_add_executable(DatabaseTests
+        tests/DatabaseTests.cpp
+        src/Infrastructure/Database/Mongo/MongoDBHandler.cpp
+    )
+    set_target_properties(DatabaseTests PROPERTIES WIN32_EXECUTABLE OFF MACOSX_BUNDLE OFF)
+    target_include_directories(DatabaseTests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(DatabaseTests PRIVATE
+        Qt6::Test
+        fmt::fmt
+        unofficial::libharu::hpdf
+        $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
+        $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
+    )
+    enable_testing()
+    qt_add_executable(BusinessSessionTests
+        tests/BusinessSessionTests.cpp
+        src/View/UICode/Views/ItemsPage.cpp
+        include/View/UICode/Views/ItemsPage.h
+        src/Application/Controllers/AppController.cpp
+        include/Application/Controllers/AppController.h
+        src/View/UICode/Views/Dashboard.cpp
+        src/View/UICode/Views/NewInvoiceStock.cpp
+        src/Infrastructure/Http/ApiClient.cpp
+        include/View/UICode/Views/Dashboard.h
+        include/View/UICode/Views/NewInvoiceStock.h
+        include/Infrastructure/Http/ApiClient.h
+        forms/Invoice_Resources.qrc
+        src/View/MainWindow.cpp
+        src/View/UICode/Views/LandingPage.cpp
+        src/View/UICode/Views/LoginPage.cpp
+        src/View/UICode/Views/SignupPage.cpp
+        src/View/UICode/Views/ManagementForm.cpp
+        src/View/UICode/Views/NewInvoiceCreation.cpp
+        src/View/UICode/Views/BusinessInvoiceChoice.cpp
+        include/View/MainWindow.h
+        include/View/UICode/Views/LandingPage.h
+        include/View/UICode/Views/LoginPage.h
+        include/View/UICode/Views/SignupPage.h
+        include/View/UICode/Views/ManagementForm.h
+        include/View/UICode/Views/NewInvoiceCreation.h
+        include/View/UICode/Views/BusinessInvoiceChoice.h
+    )
+    set_target_properties(BusinessSessionTests PROPERTIES WIN32_EXECUTABLE OFF MACOSX_BUNDLE OFF)
+    target_include_directories(BusinessSessionTests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(BusinessSessionTests PRIVATE
+        Qt6::Test Qt6::Widgets Qt6::HttpServer Qt6::Network
+        fmt::fmt unofficial::libharu::hpdf
+        $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
+        $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
+    )
+    add_test(NAME BusinessSession COMMAND BusinessSessionTests)
+    set_tests_properties(BusinessSession PROPERTIES
+        LABELS "ui;session"
+        TIMEOUT 30
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_PLATFORM_PLUGIN_PATH=$<TARGET_FILE_DIR:Qt6::QOffscreenIntegrationPlugin>;QT_ASSUME_STDERR_HAS_CONSOLE=1"
+    )
+    add_test(NAME DatabaseHealth COMMAND DatabaseTests)
+    set_tests_properties(DatabaseHealth PROPERTIES
+        LABELS "database;integration"
+        TIMEOUT 60
+        ENVIRONMENT "QT_ASSUME_STDERR_HAS_CONSOLE=1"
+    )
 

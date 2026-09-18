@@ -48,22 +48,19 @@ int main(int argc, char* argv[]) {
     MongoDBDataManager data_manager;
     QApplication app(argc, argv);
 
-    app.setWindowIcon(QIcon(":/icons/invoice_icon.ico"));
-    QFile f("C:/Users/fdime/Repos/InvokeInvoiceSystem/forms/UI/Global.qss");
+    app.setWindowIcon(QIcon(":/icons/invoice_icon.png"));
+    QFile f(":/styles/UI/Global.qss");
     if (f.open(QIODevice::ReadOnly)) {
-        QString StyleSheet = QLatin1String(f.readAll());
+        QString StyleSheet = QString::fromUtf8(f.readAll());
         app.setStyleSheet(StyleSheet);
     } else {
-        qWarning() << "Failed to load stylesheet";
+        qWarning() << "Failed to load stylesheet" << f.fileName() << f.errorString();
     }
     Invoke::Application::Auth::QSettingsSessionManager session_manager;
     QCoreApplication::setOrganizationName("Invoke");
     QCoreApplication::setApplicationName("InvokeInvoiceSystem");
 
     AccountManager accountManager(data_manager);
-    auto user = std::make_shared<User>("test@email.com", "password123");
-    user->setMongoUserID("USR00000001");
-    accountManager.setTestUser(user);
     Server server(data_manager, &accountManager);
     auto api = new Infrastructure::Http::ApiClient(QUrl("http://127.0.0.1:1234"), &accountManager, &app);
     App::Views::MainWindow window(accountManager);

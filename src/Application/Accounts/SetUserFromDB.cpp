@@ -16,6 +16,7 @@ std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const st
         auto last = view["LastName"];
         auto email = view["UserEmail"];
         auto pass = view["UserPassword"];
+        auto business_id_array = view["BusinessIDs"];
         if (!first || first.type() != bsoncxx::type::k_string) {
             throw std::runtime_error("FirstName missing or wrong type");
         }
@@ -24,6 +25,16 @@ std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const st
         std::string lastName{last.get_string().value};
         std::string userEmail{email.get_string().value};
         std::string password{pass.get_string().value};
+        std::vector<std::string> business_ids;
+        if (business_id_array && business_id_array.type() == bsoncxx::type::k_array) {
+            for (const auto& business_id : business_id_array.get_array().value) {
+                if (business_id.type() != bsoncxx::type::k_string) {
+                    throw std::runtime_error("BusinessIDs contains a non-string value");
+                }
+                business_ids.emplace_back(business_id.get_string().value);
+            }
+        }
+        user->set_user_business(business_ids);
         user->setMongoUserID(userID);
         user->setFirstName(firstName);
         user->setLastName(lastName);

@@ -7,6 +7,9 @@
 #include "Application/Accounts/AccountManager.h"
 #include <QLineEdit>
 #include <QCheckBox>
+#include "Infrastructure/Enums/RouteEnums.h"
+
+class QLabel;
 
 namespace App {
 namespace Views {
@@ -16,9 +19,12 @@ class LoginPage : public QWidget {
     LoginPage(QWidget* parent = nullptr);
     ~LoginPage() = default;
 
+  public slots:
+    void set_status(const QString& message);
+
   signals:
     void login_requested(const QString& email, const QString& password, bool remember);
-    void login_succeeded();
+    void navigate_to(Page page);
 
   private:
     void createPageLayout();
@@ -35,6 +41,7 @@ class LoginPage : public QWidget {
     QLineEdit* password_input_;
 
     QPushButton* login_button_;
+    QLabel* status_label_;
 };
 } // namespace Views
 } // namespace App

@@ -1,77 +1,41 @@
-#include "View/UICode/Views/LandingPage.h"
-#include <qlabel.h>
-#include <QVBoxLayout>
-#include <QPushButton>
-#include "View/StyleSheet.h"
-#include <QGraphicsDropShadowEffect>
+﻿#include "View/UICode/Views/LandingPage.h"
+#include "View/UiStyle.h"
 
 namespace App::Views {
+LandingPage::LandingPage(Invoke::Domain::Accounts::IAccountManager&, QWidget* parent) : QWidget(parent) {
+    title_widget_ = UiStyle::page_content(this);
+    button_layout_ = new QWidget(title_widget_);
+    inner_layout_ = new QVBoxLayout(title_widget_);
+    createPageLayout();
+    connect(register_button_, &QPushButton::clicked, this, &LandingPage::on_register_clicked);
+    connect(login_button_, &QPushButton::clicked, this, &LandingPage::on_login_clicked);
+}
 
-    LandingPage::LandingPage(Invoke::Domain::Accounts::IAccountManager& account_manager, QWidget* parent)
-        : QWidget(parent) {
-        title_widget_ = new QWidget(this);
-        button_layout_ = new QWidget(title_widget_);
-        inner_layout_ = new QVBoxLayout(title_widget_);
-        setParent(parent);
-        setWindowTitle("Landing Page");
-        createPageLayout();
-        // setFixedSize(800, 600);
-        // wire the actions last
+void LandingPage::createPageLayout() {
+    inner_layout_->setContentsMargins(0, 0, 0, 0);
+    inner_layout_->setSpacing(16);
+    auto* title = UiStyle::label("Invoke Invoice System", title_widget_, "title");
+    title->setObjectName("titleLabel");
+    title->setAlignment(Qt::AlignCenter);
+    title->setWordWrap(true);
+    auto* subtitle = UiStyle::label("Create invoices and manage your business.", title_widget_, "subtitle");
+    subtitle->setAlignment(Qt::AlignCenter);
+    subtitle->setWordWrap(true);
+    inner_layout_->addWidget(title);
+    inner_layout_->addWidget(subtitle);
 
-        connect(register_button_, &QPushButton::clicked, this, &LandingPage::on_register_clicked);
-        connect(login_button_, &QPushButton::clicked, this, &LandingPage::on_login_clicked);
-    }
-    void App::Views::LandingPage::createPageLayout() {
-        // Title
-        auto* title_label = new QLabel(title_widget_);
-        title_label->setTextFormat(Qt::RichText);
-        title_label->setText(
-            R"(<span style="color: white;">Welcome to the </span>
-           <span style="color: #9c27b0; font-weight: 700;">Invoke Invoice System</span>)");
-        title_label->setObjectName("titleLabel");
-        title_label->setAlignment(Qt::AlignCenter);
+    login_button_ = new QPushButton("Login", button_layout_);
+    register_button_ = new QPushButton("Register", button_layout_);
+    UiStyle::button(login_button_, "primary");
+    UiStyle::button(register_button_);
+    auto* buttons = new QHBoxLayout(button_layout_);
+    buttons->setContentsMargins(0, 0, 0, 0);
+    buttons->setSpacing(12);
+    buttons->addWidget(login_button_, 1);
+    buttons->addWidget(register_button_, 1);
+    inner_layout_->addWidget(button_layout_);
+}
 
-        // Buttons
-        login_button_ = new QPushButton("Login", button_layout_);
-        register_button_ = new QPushButton("Register", button_layout_);
-        login_button_->setObjectName("login_button_");
-        register_button_->setObjectName("register_button_");
-
-        // Styles
-        auto* effect = new QGraphicsDropShadowEffect(this);
-        effect->setBlurRadius(16);
-        effect->setOffset(0, 6);
-        effect->setColor(QColor(0, 0, 0, 90));
-        title_label->setGraphicsEffect(effect);
-
-        title_label->setStyleSheet(Styles::widgetStyles.at("titleLabel"));
-        login_button_->setStyleSheet(Styles::widgetStyles.at("login_button_") + Styles::widgetStyles.at("button"));
-        register_button_->setStyleSheet(Styles::widgetStyles.at("register_button_") +
-                                        Styles::widgetStyles.at("button"));
-
-        // Button row container + layout
-        auto* buttons_hbox = new QHBoxLayout(button_layout_);
-        buttons_hbox->setContentsMargins(0, 0, 0, 0);
-        buttons_hbox->setSpacing(12);
-        buttons_hbox->addWidget(login_button_);
-        buttons_hbox->addWidget(register_button_);
-        button_layout_->setLayout(buttons_hbox);
-
-        // Stack everything vertically
-        inner_layout_->setContentsMargins(24, 24, 24, 24);
-        inner_layout_->setSpacing(16);
-        inner_layout_->addWidget(title_label, 0, Qt::AlignCenter);
-        inner_layout_->addWidget(button_layout_, 0, Qt::AlignCenter);
-
-        setLayout(inner_layout_);
-    }
-
-    void LandingPage::on_register_clicked() {
-        emit navigate_to(Page::Login);
-    }
-
-    void LandingPage::on_login_clicked() {
-        emit navigate_to(Page::Login);
-    }
-
+void LandingPage::on_register_clicked() { emit navigate_to(Page::Signup); }
+void LandingPage::on_login_clicked() { emit navigate_to(Page::Login); }
 } // namespace App::Views

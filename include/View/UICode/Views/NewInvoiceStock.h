@@ -36,16 +36,20 @@ class NewInvoiceStock : public QWidget {
   private:
     void create_page_layout();
     QLayout* create_item_entry_form();
-    QWidget* parent_widget_;
-    QWidget* item_form_layout_;
     QPushButton* create_invoice_pdf;
+    QVector<QLabel*> item_labels_;
 
   public:
   signals:
+    void find_stock();
     void add_item_to_invoice(const QJsonObject& doc);
 
     void add_item_list_to_invoice(const QJsonDocument& doc);
     void invoice_navigation(Page page);
+
+  public slots:
+    void populate_stock_list(const QJsonDocument& list);
+    void reset_invoice();
 
     // private slots:
     //   void on_add_item_clicked();
