@@ -115,10 +115,8 @@ void Infrastructure::Http::ApiClient::do_signup(const QJsonDocument& details) {
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         const auto response_body = reply->readAll();
         qDebug() << "[ApiClient::do_signup] Signup response received"
-                 << "| network error:" << reply->error()
-                 << "| error string:" << reply->errorString()
-                 << "| HTTP status:"
-                 << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()
+                 << "| network error:" << reply->error() << "| error string:" << reply->errorString()
+                 << "| HTTP status:" << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()
                  << "| body:" << QString::fromUtf8(response_body);
         if (reply->error() == QNetworkReply::NoError) {
             qDebug() << "[ApiClient::do_signup] Signup succeeded";
@@ -126,12 +124,10 @@ void Infrastructure::Http::ApiClient::do_signup(const QJsonDocument& details) {
         } else {
             QJsonParseError parse_error{};
             const auto response = QJsonDocument::fromJson(response_body, &parse_error);
-            const auto message = parse_error.error == QJsonParseError::NoError
-                                     ? response.object().value("error").toString()
-                                     : QString{};
+            const auto message =
+                parse_error.error == QJsonParseError::NoError ? response.object().value("error").toString() : QString{};
             qWarning() << "[ApiClient::do_signup] Signup failed"
-                       << "| parsed message:" << message
-                       << "| parse error:" << parse_error.errorString();
+                       << "| parsed message:" << message << "| parse error:" << parse_error.errorString();
             emit signup_failed(message.isEmpty() ? reply->errorString() : message);
         }
         reply->deleteLater();
@@ -241,8 +237,10 @@ void ApiClient::save_invoice_stock(const QJsonDocument& item, quint64 request_id
     post_resource("stock", QJsonDocument(data), item, request_id);
 }
 
-void ApiClient::post_resource(const QString& resource, const QJsonDocument& data,
-                              const QJsonDocument& invoice_item, quint64 request_id) {
+void ApiClient::post_resource(const QString& resource,
+                              const QJsonDocument& data,
+                              const QJsonDocument& invoice_item,
+                              quint64 request_id) {
     const auto business_id = current_business_id_;
     const auto session = session_generation_;
     QJsonObject payload = data.object();
@@ -262,30 +260,33 @@ void ApiClient::post_resource(const QString& resource, const QJsonDocument& data
     request.setTransferTimeout(30000);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     auto* reply = networkManager_->post(request, QJsonDocument(payload).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply, resource, business_id, session, invoice_item, request_id]() {
-        reply->deleteLater();
-        if (session != session_generation_)
-            return;
-        const auto body = reply->readAll();
-        if (reply->error() == QNetworkReply::NoError) {
-            if (business_id == current_business_id_)
-                invalidate_business_items();
-            emit resource_saved(resource);
-            if (!invoice_item.isNull() && business_id == current_business_id_) {
-                auto saved = invoice_item.object();
-                saved["StockID"] = QJsonDocument::fromJson(body).object().value("id");
-                emit invoice_stock_saved(QJsonDocument(saved), request_id);
-            }
-        } else {
-            QJsonParseError error{};
-            const auto response = QJsonDocument::fromJson(body, &error);
-            const auto message = response.object().value("error").toString(reply->errorString());
-            if (invoice_item.isNull())
-                emit resource_save_failed(message);
-            else if (business_id == current_business_id_)
-                emit invoice_stock_save_failed(message, request_id);
-        }
-    });
+    connect(reply,
+            &QNetworkReply::finished,
+            this,
+            [this, reply, resource, business_id, session, invoice_item, request_id]() {
+                reply->deleteLater();
+                if (session != session_generation_)
+                    return;
+                const auto body = reply->readAll();
+                if (reply->error() == QNetworkReply::NoError) {
+                    if (business_id == current_business_id_)
+                        invalidate_business_items();
+                    emit resource_saved(resource);
+                    if (!invoice_item.isNull() && business_id == current_business_id_) {
+                        auto saved = invoice_item.object();
+                        saved["StockID"] = QJsonDocument::fromJson(body).object().value("id");
+                        emit invoice_stock_saved(QJsonDocument(saved), request_id);
+                    }
+                } else {
+                    QJsonParseError error{};
+                    const auto response = QJsonDocument::fromJson(body, &error);
+                    const auto message = response.object().value("error").toString(reply->errorString());
+                    if (invoice_item.isNull())
+                        emit resource_save_failed(message);
+                    else if (business_id == current_business_id_)
+                        emit invoice_stock_save_failed(message, request_id);
+                }
+            });
 }
 void Infrastructure::Http::ApiClient::do_login(const QString& email, const QString& password, bool remember) {
     if (loginInProgress_)
