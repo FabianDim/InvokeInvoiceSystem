@@ -144,6 +144,9 @@
     enable_testing()
     qt_add_executable(BusinessSessionTests
         tests/BusinessSessionTests.cpp
+        src/Application/Invoices/OfflineInvoiceSession.cpp
+        src/Infrastructure/Pdf/InvoicePdfGenerator.cpp
+        src/Domain/Accounts/User.cpp
         src/View/UICode/Views/ItemsPage.cpp
         include/View/UICode/Views/ItemsPage.h
         src/Application/Controllers/AppController.cpp
@@ -179,6 +182,20 @@
         $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
     )
     add_test(NAME BusinessSession COMMAND BusinessSessionTests)
+    # JPEG logos need Qt's image-format plugin beside locally built executables.
+    if(WIN32)
+        find_package(libjpeg-turbo CONFIG REQUIRED)
+        foreach(invoice_target InvokeInvoiceSystem BusinessSessionTests InvokeInvoiceSystemTests)
+            add_custom_command(TARGET ${invoice_target} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${invoice_target}>/imageformats"
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "$<TARGET_FILE:Qt6::QJpegPlugin>" "$<TARGET_FILE_DIR:${invoice_target}>/imageformats/"
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "$<TARGET_FILE:libjpeg-turbo::jpeg>" "$<TARGET_FILE_DIR:${invoice_target}>/"
+                VERBATIM
+            )
+        endforeach()
+    endif()
     set_tests_properties(BusinessSession PROPERTIES
         LABELS "ui;session"
         TIMEOUT 30

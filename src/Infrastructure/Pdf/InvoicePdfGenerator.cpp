@@ -2,6 +2,7 @@
 #include <filesystem>
 #include "Infrastructure/Pdf/InvoicePdfGenerator.h"
 #include <QDebug>
+#include <QByteArray>
 jmp_buf env;
 using namespace Infrastructure::PDF;
 
@@ -84,7 +85,8 @@ void InvoicePdfGenerator::addPageBefore(HPDF_Doc pdf, HPDF_Page page_1) {
 }
 
 void InvoicePdfGenerator::save_pdf(HPDF_Doc pdf, const char* name) {
-    HPDF_SaveToFile(pdf, name);
+    if (HPDF_SaveToFile(pdf, name) != HPDF_OK)
+        throw std::runtime_error("Could not write the PDF file.");
 }
 
 std::string InvoicePdfGenerator::retrieveFileName() {
@@ -245,6 +247,8 @@ InvoicePdfGenerator::start_invoice_table_page(HPDF_Doc pdf, bool first_page, int
     draw_invoice_footer(pdf, page, page_number);
 
     table = build_invoice_table_layout(page_width, page_height, first_page);
+    if (first_page && cur_invoice_ && cur_invoice_->getClient())
+        table.y = std::min(table.y, draw_invoice_client(pdf, page) - table.rowHeight - kTableHeaderGap - 16.0f);
 
     HPDF_Page_SetFontAndSize(page, HPDF_GetFont(pdf, "Helvetica-Bold", NULL), kBodyFontSize);
     draw_invoice_table_header(page, headers, headers.x, table.y + table.rowHeight + kTableHeaderGap);
@@ -277,14 +281,13 @@ void InvoicePdfGenerator::draw_invoice_page_header(HPDF_Doc pdf, HPDF_Page page,
     std::string business_name;
     std::string website;
     std::string logo_path;
+    QByteArray logo_data;
     if (cur_invoice_ && cur_invoice_->getBusiness()) {
         const auto& business = cur_invoice_->getBusiness();
         business_name = business->getName().empty() ? business->getBizName() : business->getName();
         website = business->get_website_url();
-        logo_path = business->get_biz_logo_url();
-    }
-    if (website.empty() && cur_invoice_) {
-        website = cur_invoice_->get_website();
+        logo_path = business->get_business_logo_path();
+        logo_data = QByteArray::fromBase64(QByteArray::fromStdString(business->get_business_logo_data()));
     }
 
     HPDF_Page_BeginText(page);
@@ -304,17 +307,51 @@ void InvoicePdfGenerator::draw_invoice_page_header(HPDF_Doc pdf, HPDF_Page page,
         underline_word(page, website.c_str(), 0.1f, details_x, link_y, 0.0f, 0.0f, 1.0f);
     }
 
-    if (first_page && !logo_path.empty() && std::filesystem::exists(logo_path)) {
-        HPDF_Image logo = HPDF_LoadPngImageFromFile(pdf, logo_path.c_str());
+    if (first_page && (!logo_data.isEmpty() || (!logo_path.empty() && std::filesystem::exists(logo_path)))) {
+        HPDF_Image logo = !logo_data.isEmpty()
+                              ? HPDF_LoadPngImageFromMem(pdf, reinterpret_cast<const HPDF_BYTE*>(logo_data.constData()),
+                                                        static_cast<HPDF_UINT>(logo_data.size()))
+                              : HPDF_LoadPngImageFromFile(pdf, logo_path.c_str());
         const float img_width_max = 50.0f;
-        const float img_height_max = 100.0f;
+        const float img_height_max = 50.0f;
         const float x_placement = 50.0f;
         const float y_placement = page_height - 72.0f;
-        resize_and_place_image(page, img_width_max, img_height_max, x_placement, y_placement, logo);
+        if (logo)
+            resize_and_place_image(page, img_width_max, img_height_max, x_placement, y_placement, logo);
     }
 
     HPDF_Page_SetRGBFill(page, 0.0f, 0.0f, 0.0f);
     HPDF_Page_SetRGBStroke(page, 0.0f, 0.0f, 0.0f);
+}
+
+float InvoicePdfGenerator::draw_invoice_client(HPDF_Doc pdf, HPDF_Page page) {
+    const auto client = cur_invoice_->getClient();
+    float y = HPDF_Page_GetHeight(page) - 104.0f;
+    const float width = HPDF_Page_GetWidth(page) - peece_margin * 2.0f;
+    HPDF_Page_BeginText(page);
+    HPDF_Page_SetRGBFill(page, 0.0f, 0.0f, 0.0f);
+    HPDF_Page_SetFontAndSize(page, HPDF_GetFont(pdf, "Helvetica-Bold", NULL), kBodyFontSize);
+    HPDF_Page_TextOut(page, peece_margin, y, "Bill to");
+    y -= 16.0f;
+    HPDF_Page_SetFontAndSize(page, HPDF_GetFont(pdf, "Helvetica", NULL), kBodyFontSize);
+    for (const auto& field : {client->getName(), client->getAddress(), client->getEmail(), client->getPhoneNumber()}) {
+        std::istringstream lines(field);
+        std::string line;
+        while (std::getline(lines, line)) {
+            while (!line.empty()) {
+                // Measure with the actual PDF font so long addresses wrap above the table.
+                auto length = HPDF_Page_MeasureText(page, line.c_str(), width, HPDF_TRUE, nullptr);
+                if (length == 0)
+                    length = 1;
+                const auto text = line.substr(0, length);
+                HPDF_Page_TextOut(page, peece_margin, y, text.c_str());
+                y -= 14.0f;
+                line.erase(0, length);
+            }
+        }
+    }
+    HPDF_Page_EndText(page);
+    return y;
 }
 
 void InvoicePdfGenerator::draw_invoice_footer(HPDF_Doc pdf, HPDF_Page page, int page_number) {

@@ -11,6 +11,13 @@ AppController::AppController(App::Views::MainWindow* main,
                              Infrastructure::Http::ApiClient* api,
                              QObject* parent)
     : QObject(parent), main_(main), accountManager_(accountManager), api_(api) {
+    connect(main_->landing_page(), &App::Views::LandingPage::offline_requested, this, &AppController::start_offline);
+    connect(main_->login_page(), &App::Views::LoginPage::offline_requested, this, &AppController::start_offline);
+    connect(main_, &App::Views::MainWindow::offline_exit_requested, this, &AppController::exit_offline);
+    connect(api_, &Infrastructure::Http::ApiClient::pdf_generated,
+            main_->new_invoice_stock_page(), &App::Views::NewInvoiceStock::pdf_generated);
+    connect(api_, &Infrastructure::Http::ApiClient::pdf_failed,
+            main_->new_invoice_stock_page(), &App::Views::NewInvoiceStock::pdf_failed);
     QObject::connect(
         main_->landing_page(), &App::Views::LandingPage::navigate_to, this, &AppController::page_navigation);
     QObject::connect(
@@ -64,6 +71,14 @@ AppController::AppController(App::Views::MainWindow* main,
                      main_->items_page(), &App::Views::ItemsPage::populate_items);
     QObject::connect(api_, &Infrastructure::Http::ApiClient::business_items_failed,
                      main_->items_page(), &App::Views::ItemsPage::set_error);
+    QObject::connect(main_->dashboard_page(), &App::Views::Dashboard::business_chosen,
+                     main_->new_invoice_page(), &App::Views::InvoiceDetailsInput::business_selected);
+    QObject::connect(main_->new_invoice_page(), &App::Views::InvoiceDetailsInput::clients_requested,
+                     api_, &Infrastructure::Http::ApiClient::get_business_items);
+    QObject::connect(api_, &Infrastructure::Http::ApiClient::business_items_received,
+                     main_->new_invoice_page(), &App::Views::InvoiceDetailsInput::populate_clients);
+    QObject::connect(api_, &Infrastructure::Http::ApiClient::business_items_failed,
+                     main_->new_invoice_page(), &App::Views::InvoiceDetailsInput::set_client_error);
 
     QObject::connect(main_->new_invoice_page(),
                      &App::Views::InvoiceDetailsInput::set_invoice_details,
@@ -117,11 +132,45 @@ AppController::AppController(App::Views::MainWindow* main,
                      &Infrastructure::Http::ApiClient::stock_list_received,
                      main_->new_invoice_stock_page(),
                      &App::Views::NewInvoiceStock::populate_stock_list);
+    QObject::connect(main_->dashboard_page(), &App::Views::Dashboard::business_chosen,
+                     main_->new_invoice_stock_page(), &App::Views::NewInvoiceStock::business_selected);
+    QObject::connect(main_->new_invoice_stock_page(), &App::Views::NewInvoiceStock::save_invoice_stock,
+                     api_, &Infrastructure::Http::ApiClient::save_invoice_stock);
+    QObject::connect(api_, &Infrastructure::Http::ApiClient::invoice_stock_saved,
+                     main_->new_invoice_stock_page(), &App::Views::NewInvoiceStock::stock_saved);
+    QObject::connect(api_, &Infrastructure::Http::ApiClient::invoice_stock_save_failed,
+                     main_->new_invoice_stock_page(), &App::Views::NewInvoiceStock::stock_save_failed);
+}
+
+void AppController::start_offline() {
+    if (accountManager_.is_logged_in())
+        accountManager_.logOut();
+    api_->set_offline(true);
+    main_->set_offline(true);
+    main_->dashboard_page()->populate_business_list(QJsonDocument(QJsonObject{}));
+    page_navigation(Page::BusinessSettings);
+}
+
+void AppController::exit_offline() {
+    api_->set_offline(false);
+    main_->set_offline(false);
+    main_->dashboard_page()->populate_business_list(QJsonDocument(QJsonObject{}));
+    page_navigation(Page::Landing);
 }
 
 void AppController::resource_saved(const QString& resource) {
+    if (api_->is_offline()) {
+        if (resource == "business")
+            api_->get_business_list();
+        if (main_->client_page()->isVisible() || main_->business_settings_page()->isVisible() ||
+            main_->stock_settings_page()->isVisible())
+            page_navigation(Page::Dashboard);
+        return;
+    }
     if (main_->items_page()->isVisible())
         main_->items_page()->load_items();
+    if (main_->new_invoice_page()->isVisible())
+        main_->new_invoice_page()->load_clients();
     if (resource == "client")
         main_->client_page()->set_status("Client saved.");
     else if (resource == "business") {
@@ -144,6 +193,12 @@ void AppController::resource_saved(const QString& resource) {
  * @pre All the pages should be built in the main page
  */
 void AppController::page_navigation(Page page) {
+    if (api_->is_offline() && (page == Page::AccountSettings || page == Page::Login || page == Page::Signup))
+        return;
+    if (api_->is_offline() && page == Page::Landing) {
+        exit_offline();
+        return;
+    }
     if ((page == Page::NewInvoice || page == Page::NewClient || page == Page::StockSettings ||
          page == Page::StockInput || page == Page::Items) && !main_->dashboard_page()->has_business()) {
         main_->show_page(main_->dashboard_page());
@@ -169,6 +224,7 @@ void AppController::page_navigation(Page page) {
     case Page::NewInvoice:
         main_->new_invoice_stock_page()->reset_invoice();
         main_->show_page(main_->new_invoice_page());
+        main_->new_invoice_page()->load_clients();
         break;
     case Page::StockInput:
         api_->get_stock_list();

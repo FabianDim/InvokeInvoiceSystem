@@ -18,13 +18,31 @@ void ApiClient::invalidate_business_items() {
     }
 }
 
+void ApiClient::set_offline(bool offline) {
+    offline_ = offline;
+    clear_session();
+}
+
 void ApiClient::clear_session() {
+    offline_session_ = {};
+    loginInProgress_ = false;
+    // Disconnect before aborting: no late online response may populate a demo.
+    for (auto* reply : networkManager_->findChildren<QNetworkReply*>()) {
+        reply->disconnect(this);
+        reply->abort();
+        reply->deleteLater();
+    }
+    business_items_reply_ = nullptr;
     ++session_generation_;
     current_business_id_.clear();
     invalidate_business_items();
 }
 
 void ApiClient::get_business_items(bool refresh) {
+    if (offline_) {
+        emit business_items_received(QJsonDocument(offline_session_.items(current_business_id_)));
+        return;
+    }
     if (current_business_id_.isEmpty()) {
         emit business_items_failed("Choose a business on the home page first.");
         return;
@@ -76,6 +94,10 @@ void ApiClient::get_business_items(bool refresh) {
 }
 
 void Infrastructure::Http::ApiClient::get_business_list() {
+    if (offline_) {
+        emit business_list_received(QJsonDocument(offline_session_.businesses));
+        return;
+    }
     const auto session = session_generation_;
     QUrl url = baseUrl_;
     url.setPath("/business/list");
@@ -100,6 +122,10 @@ void Infrastructure::Http::ApiClient::get_business_list() {
 }
 
 void Infrastructure::Http::ApiClient::do_signup(const QJsonDocument& details) {
+    if (offline_) {
+        emit signup_failed("Exit offline mode to create an account.");
+        return;
+    }
     QUrl url = baseUrl_;
     url.setPath("/auth/signup");
     QNetworkRequest request;
@@ -115,10 +141,8 @@ void Infrastructure::Http::ApiClient::do_signup(const QJsonDocument& details) {
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         const auto response_body = reply->readAll();
         qDebug() << "[ApiClient::do_signup] Signup response received"
-                 << "| network error:" << reply->error()
-                 << "| error string:" << reply->errorString()
-                 << "| HTTP status:"
-                 << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()
+                 << "| network error:" << reply->error() << "| error string:" << reply->errorString()
+                 << "| HTTP status:" << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()
                  << "| body:" << QString::fromUtf8(response_body);
         if (reply->error() == QNetworkReply::NoError) {
             qDebug() << "[ApiClient::do_signup] Signup succeeded";
@@ -126,12 +150,10 @@ void Infrastructure::Http::ApiClient::do_signup(const QJsonDocument& details) {
         } else {
             QJsonParseError parse_error{};
             const auto response = QJsonDocument::fromJson(response_body, &parse_error);
-            const auto message = parse_error.error == QJsonParseError::NoError
-                                     ? response.object().value("error").toString()
-                                     : QString{};
+            const auto message =
+                parse_error.error == QJsonParseError::NoError ? response.object().value("error").toString() : QString{};
             qWarning() << "[ApiClient::do_signup] Signup failed"
-                       << "| parsed message:" << message
-                       << "| parse error:" << parse_error.errorString();
+                       << "| parsed message:" << message << "| parse error:" << parse_error.errorString();
             emit signup_failed(message.isEmpty() ? reply->errorString() : message);
         }
         reply->deleteLater();
@@ -139,6 +161,10 @@ void Infrastructure::Http::ApiClient::do_signup(const QJsonDocument& details) {
 }
 
 void Infrastructure::Http::ApiClient::get_stock_list() {
+    if (offline_) {
+        emit stock_list_received(QJsonDocument(offline_session_.items(current_business_id_).value("stocks").toArray()));
+        return;
+    }
     if (current_business_id_.isEmpty()) {
         emit stock_list_received(QJsonDocument(QJsonArray{}));
         return;
@@ -172,16 +198,31 @@ void Infrastructure::Http::ApiClient::business_selected(const QJsonObject& biz) 
     const auto id = biz.value("BusinessID").toString();
     if (id != current_business_id_) {
         current_business_id_ = id;
+        if (offline_)
+            offline_session_.clear_invoice();
         invalidate_business_items();
     }
 }
 
 void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoice) {
+    if (offline_) {
+        try {
+            offline_session_.begin_invoice(invoice.object(), current_business_id_);
+            emit invoice_started();
+        } catch (const std::exception& error) {
+            emit invoice_failed(QString::fromUtf8(error.what()));
+        }
+        return;
+    }
     if (current_business_id_.isEmpty()) {
         emit invoice_failed("Choose a business on the dashboard first.");
         return;
     }
     auto payload = invoice.object();
+    if (payload.value("ClientID").toString().isEmpty()) {
+        emit invoice_failed("Choose a client for this invoice first.");
+        return;
+    }
     payload["BusinessID"] = current_business_id_;
     QUrl url = baseUrl_;
     url.setPath("/invoices/invoice_start");
@@ -196,7 +237,8 @@ void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoi
                 if (reply->error() == QNetworkReply::NoError) {
                     emit invoice_started();
                 } else {
-                    emit invoice_failed(reply->errorString());
+                    const auto response = QJsonDocument::fromJson(reply->readAll());
+                    emit invoice_failed(response.object().value("error").toString(reply->errorString()));
                 }
                 reply->deleteLater();
             });
@@ -209,6 +251,14 @@ void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoi
 }
 
 void Infrastructure::Http::ApiClient::stock_list(const QJsonDocument& stock) {
+    if (offline_) {
+        try {
+            emit pdf_generated(offline_session_.generate_pdf(stock.array()));
+        } catch (const std::exception& error) {
+            emit pdf_failed(QString::fromUtf8(error.what()));
+        }
+        return;
+    }
     QUrl url = baseUrl_;
     url.setPath("/invoices/stock-list");
     qDebug() << "Sending invoice item list to: " << url.toString();
@@ -224,12 +274,48 @@ void Infrastructure::Http::ApiClient::stock_list(const QJsonDocument& stock) {
     }
 }
 void Infrastructure::Http::ApiClient::save_resource(const QString& resource, const QJsonDocument& data) {
+    post_resource(resource, data);
+}
+
+void ApiClient::save_invoice_stock(const QJsonDocument& item, quint64 request_id) {
+    auto data = item.object();
+    // Invoice quantity and inventory on hand have different meanings.
+    data["Quantity"] = data.value("StockOnHand");
+    data.remove("StockOnHand");
+    data.remove("Notes");
+    post_resource("stock", QJsonDocument(data), item, request_id);
+}
+
+void ApiClient::post_resource(const QString& resource,
+                              const QJsonDocument& data,
+                              const QJsonDocument& invoice_item,
+                              quint64 request_id) {
+    if (offline_) {
+        try {
+            const auto id = offline_session_.save(resource, data.object(), current_business_id_);
+            emit resource_saved(resource);
+            if (!invoice_item.isNull()) {
+                auto saved = invoice_item.object();
+                saved["StockID"] = id;
+                emit invoice_stock_saved(QJsonDocument(saved), request_id);
+            }
+        } catch (const std::exception& error) {
+            if (invoice_item.isNull())
+                emit resource_save_failed(QString::fromUtf8(error.what()));
+            else
+                emit invoice_stock_save_failed(QString::fromUtf8(error.what()), request_id);
+        }
+        return;
+    }
     const auto business_id = current_business_id_;
     const auto session = session_generation_;
     QJsonObject payload = data.object();
     if (resource == "client" || resource == "stock") {
         if (current_business_id_.isEmpty()) {
-            emit resource_save_failed("Choose a business on the dashboard first.");
+            if (invoice_item.isNull())
+                emit resource_save_failed("Choose a business on the dashboard first.");
+            else
+                emit invoice_stock_save_failed("Choose a business on the dashboard first.", request_id);
             return;
         }
         payload["BusinessID"] = current_business_id_;
@@ -237,25 +323,42 @@ void Infrastructure::Http::ApiClient::save_resource(const QString& resource, con
     QUrl url = baseUrl_;
     url.setPath("/data/" + resource);
     QNetworkRequest request(url);
+    request.setTransferTimeout(30000);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     auto* reply = networkManager_->post(request, QJsonDocument(payload).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply, resource, business_id, session]() {
-        reply->deleteLater();
-        if (session != session_generation_)
-            return;
-        const auto body = reply->readAll();
-        if (reply->error() == QNetworkReply::NoError) {
-            if (business_id == current_business_id_)
-                invalidate_business_items();
-            emit resource_saved(resource);
-        } else {
-            QJsonParseError error{};
-            const auto response = QJsonDocument::fromJson(body, &error);
-            emit resource_save_failed(response.object().value("error").toString(reply->errorString()));
-        }
-    });
+    connect(reply,
+            &QNetworkReply::finished,
+            this,
+            [this, reply, resource, business_id, session, invoice_item, request_id]() {
+                reply->deleteLater();
+                if (session != session_generation_)
+                    return;
+                const auto body = reply->readAll();
+                if (reply->error() == QNetworkReply::NoError) {
+                    if (business_id == current_business_id_)
+                        invalidate_business_items();
+                    emit resource_saved(resource);
+                    if (!invoice_item.isNull() && business_id == current_business_id_) {
+                        auto saved = invoice_item.object();
+                        saved["StockID"] = QJsonDocument::fromJson(body).object().value("id");
+                        emit invoice_stock_saved(QJsonDocument(saved), request_id);
+                    }
+                } else {
+                    QJsonParseError error{};
+                    const auto response = QJsonDocument::fromJson(body, &error);
+                    const auto message = response.object().value("error").toString(reply->errorString());
+                    if (invoice_item.isNull())
+                        emit resource_save_failed(message);
+                    else if (business_id == current_business_id_)
+                        emit invoice_stock_save_failed(message, request_id);
+                }
+            });
 }
 void Infrastructure::Http::ApiClient::do_login(const QString& email, const QString& password, bool remember) {
+    if (offline_) {
+        emit login_failed("Exit offline mode to log in.");
+        return;
+    }
     if (loginInProgress_)
         return;
     loginInProgress_ = true;

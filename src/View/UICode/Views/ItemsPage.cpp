@@ -40,7 +40,7 @@ void ItemsPage::create_page_layout() {
         return table;
     };
     business_table_ = add_table("Business", "business_records",
-                                {"Name", "Business ID", "ABN", "ACN", "Phone", "Address"});
+                                {"Name", "Business ID", "ABN", "ACN", "Phone", "Address", "Website", "Logo path"});
     clients_table_ = add_table("Clients", "client_records", {"Name", "Client ID", "Phone", "Email", "Address"});
     stock_table_ = add_table("Stock", "stock_records",
                              {"Name", "Stock ID", "Quantity", "Price", "Margin", "Unit", "Keywords"});
@@ -122,7 +122,7 @@ void ItemsPage::populate_items(const QJsonDocument& items) {
     const auto businesses = data.value("businesses").toArray();
     const auto clients = data.value("clients").toArray();
     const auto stock = data.value("stocks").toArray();
-    populate_table(business_table_, businesses, {"BusinessName", "BusinessID", "ABN", "ACN", "Phone", "BusinessAddress"});
+    populate_table(business_table_, businesses, {"BusinessName", "BusinessID", "ABN", "ACN", "Phone", "BusinessAddress", "Website", "LogoPath"});
     populate_table(clients_table_, clients, {"Name", "ClientID", "Phone", "Email", "Address"});
     populate_table(stock_table_, stock, {"Name", "StockID", "Quantity", "Price", "Margin", "Unit", "Keywords"});
     tabs_->setTabText(0, QString("Business (%1)").arg(businesses.size()));

@@ -34,6 +34,8 @@ class AppController : public QObject {
 
   public slots:
     void page_navigation(Page page);
+    void start_offline();
+    void exit_offline();
     void resource_saved(const QString& resource);
 };
 } // namespace Application::Controllers

@@ -23,8 +23,13 @@ class MongoDBDataManager {
     friend class InvoiceMenu;
     friend class BusinessMenu;
     friend class SetBusiness;
-    MongoDBHandler dbHandler;
-    const mongocxx::database InvokeDB;
+    // Offline startup must not parse a MongoDB URI or contact an SRV host.
+    std::unique_ptr<MongoDBHandler> dbHandler;
+    mongocxx::database database() {
+        if (!dbHandler)
+            dbHandler = std::make_unique<MongoDBHandler>();
+        return dbHandler->getDatabase();
+    }
 
   public:
     enum class AccountCreationResult {
@@ -34,7 +39,7 @@ class MongoDBDataManager {
         DatabaseError,
     };
 
-    MongoDBDataManager() : InvokeDB{dbHandler.getDatabase()} {}
+    MongoDBDataManager() = default;
 
     bool insertDocument(const std::string& collectionName, const bsoncxx::document::view& docView);
     bsoncxx::document::value buildNewUser(const std::shared_ptr<User>& newUser);
@@ -52,7 +57,8 @@ class MongoDBDataManager {
     QJsonDocument get_account_businesses(const std::string& user_id);
     QJsonDocument list_resources(const std::string& resource, const std::string& user_id,
                                  const std::string& business_id = {});
-    bool save_resource(const std::string& resource, QJsonObject resource_data, const std::string& user_id);
+    bool save_resource(const std::string& resource, QJsonObject resource_data, const std::string& user_id,
+                       QString* saved_id = nullptr);
 
   private:
     // std::optional<bsoncxx::document::value> findOne(const std::string& collectionName, const

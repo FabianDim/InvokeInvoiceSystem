@@ -26,6 +26,7 @@ class LandingPage : public QWidget {
     QPushButton* register_button_;
 
   signals:
+    void offline_requested();
     void navigate_to(Page page);
 
   private slots:

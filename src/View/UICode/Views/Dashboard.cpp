@@ -94,6 +94,17 @@ void Dashboard::button_connections() {
     connect(items_button, &QPushButton::clicked, this, [this]() { emit dash_navigation(Page::Items); });
 }
 
+void Dashboard::set_offline(bool offline) {
+    offline_ = offline;
+    account_button->setVisible(!offline);
+    business_button->setText(offline ? "Create demo business" : "Configure business");
+    items_button->setText(offline ? "Browse demo records" : "Browse business records");
+    findChild<QLabel*>("titleLabel")->setText(offline ? "Try an offline invoice" : "Your workspace");
+    findChild<QLabel*>("subtitleLabel")->setText(offline
+        ? "Create a business, add a client and items, then export your PDF. Nothing is saved to your account."
+        : "Create invoices from the business data you already manage.");
+}
+
 bool Dashboard::has_business() const {
     return !business_select_->currentData().toJsonObject().value("BusinessID").toString().isEmpty();
 }
@@ -123,6 +134,8 @@ void Dashboard::populate_business_list(const QJsonDocument& list) {
             if (id == previous_id)
                 selected_index = business_select_->count() - 1;
         }
+        if (offline_ && businesses.size() == 1)
+            selected_index = 1;
         business_select_->setCurrentIndex(selected_index);
         business_select_->setEnabled(!businesses.isEmpty());
     }

@@ -72,6 +72,15 @@ void LoginPage::createPageLayout() {
     inner_layout_->addWidget(form_layout_);
     inner_layout_->addWidget(remember_me_layout_);
     inner_layout_->addWidget(button_layout_);
+    auto* offline = new QPushButton("Create an offline invoice", this);
+    offline->setObjectName("offline_invoice_button");
+    UiStyle::button(offline);
+    inner_layout_->addWidget(offline);
+    auto* demo_hint = UiStyle::label("Try it without an account. Demo records stay in memory; you can save the PDF.", this, "subtitle");
+    demo_hint->setWordWrap(true);
+    demo_hint->setAlignment(Qt::AlignCenter);
+    inner_layout_->addWidget(demo_hint);
+    connect(offline, &QPushButton::clicked, this, &LoginPage::offline_requested);
     inner_layout_->addWidget(status_label_);
 }
 

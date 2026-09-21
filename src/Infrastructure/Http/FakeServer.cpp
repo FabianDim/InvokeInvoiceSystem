@@ -2,6 +2,7 @@
 #include "Infrastructure/Database/Mongo/MongoDBDataManager.h"
 #include <QJsonArray>
 #include <QUrlQuery>
+#include "Utils/BusinessLogo.h"
 
 Server::Server(MongoDBDataManager& db_manager, Invoke::Domain::Accounts::IAccountManager* account_manager_)
     : db_manager_(db_manager), account_services_(db_manager, account_manager_), account_manager_(account_manager_),
@@ -38,8 +39,27 @@ void Server::create_routes_invoices() {
                           if (business_id.isEmpty() || !businesses.contains(business_id))
                               return QHttpServerResponse("application/json", "{\"error\":\"Choose a business belonging to your account\"}",
                                                          QHttpServerResponse::StatusCode::BadRequest);
-                          // Bind and reset the invoice in the same request as its details.
+                          const auto client_id = doc.object().value("ClientID").toString();
+                          QJsonObject selected_client;
+                          try {
+                              const auto clients = db_manager_.list_resources(
+                                  "clients", user->getMongoUserID(), business_id.toStdString());
+                              for (const auto& value : clients.array()) {
+                                  if (value.toObject().value("ClientID").toString() == client_id && !client_id.isEmpty()) {
+                                      selected_client = value.toObject();
+                                      break;
+                                  }
+                              }
+                          } catch (const std::exception&) {
+                              return QHttpServerResponse("application/json", "{\"error\":\"Could not load the invoice client\"}",
+                                                         QHttpServerResponse::StatusCode::InternalServerError);
+                          }
+                          if (selected_client.isEmpty())
+                              return QHttpServerResponse("application/json", "{\"error\":\"Choose a saved client belonging to this business\"}",
+                                                         QHttpServerResponse::StatusCode::BadRequest);
+                          // Resolve client details from the database, then bind the whole invoice together.
                           invoice_service_.add_business_to_invoice(QJsonDocument(businesses.value(business_id).toObject()));
+                          invoice_service_.add_client_to_invoice(QJsonDocument(selected_client));
                           invoice_service_.begin_invoice_details(doc);
                           return QHttpServerResponse("application/json", "{\"ok\":true}", QHttpServerResponse::StatusCode::Ok);
                       });
@@ -206,10 +226,19 @@ void Server::create_routes_data() {
             return QHttpServerResponse("application/json", "{\"error\":\"Invalid JSON\"}",
                                        QHttpServerResponder::StatusCode::BadRequest);
         const auto user = account_manager_->getAccount();
-        if (!user || !db_manager_.save_resource(resource.toStdString(), data.object(), user->getMongoUserID()))
+        if (resource == "business" && !data.object().value("LogoData").toString().isEmpty()) {
+            const auto encoded = data.object().value("LogoData").toString().toLatin1();
+            QByteArray png;
+            QString message = "Choose a PNG or JPEG logo no larger than 5 MB.";
+            if (encoded.size() > (BusinessLogo::maximum_bytes + 2) / 3 * 4 ||
+                !BusinessLogo::normalise(QByteArray::fromBase64(encoded), png, message))
+                return QHttpServerResponse(QJsonObject{{"error", message}}, QHttpServerResponder::StatusCode::BadRequest);
+        }
+        QString saved_id;
+        if (!user || !db_manager_.save_resource(resource.toStdString(), data.object(), user->getMongoUserID(), &saved_id))
             return QHttpServerResponse("application/json", "{\"error\":\"Could not save resource\"}",
                                        QHttpServerResponder::StatusCode::InternalServerError);
-        return QHttpServerResponse("application/json", "{\"ok\":true}", QHttpServerResponder::StatusCode::Ok);
+        return QHttpServerResponse(QJsonObject{{"ok", true}, {"id", saved_id}});
     };
     httpServer_.route("/data/business", QHttpServerRequest::Method::Post,
                       [save](const QHttpServerRequest& request) { return save("business", request); });

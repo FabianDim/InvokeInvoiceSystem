@@ -38,6 +38,7 @@ class MainWindow : public QMainWindow {
     explicit MainWindow(Invoke::Domain::Accounts::IAccountManager& acctMgr, QWidget* parent = nullptr);
     ~MainWindow();
     void show_page(QWidget* widget);
+    void set_offline(bool offline);
 
     LandingPage* landing_page();
     LoginPage* login_page();
@@ -54,9 +55,12 @@ class MainWindow : public QMainWindow {
 
   signals:
     void logged_out();
+    void offline_exit_requested();
 
   private:
     Ui::MainWindow* ui;
+    bool offline_ = false;
+    QWidget* offline_banner_ = nullptr;
 
     /*App Setup*/
 
