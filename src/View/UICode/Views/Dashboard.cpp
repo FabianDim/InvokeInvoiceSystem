@@ -58,6 +58,9 @@ void App::Views::Dashboard::create_page_layout() {
     business_button = new QPushButton("Configure business", content);
     stock_button = new QPushButton("Create stock item", content);
     account_button = new QPushButton("Account settings", content);
+    default_invoice_settings_button = new QPushButton("Default invoice settings", content);
+    default_invoice_settings_button->setObjectName("default_invoice_settings_button");
+    default_invoice_settings_button->hide();
     items_button = new QPushButton("Browse business records", content);
     items_button->setObjectName("browse_items_button");
 
@@ -67,7 +70,7 @@ void App::Views::Dashboard::create_page_layout() {
     stock_button->setObjectName("dashboard_button");
     account_button->setObjectName("dashboard_button");
     UiStyle::button(invoice_button, "accent", true);
-    for (auto* button : {client_button, business_button, stock_button, account_button, items_button})
+    for (auto* button : {client_button, business_button, stock_button, account_button, items_button, default_invoice_settings_button})
         UiStyle::button(button, "primary", true);
     layout->addWidget(invoice_button, 3, 0);
     layout->addWidget(client_button, 3, 1);
@@ -75,6 +78,7 @@ void App::Views::Dashboard::create_page_layout() {
     layout->addWidget(stock_button, 4, 1);
     layout->addWidget(items_button, 5, 0);
     layout->addWidget(account_button, 5, 1);
+    layout->addWidget(default_invoice_settings_button, 6, 0, 1, 2);
 
     button_group_->addButton(invoice_button);
     button_group_->addButton(client_button);
@@ -82,9 +86,12 @@ void App::Views::Dashboard::create_page_layout() {
     button_group_->addButton(stock_button);
     button_group_->addButton(account_button);
     button_group_->addButton(items_button);
+    button_group_->addButton(default_invoice_settings_button);
 }
 
 void Dashboard::button_connections() {
+    connect(default_invoice_settings_button, &QPushButton::clicked, this,
+            [this]() { emit dash_navigation(Page::DefaultInvoiceSettings); });
     connect(business_select_, &QComboBox::currentIndexChanged, this, &Dashboard::update_business_selection);
     connect(invoice_button, &QPushButton::clicked, this, [this]() { emit dash_navigation(Page::NewInvoice); });
     connect(client_button, &QPushButton::clicked, this, [this]() { emit dash_navigation(Page::NewClient); });
@@ -96,6 +103,7 @@ void Dashboard::button_connections() {
 
 void Dashboard::set_offline(bool offline) {
     offline_ = offline;
+    default_invoice_settings_button->setVisible(logged_in_ && !offline_);
     account_button->setVisible(!offline);
     business_button->setText(offline ? "Create demo business" : "Configure business");
     items_button->setText(offline ? "Browse demo records" : "Browse business records");
@@ -103,6 +111,11 @@ void Dashboard::set_offline(bool offline) {
     findChild<QLabel*>("subtitleLabel")->setText(offline
         ? "Create a business, add a client and items, then export your PDF. Nothing is saved to your account."
         : "Create invoices from the business data you already manage.");
+}
+
+void Dashboard::set_logged_in(bool logged_in) {
+    logged_in_ = logged_in;
+    default_invoice_settings_button->setVisible(logged_in_ && !offline_);
 }
 
 bool Dashboard::has_business() const {

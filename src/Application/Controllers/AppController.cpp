@@ -65,6 +65,8 @@ AppController::AppController(App::Views::MainWindow* main,
                      main_->items_page(), &App::Views::ItemsPage::business_selected);
     QObject::connect(main_->items_page(), &App::Views::ItemsPage::navigate_to,
                      this, &AppController::page_navigation);
+    QObject::connect(main_->default_invoice_settings_page(), &App::Views::DefaultInvoiceSettings::navigate_to,
+                     this, &AppController::page_navigation);
     QObject::connect(main_->items_page(), &App::Views::ItemsPage::items_requested,
                      api_, &Infrastructure::Http::ApiClient::get_business_items);
     QObject::connect(api_, &Infrastructure::Http::ApiClient::business_items_received,
@@ -241,6 +243,9 @@ void AppController::page_navigation(Page page) {
         break;
     case Page::AccountSettings:
         main_->show_page(main_->account_settings_page());
+        break;
+    case Page::DefaultInvoiceSettings:
+        main_->show_page(main_->default_invoice_settings_page());
         break;
     case Page::InvoiceBusinessChoice:
         main_->show_page(main_->dashboard_page());

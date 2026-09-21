@@ -59,7 +59,7 @@ void InvoiceDetailsInput::create_page_layout() {
     form->addWidget(client_status_, 2, 1);
     const std::vector<FormField> fields = {
         {"invoice_theme", "Invoice theme", FormField::Type::ComboBox, {}},
-        {"invoice_number", "Invoice number", FormField::Type::LineEdit, {.placeholder = "e.g. INV-000123"}},
+        {"invoice_number", "Invoice number INV-", FormField::Type::LineEdit, {.placeholder = "e.g. 000123"}},
         {"invoice_file_name", "File name", FormField::Type::LineEdit, {.placeholder = "Name"}},
         {"invoice_file_dir", "Save PDF to", FormField::Type::DirBrowse, {}},
         {"date_created", "Date created", FormField::Type::DateEdit, {.defaultToday = true}},
@@ -139,11 +139,13 @@ void InvoiceDetailsInput::create_page_layout() {
             return qobject_cast<QDateEdit*>(base_invoice_form_fields_.value(key))->date().toString(Qt::ISODate);
         };
         const auto theme = qobject_cast<QComboBox*>(base_invoice_form_fields_.value("invoice_theme"))->currentText();
-        emit set_invoice_details(QJsonDocument(QJsonObject{
-            {"ClientID", client_id},
-            {"invoice_number", text("invoice_number")}, {"invoice_theme", theme},
-            {"file_name", text("invoice_file_name")}, {"file_dir", text("invoice_file_dir")},
-            {"date_created", date("date_created")}, {"date_due", date("date_due")}}));
+        emit set_invoice_details(QJsonDocument(QJsonObject{{"ClientID", client_id},
+                                                           {"invoice_number", text("invoice_number")},
+                                                           {"invoice_theme", theme},
+                                                           {"file_name", text("invoice_file_name")},
+                                                           {"file_dir", text("invoice_file_dir")},
+                                                           {"date_created", date("date_created")},
+                                                           {"date_due", date("date_due")}}));
     });
 }
 
@@ -200,7 +202,8 @@ void InvoiceDetailsInput::populate_clients(const QJsonDocument& items) {
     const bool has_clients = client_select_->count() > 1;
     client_select_->setEnabled(has_clients);
     refresh_clients_->setEnabled(true);
-    client_status_->setText(has_clients ? "" : "No clients saved for this business. Create a client from the dashboard first.");
+    client_status_->setText(
+        has_clients ? "" : "No clients saved for this business. Create a client from the dashboard first.");
     update_client_selection();
 }
 

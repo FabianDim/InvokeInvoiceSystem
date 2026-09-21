@@ -18,12 +18,14 @@ class Dashboard : public QWidget {
     ~Dashboard() = default;
     bool has_business() const;
     void set_offline(bool offline);
+    void set_logged_in(bool logged_in);
 
   public slots:
     void populate_business_list(const QJsonDocument& list);
 
   private:
     bool offline_ = false;
+    bool logged_in_ = false;
     void create_page_layout();
     QButtonGroup* button_group_;
     void button_connections();
@@ -35,6 +37,7 @@ class Dashboard : public QWidget {
     QPushButton* stock_button;
     QPushButton* account_button;
     QPushButton* items_button;
+    QPushButton* default_invoice_settings_button;
 
   signals:
     void dash_navigation(Page page);
