@@ -53,6 +53,7 @@ class NewInvoiceStock : public QWidget {
     QLabel* status_label_;
     QPushButton* back_button_;
     bool saving_stock_ = false;
+    bool offline_ = false;
     quint64 stock_request_ = 0;
     QString business_id_;
     void append_item(const QJsonObject& item);
@@ -71,6 +72,9 @@ class NewInvoiceStock : public QWidget {
   public slots:
     void populate_stock_list(const QJsonDocument& list);
     void reset_invoice();
+    void set_offline(bool offline);
+    void pdf_generated(const QString& path);
+    void pdf_failed(const QString& message);
     void business_selected(const QJsonObject& business);
     void stock_saved(const QJsonDocument& item, quint64 request_id);
     void stock_save_failed(const QString& message, quint64 request_id);

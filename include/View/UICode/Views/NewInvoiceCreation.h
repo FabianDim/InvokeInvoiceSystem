@@ -17,6 +17,7 @@ class InvoiceDetailsInput : public QWidget {
     InvoiceDetailsInput(QWidget* parent = nullptr);
     ~InvoiceDetailsInput() = default;
   public slots:
+    void reset_form();
     void business_selected(const QJsonObject& business);
     void load_clients(bool refresh = false);
     void populate_clients(const QJsonDocument& items);

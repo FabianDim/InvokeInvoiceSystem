@@ -23,6 +23,7 @@ class LoginPage : public QWidget {
     void set_status(const QString& message);
 
   signals:
+    void offline_requested();
     void login_requested(const QString& email, const QString& password, bool remember);
     void navigate_to(Page page);
 

@@ -9,6 +9,7 @@
 #include <QIcon>
 #include <QDebug>
 #include <QWidget>
+#include "View/UiStyle.h"
 #include "Infrastructure/Enums/RouteEnums.h"
 
 App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& acctMgr, QWidget* parent)
@@ -21,6 +22,20 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
     vbox->setContentsMargins(0, 0, 0, 0);
     vbox->setSpacing(6);
     setCentralWidget(central);
+
+    offline_banner_ = new QWidget(central);
+    offline_banner_->setObjectName("offline_banner");
+    auto* demo_layout = new QHBoxLayout(offline_banner_);
+    auto* demo_label = UiStyle::label("Offline demo: records are temporary. Only the PDF is saved.", offline_banner_, "status");
+    demo_label->setWordWrap(true);
+    auto* exit_demo = new QPushButton("Exit demo", offline_banner_);
+    exit_demo->setObjectName("exit_offline_button");
+    UiStyle::button(exit_demo);
+    demo_layout->addWidget(demo_label, 1);
+    demo_layout->addWidget(exit_demo);
+    connect(exit_demo, &QPushButton::clicked, this, &MainWindow::offline_exit_requested);
+    vbox->addWidget(offline_banner_);
+    offline_banner_->hide();
 
     // Top control(s)
     // pageComboBox->addItem("Landing Page");
@@ -77,8 +92,8 @@ void App::Views::MainWindow::createMenus() {
     accountMenu = menuBar()->addMenu(tr("&Account"));
     accountMenu->addAction(loginAct);
     accountMenu->addAction(logoutAct);
-    loginAct->setVisible(!acctMgr.is_logged_in());
-    logoutAct->setVisible(acctMgr.is_logged_in());
+    loginAct->setVisible(!offline_ && !acctMgr.is_logged_in());
+    logoutAct->setVisible(!offline_ && acctMgr.is_logged_in());
 }
 
 void App::Views::MainWindow::createAccountActions() {
@@ -97,9 +112,22 @@ void App::Views::MainWindow::createFileActions() {
 }
 
 // application could pass in the page instance instead of using a switch
+void App::Views::MainWindow::set_offline(bool offline) {
+    offline_ = offline;
+    offline_banner_->setVisible(offline);
+    setWindowTitle(offline ? "Invoke Invoice System (Offline demo)" : "Invoke Invoice System");
+    accountMenu->menuAction()->setVisible(!offline);
+    fileMenu->menuAction()->setVisible(!offline);
+    dashboard_page()->set_offline(offline);
+    new_invoice_stock_page()->set_offline(offline);
+    new_invoice_page()->reset_form();
+    for (auto* form : {client_page(), business_settings_page(), stock_settings_page(), account_settings_page()})
+        form->set_offline(offline);
+}
+
 void App::Views::MainWindow::show_page(QWidget* widget) {
-    loginAct->setVisible(!acctMgr.is_logged_in());
-    logoutAct->setVisible(acctMgr.is_logged_in());
+    loginAct->setVisible(!offline_ && !acctMgr.is_logged_in());
+    logoutAct->setVisible(!offline_ && acctMgr.is_logged_in());
     pagesStack->setCurrentWidget(widget);
 }
 

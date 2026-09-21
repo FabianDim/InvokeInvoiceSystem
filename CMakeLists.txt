@@ -144,6 +144,9 @@
     enable_testing()
     qt_add_executable(BusinessSessionTests
         tests/BusinessSessionTests.cpp
+        src/Application/Invoices/OfflineInvoiceSession.cpp
+        src/Infrastructure/Pdf/InvoicePdfGenerator.cpp
+        src/Domain/Accounts/User.cpp
         src/View/UICode/Views/ItemsPage.cpp
         include/View/UICode/Views/ItemsPage.h
         src/Application/Controllers/AppController.cpp

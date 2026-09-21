@@ -4,6 +4,8 @@ A C++20 and Qt 6 desktop application for managing businesses, clients and stock,
 
 ## Run it on your machine
 
+To try the app without an account or MongoDB, build and launch it using steps 1, 2 and 4, then select **Create an offline invoice** on the login screen. Create a demo business, client and stock using the normal forms, then generate a PDF. Demo records exist only in memory and are discarded when you select **Exit demo** or close the app. Existing account records and account settings are unavailable in this mode; only the exported PDF is saved.
+
 The included build presets target **64-bit Windows with MSVC and Ninja**. The instructions below build and run the application from source.
 
 ### 1. Install the prerequisites
@@ -12,7 +14,7 @@ The included build presets target **64-bit Windows with MSVC and Ninja**. The in
 - Visual Studio 2022 or Build Tools for Visual Studio 2022, with **Desktop development with C++**, the Windows SDK and C++ CMake tools installed.
 - CMake 3.24 or newer and Ninja, available in your terminal.
 - vcpkg, set up as shown below, or an existing vcpkg checkout.
-- A running MongoDB server: either a local instance on port `27017` or a remote database you can access. The application needs permission to read and write its database.
+- For account mode, a running MongoDB server: either a local instance on port `27017` or a remote database you can access. The application needs permission to read and write its database. Offline mode does not require a database server.
 
 Open an **x64 Developer PowerShell for Visual Studio** so that the MSVC compiler (`cl`) is available. Run the following commands in that terminal.
 
@@ -64,7 +66,7 @@ $env:QT_PLUGIN_PATH = "$deps\Qt6\plugins"
 & .\out\build\x64-release\InvokeInvoiceSystem.exe
 ```
 
-Keep MongoDB running while using the app. The desktop executable starts its own HTTP server on `127.0.0.1:1234`; no separate backend process is needed. That port must be free, so run one app instance at a time.
+Keep MongoDB running while using account mode. The desktop executable starts its own HTTP server on `127.0.0.1:1234`; no separate backend process is needed. That port must be free for account mode, so run one app instance at a time. Offline mode bypasses the HTTP server and database entirely.
 
 ### 5. Create your first invoice
 
@@ -77,6 +79,9 @@ Keep MongoDB running while using the app. The desktop executable starts its own 
 
 ## Features
 
+In both account and offline mode, only the business name, client name, and stock item name and price are required when creating records. ABN/ACN, contact details, address, website, logo and stock metadata are optional. Blank stock-on-hand and margin default to zero; blank units default to `each`. Invoice line items still need a positive quantity and a valid price.
+
+- Offline invoice demo with temporary businesses, clients and stock, plus local PDF export.
 - Account registration and login with bcrypt password hashing.
 - Multiple businesses per account, with clients and stock scoped to the selected business.
 - Business record browsing and reusable stock selection during invoice creation.

@@ -23,8 +23,13 @@ class MongoDBDataManager {
     friend class InvoiceMenu;
     friend class BusinessMenu;
     friend class SetBusiness;
-    MongoDBHandler dbHandler;
-    const mongocxx::database InvokeDB;
+    // Offline startup must not parse a MongoDB URI or contact an SRV host.
+    std::unique_ptr<MongoDBHandler> dbHandler;
+    mongocxx::database database() {
+        if (!dbHandler)
+            dbHandler = std::make_unique<MongoDBHandler>();
+        return dbHandler->getDatabase();
+    }
 
   public:
     enum class AccountCreationResult {
@@ -34,7 +39,7 @@ class MongoDBDataManager {
         DatabaseError,
     };
 
-    MongoDBDataManager() : InvokeDB{dbHandler.getDatabase()} {}
+    MongoDBDataManager() = default;
 
     bool insertDocument(const std::string& collectionName, const bsoncxx::document::view& docView);
     bsoncxx::document::value buildNewUser(const std::shared_ptr<User>& newUser);

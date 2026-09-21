@@ -223,3 +223,13 @@ void InvoiceDetailsInput::set_client_error(const QString& message) {
     refresh_clients_->setEnabled(!business_id_.isEmpty());
     update_client_selection();
 }
+
+void InvoiceDetailsInput::reset_form() {
+    for (auto* field : base_invoice_form_fields_) {
+        if (auto* edit = qobject_cast<QLineEdit*>(field))
+            edit->clear();
+        else if (auto* date = qobject_cast<QDateEdit*>(field))
+            date->setDate(QDate::currentDate());
+    }
+    business_selected(QJsonObject{});
+}

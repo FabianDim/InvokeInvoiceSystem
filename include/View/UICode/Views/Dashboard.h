@@ -17,11 +17,13 @@ class Dashboard : public QWidget {
     Dashboard(QWidget* parent = nullptr);
     ~Dashboard() = default;
     bool has_business() const;
+    void set_offline(bool offline);
 
   public slots:
     void populate_business_list(const QJsonDocument& list);
 
   private:
+    bool offline_ = false;
     void create_page_layout();
     QButtonGroup* button_group_;
     void button_connections();

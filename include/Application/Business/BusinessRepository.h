@@ -6,7 +6,7 @@
 class BusinessRepository {
 
   public:
-    explicit BusinessRepository() : current_user_(AccountManager::currentUser) {
+    explicit BusinessRepository(std::shared_ptr<User> user = AccountManager::currentUser) : current_user_(std::move(user)) {
         if (current_user_) {
             current_user_id_ = current_user_->getMongoUserID();
         } else {

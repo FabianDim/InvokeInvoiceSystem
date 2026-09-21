@@ -6,6 +6,7 @@
 #include <QJsonDocument>
 #include <QElapsedTimer>
 #include <QPointer>
+#include "Application/Invoices/OfflineInvoiceSession.h"
 #include "Domain/Accounts/Interfaces/IAccountManager.h"
 class Server;
 
@@ -14,6 +15,8 @@ class ApiClient : public QObject {
     Q_OBJECT
   public:
     explicit ApiClient(const QUrl& baseUrl, Invoke::Domain::Accounts::IAccountManager* mgr, QObject* parent = nullptr);
+    void set_offline(bool offline);
+    bool is_offline() const { return offline_; }
   public slots:
     void do_login(const QString& email, const QString& password, bool remember);
     void do_signup(const QJsonDocument& details);
@@ -31,6 +34,8 @@ class ApiClient : public QObject {
     void stock_list_received(const QJsonDocument& list);
     void invoice_started();
     void invoice_failed(const QString& message);
+    void pdf_generated(const QString& path);
+    void pdf_failed(const QString& message);
     void login_succeeded();
     void login_failed(const QString& message);
     void signup_succeeded();
@@ -43,6 +48,8 @@ class ApiClient : public QObject {
     void invoice_stock_save_failed(const QString& message, quint64 request_id);
 
   private:
+    bool offline_ = false;
+    Application::Invoices::OfflineInvoiceSession offline_session_;
     bool loginInProgress_ = false;
     Invoke::Domain::Accounts::IAccountManager* account_manager_;
     QNetworkAccessManager* networkManager_;

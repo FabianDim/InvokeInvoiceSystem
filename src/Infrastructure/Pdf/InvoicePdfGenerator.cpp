@@ -85,7 +85,8 @@ void InvoicePdfGenerator::addPageBefore(HPDF_Doc pdf, HPDF_Page page_1) {
 }
 
 void InvoicePdfGenerator::save_pdf(HPDF_Doc pdf, const char* name) {
-    HPDF_SaveToFile(pdf, name);
+    if (HPDF_SaveToFile(pdf, name) != HPDF_OK)
+        throw std::runtime_error("Could not write the PDF file.");
 }
 
 std::string InvoicePdfGenerator::retrieveFileName() {

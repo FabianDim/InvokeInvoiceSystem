@@ -160,7 +160,7 @@ QLayout* NewInvoiceStock::create_item_entry_form() {
     form->addWidget(name, 1, 1);
     add_field("Invoice quantity", quantity, 2, 0);
     add_field("Price each", price, 2, 1);
-    add_field("Notes", notes, 4, 0);
+    add_field("Notes (optional)", notes, 4, 0);
     save_stock_ = new QCheckBox("Save this item to business stock", this);
     save_stock_->setObjectName("save_invoice_stock");
     form->addWidget(save_stock_, 5, 1);
@@ -175,14 +175,14 @@ QLayout* NewInvoiceStock::create_item_entry_form() {
     margin_->setObjectName("new_stock_margin");
     unit_ = new QLineEdit(saved_fields_);
     unit_->setObjectName("new_stock_unit");
-    unit_->setPlaceholderText("e.g. each, hour, metre");
+    unit_->setPlaceholderText("Defaults to each");
     keywords_ = new QLineEdit(saved_fields_);
     keywords_->setObjectName("new_stock_keywords");
     keywords_->setPlaceholderText("Optional, comma separated");
     const QList<QPair<QString, QWidget*>> saved_inputs{
         {"Stock on hand", stock_on_hand_}, {"Margin", margin_}, {"Unit", unit_}, {"Keywords", keywords_}};
     for (int index = 0; index < saved_inputs.size(); ++index) {
-        auto* label = UiStyle::label(saved_inputs[index].first, saved_fields_);
+        auto* label = UiStyle::label(saved_inputs[index].first + " (optional)", saved_fields_);
         label->setBuddy(saved_inputs[index].second);
         saved_inputs[index].second->setProperty("role", "input");
         saved_layout->addWidget(label, (index / 2) * 2, index % 2);
@@ -218,16 +218,12 @@ QLayout* NewInvoiceStock::create_item_entry_form() {
         if (!is_new)
             item["StockID"] = selected.value("StockID");
         if (is_new && save_stock_->isChecked()) {
-            if (unit_->text().trimmed().isEmpty()) {
-                status_label_->setText("Enter the stock unit before saving this item.");
-                return;
-            }
             item["StockOnHand"] = stock_on_hand_->value();
             item["Margin"] = margin_->value();
-            item["Unit"] = unit_->text().trimmed();
+            item["Unit"] = unit_->text().trimmed().isEmpty() ? "each" : unit_->text().trimmed();
             item["Keywords"] = keywords_->text().trimmed();
             set_saving_stock(true);
-            status_label_->setText("Saving stock item...");
+            status_label_->setText(offline_ ? "Adding demo stock..." : "Saving stock item...");
             emit save_invoice_stock(QJsonDocument(item), ++stock_request_);
             return;
         }
@@ -236,8 +232,8 @@ QLayout* NewInvoiceStock::create_item_entry_form() {
     });
     connect(create_invoice_pdf, &QPushButton::clicked, this, [this]() {
         if (stock_items.empty() || saving_stock_) return;
-        emit add_item_list_to_invoice(QJsonDocument(stock_items));
         create_invoice_pdf->setDisabled(true);
+        emit add_item_list_to_invoice(QJsonDocument(stock_items));
     });
     return container;
 }
@@ -279,11 +275,28 @@ void NewInvoiceStock::stock_saved(const QJsonDocument& item, quint64 request_id)
     saved["Quantity"] = saved.value("StockOnHand");
     auto* selector = qobject_cast<QComboBox*>(invoice_body_form_fields.value("stock_selector"));
     selector->addItem(saved.value("Name").toString(), saved);
-    status_label_->setText("Stock item saved and added to this invoice.");
+    status_label_->setText(offline_ ? "Demo stock added to this invoice. It will be cleared when you exit the demo."
+                                    : "Stock item saved and added to this invoice.");
 }
 
 void NewInvoiceStock::stock_save_failed(const QString& message, quint64 request_id) {
     if (!saving_stock_ || request_id != stock_request_) return;
     set_saving_stock(false);
     status_label_->setText(message + " Retry, or untick Save to add it only to this invoice.");
+}
+
+void NewInvoiceStock::set_offline(bool offline) {
+    offline_ = offline;
+    reset_invoice();
+    item_source_->setItemText(1, offline ? "Demo stock" : "Saved stock");
+    save_stock_->setText(offline ? "Keep this item in demo stock" : "Save this item to business stock");
+}
+
+void NewInvoiceStock::pdf_generated(const QString& path) {
+    status_label_->setText("PDF saved to " + path);
+}
+
+void NewInvoiceStock::pdf_failed(const QString& message) {
+    create_invoice_pdf->setEnabled(true);
+    status_label_->setText(message);
 }
