@@ -1,6 +1,5 @@
 #include "Infrastructure/Http/ApiClient.h"
-#include "Infrastructure/Http/FakeServer.h"
-#include "Domain/Accounts/User.h"
+#include <QJsonArray>
 #include <QUrlQuery>
 
 using namespace Infrastructure::Http;
@@ -24,10 +23,42 @@ void ApiClient::set_offline(bool offline) {
 }
 
 void ApiClient::clear_session() {
+    const bool was_logged_in = server_session_active_;
+    server_session_active_ = false;
+    reset_session_data();
+    if (account_manager_)
+        account_manager_->logOut();
+    if (was_logged_in)
+        request_logout();
+    // An in-flight login is allowed to finish so its callback can sign out after
+    // the server has processed it. Its old generation cannot sign the UI in.
+}
+
+void ApiClient::request_logout() {
+    if (logout_reply_)
+        return;
+    QUrl url = baseUrl_;
+    url.setPath("/auth/logout");
+    QNetworkRequest request(url);
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    request.setTransferTimeout(30000);
+    auto* reply = networkManager_->post(request, "{}");
+    logout_reply_ = reply;
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        logout_reply_ = nullptr;
+        if (reply->error() != QNetworkReply::NoError)
+            qWarning() << "Could not end the backend session:" << reply->errorString();
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::reset_session_data() {
     offline_session_ = {};
     loginInProgress_ = false;
     // Disconnect before aborting: no late online response may populate a demo.
     for (auto* reply : networkManager_->findChildren<QNetworkReply*>()) {
+        if (reply == login_reply_ || reply == logout_reply_)
+            continue;
         reply->disconnect(this);
         reply->abort();
         reply->deleteLater();
@@ -259,6 +290,7 @@ void Infrastructure::Http::ApiClient::stock_list(const QJsonDocument& stock) {
         }
         return;
     }
+    const auto session = session_generation_;
     QUrl url = baseUrl_;
     url.setPath("/invoices/stock-list");
     qDebug() << "Sending invoice item list to: " << url.toString();
@@ -266,12 +298,25 @@ void Infrastructure::Http::ApiClient::stock_list(const QJsonDocument& stock) {
     request.setUrl(url);
 
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-
-    try {
-        auto reply = networkManager_->post(request, stock.toJson());
-    } catch (const std::exception e) {
-        qDebug() << "Exception during login request:" << e.what();
-    }
+    request.setTransferTimeout(30000);
+    auto* reply = networkManager_->post(request, stock.toJson());
+    connect(reply, &QNetworkReply::finished, this, [this, reply, session]() {
+        reply->deleteLater();
+        if (session != session_generation_)
+            return;
+        QJsonParseError error{};
+        const auto response = QJsonDocument::fromJson(reply->readAll(), &error);
+        if (reply->error() != QNetworkReply::NoError) {
+            emit pdf_failed(response.object().value("error").toString(reply->errorString()));
+            return;
+        }
+        const auto path = response.object().value("path").toString();
+        if (error.error != QJsonParseError::NoError || !response.isObject() || path.isEmpty()) {
+            emit pdf_failed("The backend returned an invalid PDF response.");
+            return;
+        }
+        emit pdf_generated(path);
+    });
 }
 void Infrastructure::Http::ApiClient::save_resource(const QString& resource, const QJsonDocument& data) {
     post_resource(resource, data);
@@ -359,9 +404,25 @@ void Infrastructure::Http::ApiClient::do_login(const QString& email, const QStri
         emit login_failed("Exit offline mode to log in.");
         return;
     }
-    if (loginInProgress_)
+    if (loginInProgress_ || login_reply_)
         return;
+    if (logout_reply_) {
+        loginInProgress_ = true;
+        const auto session = session_generation_;
+        connect(logout_reply_, &QNetworkReply::finished, this, [this, email, password, remember, session]() {
+            if (session != session_generation_)
+                return;
+            loginInProgress_ = false;
+            do_login(email, password, remember);
+        });
+        return;
+    }
+    reset_session_data();
+    if (account_manager_)
+        account_manager_->logOut();
+    server_session_active_ = false;
     loginInProgress_ = true;
+    const auto session = session_generation_;
 
     QUrl url = baseUrl_;
     url.setPath("/auth/login");
@@ -370,21 +431,37 @@ void Infrastructure::Http::ApiClient::do_login(const QString& email, const QStri
     request.setUrl(url);
 
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    request.setTransferTimeout(30000);
 
     QJsonObject json;
     json["email"] = email;
     json["password"] = password;
     json["remember"] = remember;
     auto* reply = networkManager_->post(request, QJsonDocument(json).toJson());
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    login_reply_ = reply;
+    connect(reply, &QNetworkReply::finished, this, [this, reply, email, session]() {
+        login_reply_ = nullptr;
+        reply->deleteLater();
+        if (session != session_generation_) {
+            request_logout();
+            return;
+        }
         loginInProgress_ = false;
-        if (reply->error() == QNetworkReply::NoError) {
-            clear_session();
+        QJsonParseError error{};
+        const auto response = QJsonDocument::fromJson(reply->readAll(), &error);
+        if (reply->error() == QNetworkReply::NoError && error.error == QJsonParseError::NoError &&
+            response.isObject() && response.object().value("ok").toBool()) {
+            server_session_active_ = true;
+            if (account_manager_)
+                account_manager_->login(email.toStdString(), {});
             emit login_succeeded();
         } else {
-            emit login_failed(reply->errorString());
+            const auto message = reply->error() == QNetworkReply::NoError
+                ? QString("The backend returned an invalid login response.")
+                : response.object().value("error").toString(reply->errorString());
+            request_logout();
+            emit login_failed(message);
         }
-        reply->deleteLater();
     });
 }
 

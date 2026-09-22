@@ -1,11 +1,8 @@
 #pragma once
 #include "pch.h"
-#include "Application/Business/BusinessManager.h"
 #include "Application/Business/BusinessRepository.h"
-#include "Application/Business/Clients/ClientManager.h"
 #include "Domain/Business/Clients/Client.h"
-#include "Application/Stock/StockManager.h"
-#include "Domain/Stock/ClientStockItem.h"
+#include "Domain/Stock/StockItem.h"
 #include "Utils/DateUtil.h"
 #include "Utils/TemplateUtil.h"
 #include "InvoiceTemplateEnum.h"

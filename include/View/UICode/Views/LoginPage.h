@@ -4,7 +4,6 @@
 #include <QWidget>
 #include <qlayout.h>
 #include <QPushButton>
-#include "Application/Accounts/AccountManager.h"
 #include <QLineEdit>
 #include <QCheckBox>
 #include "Infrastructure/Enums/RouteEnums.h"

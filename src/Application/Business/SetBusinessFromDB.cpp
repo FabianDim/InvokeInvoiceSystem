@@ -1,10 +1,11 @@
 #include "Application/Business/SetBusinessFromDB.h"
+#include "Application/Accounts/AccountManager.h"
 std::shared_ptr<BusinessRepository> SetBusiness::setUpBusiness(const std::string businessID) {
     MongoDBDataManager dbManager;
     auto result = dbManager.findOne("Business", make_document(kvp("BusinessID", businessID)));
     if (result) {
         auto view = result->view();
-        auto business = std::make_shared<BusinessRepository>(BusinessRepository());
+        auto business = std::make_shared<BusinessRepository>(AccountManager::currentUser);
 
         std::unordered_set<std::string> clients;
         std::vector<std::string> stock;

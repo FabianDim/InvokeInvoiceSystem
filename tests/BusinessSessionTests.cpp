@@ -348,6 +348,58 @@ class BusinessSessionTests : public QObject {
         QVERIFY(!menu->actions().at(1)->isVisible());
     }
 
+    void default_invoice_settings_requires_login_and_clears_on_logout() {
+        RecordingServer server;
+        QVERIFY(server.start());
+        QSignalSpy connections(server.tcp, &QTcpServer::newConnection);
+        TestAccountManager account;
+        ApiClient api(server.url(), &account);
+        App::Views::MainWindow window(account);
+        Application::Controllers::AppController controller(&window, account, &api);
+        window.resize(800, 800);
+        window.show();
+        auto* stack = window.findChild<QStackedWidget*>();
+        auto* settings = window.default_invoice_settings_page();
+        auto* open = button(*window.dashboard_page(), "Default invoice settings");
+        QVERIFY(open);
+        QVERIFY(open->isHidden());
+        controller.page_navigation(Page::DefaultInvoiceSettings);
+        QCOMPARE(stack->currentWidget(), window.login_page());
+
+        account.logged_in = true;
+        controller.page_navigation(Page::Dashboard);
+        QVERIFY(!window.dashboard_page()->has_business());
+        QVERIFY(open->isVisible());
+        open->click();
+        QCOMPARE(stack->currentWidget(), settings);
+        settings->findChild<QLineEdit*>("default_invoice_prefix")->setText("INV-");
+        settings->findChild<QLineEdit*>("default_invoice_file_out_path")->setText("C:/Invoices");
+        QCOMPARE(settings->invoice_prefix(), QString("INV-"));
+        QCOMPARE(settings->file_out_path(), QString("C:/Invoices"));
+        QCoreApplication::processEvents();
+        QVERIFY(window.grab().save("default-invoice-settings-ui.png"));
+        settings->findChild<QPushButton*>("default_invoice_back")->click();
+        QCOMPARE(stack->currentWidget(), window.dashboard_page());
+        QCoreApplication::processEvents();
+        QVERIFY(window.grab().save("default-invoice-settings-dashboard.png"));
+        open->click();
+        QCOMPARE(settings->invoice_prefix(), QString("INV-"));
+
+        window.menuBar()->actions().at(1)->menu()->actions().at(1)->trigger();
+        QVERIFY(!account.is_logged_in());
+        QVERIFY(open->isHidden());
+        QVERIFY(settings->invoice_prefix().isEmpty());
+        QVERIFY(settings->file_out_path().isEmpty());
+        controller.page_navigation(Page::DefaultInvoiceSettings);
+        QCOMPARE(stack->currentWidget(), window.landing_page());
+        controller.start_offline();
+        QVERIFY(open->isHidden());
+        controller.page_navigation(Page::DefaultInvoiceSettings);
+        QCOMPARE(stack->currentWidget(), window.business_settings_page());
+        QTest::qWait(100);
+        QCOMPARE(connections.count(), 0);
+    }
+
     void dashboard_requires_selection_and_preserves_it_on_refresh() {
         Dashboard dashboard;
         auto* selector = dashboard.findChild<QComboBox*>("business_selector");

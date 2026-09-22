@@ -12,7 +12,6 @@ Server::Server(MongoDBDataManager& db_manager, Invoke::Domain::Accounts::IAccoun
     create_routes_business();
     create_routes_data();
     create_routes_invoices();
-    start_server();
 }
 
 void Server::create_routes_basic() {
@@ -66,14 +65,25 @@ void Server::create_routes_invoices() {
     httpServer_.route("/invoices/stock-list",
                       QHttpServerRequest::Method::Post,
                       [this](const QHttpServerRequest& request) -> QHttpServerResponse {
+                          if (!account_manager_ || !account_manager_->is_logged_in())
+                              return QHttpServerResponse("application/json", "{\"error\":\"unauthorized\"}",
+                                                         QHttpServerResponse::StatusCode::Unauthorized);
                           QJsonParseError err{};
                           const QJsonDocument doc = QJsonDocument::fromJson(request.body(), &err);
-                          if (err.error != QJsonParseError::NoError) {
-                              return QHttpServerResponse(
-                                  "Invalid JSON", "text/plain", QHttpServerResponse::StatusCode::BadRequest);
+                          if (err.error != QJsonParseError::NoError || !doc.isArray()) {
+                              return QHttpServerResponse("application/json", "{\"error\":\"Invalid stock list\"}",
+                                                         QHttpServerResponse::StatusCode::BadRequest);
                           }
-                          invoice_service_.add_stock_to_invoice(doc);
-                          return QHttpServerResponse("Invalid JSON", "text/plain", QHttpServerResponse::StatusCode::Ok);
+                          try {
+                              const auto path = invoice_service_.add_stock_to_invoice(doc);
+                              return QHttpServerResponse(QJsonObject{{"ok", true}, {"path", QString::fromStdString(path)}});
+                          } catch (const std::invalid_argument& error) {
+                              return QHttpServerResponse(QJsonObject{{"error", QString::fromUtf8(error.what())}},
+                                                         QHttpServerResponse::StatusCode::BadRequest);
+                          } catch (const std::exception& error) {
+                              return QHttpServerResponse(QJsonObject{{"error", QString::fromUtf8(error.what())}},
+                                                         QHttpServerResponse::StatusCode::InternalServerError);
+                          }
                       });
 }
 
@@ -199,16 +209,32 @@ void Server::create_routes_auth() {
         return QHttpServerResponse("application/json", "{\"error\":\"Unknown signup error\"}",
                                    QHttpServerResponder::StatusCode::InternalServerError);
     });
-    httpServer_.route("/auth/login", QHttpServerRequest::Method::Post, [&](const QHttpServerRequest& request) {
+    httpServer_.route("/auth/logout", QHttpServerRequest::Method::Post, [this]() {
+        clear_session();
+        return QHttpServerResponse(QJsonObject{{"ok", true}});
+    });
+    httpServer_.route("/auth/login", QHttpServerRequest::Method::Post, [this](const QHttpServerRequest& request) {
+        // A backend may outlive its desktop client. Never inherit the previous account's draft.
+        clear_session();
         QJsonParseError parseError;
         QJsonDocument doc = QJsonDocument::fromJson(request.body(), &parseError);
-
-        if (account_services_.validate_login(doc)) {
-            const auto obj = doc.object();
+        const auto obj = doc.object();
+        if (parseError.error != QJsonParseError::NoError || !doc.isObject() ||
+            obj.value("email").toString().trimmed().isEmpty() || obj.value("password").toString().isEmpty())
+            return QHttpServerResponse(QJsonObject{{"error", "Enter an email and password"}},
+                                       QHttpServerResponder::StatusCode::BadRequest);
+        if (!account_manager_)
+            return QHttpServerResponse(QJsonObject{{"error", "Account service is unavailable"}},
+                                       QHttpServerResponder::StatusCode::ServiceUnavailable);
+        try {
             account_manager_->login(obj.value("email").toString().toStdString(),
                                     obj.value("password").toString().toStdString());
-            qDebug() << "Logging In Successfully";
-            return QHttpServerResponse("application/json", "{\"ok\":true}", QHttpServerResponder::StatusCode::Ok);
+            if (account_manager_->is_logged_in())
+                return QHttpServerResponse("application/json", "{\"ok\":true}", QHttpServerResponder::StatusCode::Ok);
+        } catch (const std::exception&) {
+            clear_session();
+            return QHttpServerResponse(QJsonObject{{"error", "Could not sign in. Check the backend database connection."}},
+                                       QHttpServerResponder::StatusCode::InternalServerError);
         }
         return QHttpServerResponse("application/json", "{\"error\":\"Invalid email or password\"}",
                                    QHttpServerResponder::StatusCode::Unauthorized);
@@ -248,15 +274,36 @@ void Server::create_routes_data() {
                       [save](const QHttpServerRequest& request) { return save("stock", request); });
 }
 
-int Server::start_server() {
-    const QHostAddress host = QHostAddress::LocalHost;
-    auto* sslServer = new QTcpServer(&httpServer_);
-    if (!sslServer->listen(host, 1234) || !httpServer_.bind(sslServer)) {
-        delete sslServer;
-        return -1;
-    }
-    QString url = QString("http://%1:%2").arg(sslServer->serverAddress().toString()).arg(sslServer->serverPort());
+void Server::clear_session() {
+    invoice_service_.clear_session();
+    if (account_manager_)
+        account_manager_->logOut();
+}
 
-    qDebug() << "🗄 Server listening at:" << url;
-    return 0;
+bool Server::start(quint16 port) {
+    if (is_listening())
+        return true;
+    error_string_.clear();
+    auto* listener = new QTcpServer(&httpServer_);
+    if (!listener->listen(QHostAddress::LocalHost, port)) {
+        error_string_ = listener->errorString();
+        delete listener;
+        return false;
+    }
+    if (!httpServer_.bind(listener)) {
+        error_string_ = "Could not bind the HTTP server to its listener.";
+        delete listener;
+        return false;
+    }
+    tcpServer_ = listener;
+    qInfo().noquote() << "Backend listening at http://127.0.0.1:" + QString::number(tcpServer_->serverPort());
+    return true;
+}
+
+bool Server::is_listening() const {
+    return tcpServer_ && tcpServer_->isListening();
+}
+
+quint16 Server::port() const {
+    return is_listening() ? tcpServer_->serverPort() : 0;
 }

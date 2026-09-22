@@ -3,10 +3,20 @@
 #include <QJsonObject>
 #include <functional>
 #include <QJsonArray>
+#include <stdexcept>
 #include "Infrastructure/Pdf/InvoicePdfGenerator.h"
 using namespace Infrastructure::Services;
 
 InvoiceServices::InvoiceServices(MongoDBDataManager& db_manager) : db_manager_(db_manager) {}
+
+void InvoiceServices::clear_session() {
+    invoice_.clear_invoice();
+    invoice_.set_file_name({});
+}
+
+bool InvoiceServices::has_invoice_details() const {
+    return invoice_.getBusiness() && invoice_.getClient() && !invoice_.get_file_name().empty();
+}
 /**
  * @brief this shit does nothing shlawg.
  */
@@ -21,7 +31,7 @@ bool InvoiceServices::save_invoice(QJsonDocument& doc) {
 }
 
 void InvoiceServices::add_business_to_invoice(const QJsonDocument& doc) {
-    invoice_.clear_invoice();
+    clear_session();
     auto biz = std::shared_ptr<BusinessRepository>(new BusinessRepository());
     QJsonObject obj = doc.object();
     if (!obj["BusinessID"].isUndefined())
@@ -77,31 +87,28 @@ void Infrastructure::Services::InvoiceServices::begin_invoice_details(const QJso
  * @return Void
  * @pre An invoice object should be created.
  */
-void Infrastructure::Services::InvoiceServices::add_stock_to_invoice(const QJsonDocument& doc) {
+std::string Infrastructure::Services::InvoiceServices::add_stock_to_invoice(const QJsonDocument& doc) {
+    if (!has_invoice_details())
+        throw std::invalid_argument("Choose a business and client and enter invoice details first.");
+    if (!doc.isArray() || doc.array().isEmpty())
+        throw std::invalid_argument("Add at least one stock item to the invoice.");
     const QJsonArray stock_array = doc.array();
+    // A retry replaces the submitted items rather than duplicating the previous attempt.
+    invoice_.getStockQuantityMap().clear();
     qDebug() << "Adding stock to invoices.\n";
     for (const auto& obj : stock_array) {
         const auto& stock_object = obj.toObject();
-        try {
-            if (!stock_object.empty()) {
-                auto item = std::make_shared<StockItem>();
-                item->setStockID(stock_object.value("StockID").toString().toStdString());
-                item->set_description(stock_object["Name"].toString().toStdString());
-                qDebug() << stock_object["Name"].toString().toStdString();
-                item->setStdPrice(stock_object["Price"].toDouble());
-
-                invoice_.addStockItem(item, stock_object["Quantity"].toInt());
-            }
-
-        } catch (std::exception err) {
-            std::cerr << err.what();
-        }
+        if (stock_object.empty())
+            throw std::invalid_argument("Invalid invoice stock item.");
+        auto item = std::make_shared<StockItem>();
+        item->setStockID(stock_object.value("StockID").toString().toStdString());
+        item->set_description(stock_object["Name"].toString().toStdString());
+        item->setStdPrice(stock_object["Price"].toDouble());
+        invoice_.addStockItem(item, stock_object["Quantity"].toInt());
     }
-    try {
-        build_invoice();
-    } catch (std::exception err) {
-        qDebug() << err.what();
-    }
+    if (!build_invoice())
+        throw std::runtime_error("Could not write the PDF. Check the output folder and try again.");
+    return invoice_.get_file_name();
 }
 
 /**
@@ -114,17 +121,8 @@ void Infrastructure::Services::InvoiceServices::add_stock_to_invoice(const QJson
  * @pre An invoice object should be created.
  */
 bool Infrastructure::Services::InvoiceServices::build_invoice() {
-    try {
-        qDebug() << "Building invoice...";
-        Infrastructure::PDF::InvoicePdfGenerator* pdf_gen =
-            new Infrastructure::PDF::InvoicePdfGenerator(std::make_shared<Invoice>(invoice_));
-        pdf_gen->peece_template();
-        return true;
-    } catch (std::exception e) {
-        std::cerr << e.what();
-        throw e;
-    }
-    return false;
+    Infrastructure::PDF::InvoicePdfGenerator pdf_gen(std::make_shared<Invoice>(invoice_));
+    return pdf_gen.peece_template();
 }
 
 /**
