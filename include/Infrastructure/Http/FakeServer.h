@@ -1,3 +1,4 @@
+#pragma once
 #include "Infrastructure/Database/Mongo/MongoDBHandler.h"
 #include "pch.h"
 #include <QtHttpServer>
@@ -12,8 +13,9 @@ class Server {
 
   private:
     QHttpServer httpServer_;
-    QTcpServer* tcpServer_;
-    int start_server();
+    QTcpServer* tcpServer_ = nullptr;
+    QString error_string_;
+    void clear_session();
     AccountServices account_services_;
     MongoDBDataManager& db_manager_;
     Infrastructure::Services::InvoiceServices invoice_service_;
@@ -23,6 +25,10 @@ class Server {
   public:
     Server(MongoDBDataManager& db_manager, Invoke::Domain::Accounts::IAccountManager* account_manager_);
     ~Server() = default;
+    bool start(quint16 port = 1234);
+    bool is_listening() const;
+    quint16 port() const;
+    QString error_string() const { return error_string_; }
     void create_routes_basic();
     void create_routes_invoices();
     void create_routes_auth();

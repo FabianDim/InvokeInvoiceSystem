@@ -1,12 +1,11 @@
 ﻿#pragma once
 #include "pch.h"
 #include "Domain/Accounts/User.h"
-#include "Application/Accounts/AccountManager.h"
 
 class BusinessRepository {
 
   public:
-    explicit BusinessRepository(std::shared_ptr<User> user = AccountManager::currentUser) : current_user_(std::move(user)) {
+    explicit BusinessRepository(std::shared_ptr<User> user = nullptr) : current_user_(std::move(user)) {
         if (current_user_) {
             current_user_id_ = current_user_->getMongoUserID();
         } else {

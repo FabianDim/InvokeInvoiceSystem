@@ -120,16 +120,13 @@ void AccountManager::createAccount(std::string& userEmail, std::string& userPass
 }
 
 void AccountManager::login(const std::string& userEmail, const std::string& userPassword) {
-    while (true) {
-        if (dataManager.valid_password(userPassword, userEmail)) {
-            SetUser setuser(dataManager);
-            this->currentUser = setuser.setUserOnLogin(userEmail, userPassword);
-            accounts[userEmail] = this->currentUser;
-            return;
-        } else {
-            std::cout << "That username/password combo does not exist: try again.\n\n";
-        }
-    }
+    currentUser.reset();
+    if (!dataManager.valid_password(userPassword, userEmail))
+        return;
+    SetUser setuser(dataManager);
+    currentUser = setuser.setUserOnLogin(userEmail, userPassword);
+    if (currentUser)
+        accounts[userEmail] = currentUser;
 }
 
 std::shared_ptr<User> AccountManager::getAccount() {

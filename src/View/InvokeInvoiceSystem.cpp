@@ -1,70 +1,28 @@
-#include "View/InvokeInvoiceSystem.h"
-#include <qfile.h>
+#include <QApplication>
+#include <QFile>
 #include <QIcon>
-#include <Infrastructure/Http/FakeServer.h>
-// int main() {
-//
-//	/*Main Executable*/
-//     //InvokeInvoiceSystem iis;
-//     //iis.run();
-//
-//	/*Invoice Menu*/
-//     AccountManager accountManager;
-//     BusinessManager businessManager;
-//     MongoDBDataManager dbManager;
-//     ClientManager cliManager(dbManager);
-//     StockManager stkManager(dbManager,businessManager);
-//
-//
-//     auto user = std::make_shared<User>("test@email.com", "password123");
-//     user->setMongoUserID("USR00000001");
-//
-//     accountManager.setTestUser(user);
-//     businessManager.setBusinessGlobally("BUS00000001");
-//     BusinessRepository bizRepo;
-//     // Create context
-//
-//     BusinessMenu businessMenu(accountManager, businessManager, cliManager, dbManager);
-//     InvoiceMenu invoiceMenu(accountManager, businessManager,
-//         bizRepo, dbManager, cliManager, stkManager);
-//     invoiceMenu.setTestUser(user);
-//     invoiceMenu.displayMenu();
-//
-//
-//
-//     //businessMenu.displayBusMenu();
-//
-//     return 0;
-//
-// }
-
-// int main(int argc, char* argv[]) {
-//	testing::InitGoogleTest(&argc, argv);
-//	return RUN_ALL_TESTS();
-// }
+#include "Application/Accounts/FrontendAccountSession.h"
+#include "Application/Controllers/AppController.h"
+#include "Infrastructure/Http/ApiClient.h"
+#include "View/MainWindow.h"
 
 int main(int argc, char* argv[]) {
-
-    MongoDBDataManager data_manager;
     QApplication app(argc, argv);
-
-    app.setWindowIcon(QIcon(":/icons/invoice_icon.png"));
-    QFile f(":/styles/UI/Global.qss");
-    if (f.open(QIODevice::ReadOnly)) {
-        QString StyleSheet = QString::fromUtf8(f.readAll());
-        app.setStyleSheet(StyleSheet);
-    } else {
-        qWarning() << "Failed to load stylesheet" << f.fileName() << f.errorString();
-    }
-    Invoke::Application::Auth::QSettingsSessionManager session_manager;
     QCoreApplication::setOrganizationName("Invoke");
     QCoreApplication::setApplicationName("InvokeInvoiceSystem");
+    app.setWindowIcon(QIcon(":/icons/invoice_icon.png"));
+    QFile stylesheet(":/styles/UI/Global.qss");
+    if (stylesheet.open(QIODevice::ReadOnly))
+        app.setStyleSheet(QString::fromUtf8(stylesheet.readAll()));
+    else
+        qWarning() << "Failed to load stylesheet" << stylesheet.errorString();
 
-    AccountManager accountManager(data_manager);
-    Server server(data_manager, &accountManager);
-    auto api = new Infrastructure::Http::ApiClient(QUrl("http://127.0.0.1:1234"), &accountManager, &app);
-    App::Views::MainWindow window(accountManager);
-    Application::Controllers::AppController controller(&window, accountManager, api);
+    // Authentication and MongoDB live in InvokeInvoiceBackend. This object
+    // only holds the frontend's state after a successful HTTP login.
+    Application::Accounts::FrontendAccountSession account_session;
+    Infrastructure::Http::ApiClient api(QUrl("http://127.0.0.1:1234"), &account_session);
+    App::Views::MainWindow window(account_session);
+    Application::Controllers::AppController controller(&window, account_session, &api);
     window.resize(800, 800);
     window.show();
     return app.exec();
