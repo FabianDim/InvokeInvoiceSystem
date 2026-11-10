@@ -12,7 +12,7 @@ Server::Server(MongoDBDataManager& db_manager, Invoke::Domain::Accounts::IAccoun
     create_routes_business();
     create_routes_data();
     create_routes_invoices();
-    start_server();
+    listening_ = start_server() == 0;
 }
 
 void Server::create_routes_basic() {
@@ -249,13 +249,32 @@ void Server::create_routes_data() {
 }
 
 int Server::start_server() {
-    const QHostAddress host = QHostAddress::LocalHost;
-    auto* sslServer = new QTcpServer(&httpServer_);
-    if (!sslServer->listen(host, 1234) || !httpServer_.bind(sslServer)) {
-        delete sslServer;
+    QHostAddress host = QHostAddress::LocalHost;
+    quint16 port = 1234;
+    if (qEnvironmentVariableIsSet("PORT")) {
+        bool valid = false;
+        const int configuredPort = qgetenv("PORT").toInt(&valid);
+        if (!valid || configuredPort < 1 || configuredPort > 65535) {
+            qCritical() << "PORT must be an integer between 1 and 65535; server was not started.";
+            return -1;
+        }
+        // Heroku routes HTTP traffic to the assigned port on all IPv4 interfaces.
+        host = QHostAddress::AnyIPv4;
+        port = static_cast<quint16>(configuredPort);
+    }
+
+    auto* tcpServer = new QTcpServer(&httpServer_);
+    if (!tcpServer->listen(host, port)) {
+        qCritical() << "Could not listen on" << host.toString() << port << tcpServer->errorString();
+        delete tcpServer;
         return -1;
     }
-    QString url = QString("http://%1:%2").arg(sslServer->serverAddress().toString()).arg(sslServer->serverPort());
+    if (!httpServer_.bind(tcpServer)) {
+        qCritical() << "Could not bind the HTTP server on" << host.toString() << port;
+        delete tcpServer;
+        return -1;
+    }
+    QString url = QString("http://%1:%2").arg(tcpServer->serverAddress().toString()).arg(tcpServer->serverPort());
 
     qDebug() << "🗄 Server listening at:" << url;
     return 0;

@@ -12,7 +12,7 @@ class Server {
 
   private:
     QHttpServer httpServer_;
-    QTcpServer* tcpServer_;
+    bool listening_ = false;
     int start_server();
     AccountServices account_services_;
     MongoDBDataManager& db_manager_;
@@ -23,6 +23,7 @@ class Server {
   public:
     Server(MongoDBDataManager& db_manager, Invoke::Domain::Accounts::IAccountManager* account_manager_);
     ~Server() = default;
+    bool is_listening() const { return listening_; }
     void create_routes_basic();
     void create_routes_invoices();
     void create_routes_auth();

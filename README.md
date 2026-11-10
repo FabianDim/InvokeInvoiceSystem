@@ -66,7 +66,49 @@ $env:QT_PLUGIN_PATH = "$deps\Qt6\plugins"
 & .\out\build\x64-release\InvokeInvoiceSystem.exe
 ```
 
-Keep MongoDB running while using account mode. At startup, the desktop executable attempts to start its own HTTP server on `127.0.0.1:1234`; no separate backend process is needed. That port must be free for account mode, so run one app instance at a time. Offline invoice operations run in memory without HTTP requests or a database connection.
+Keep MongoDB running while using account mode. With `PORT` unset, the desktop executable attempts to start its own HTTP server on `127.0.0.1:1234`; no separate backend process is needed. That port must be free for account mode, so run one app instance at a time. Leave `PORT` unset when running the desktop app because its API client connects to port 1234. Offline invoice operations run in memory without HTTP requests or a database connection.
+
+When `PORT` is set (as it is on Heroku), the HTTP server listens on `0.0.0.0:$PORT` instead. The value must be an integer from 1 to 65535; an invalid or empty value logs an error and prevents the listener from starting. To restore the local default in PowerShell, run `Remove-Item Env:PORT -ErrorAction SilentlyContinue`.
+
+### Build the backend Docker image
+
+The root `Dockerfile` installs Ubuntu 24.04 build tools, Qt's Linux system dependencies,
+and the libraries in `vcpkg.json`, using the repository's pinned vcpkg revision. It
+compiles only `InvokeInvoiceBackend` and starts it as an unprivileged user. This
+initial image retains the compiler and dependency installation; it is not a minimal
+runtime image.
+
+The `InvokeInvoiceBackend` CMake target runs a `QCoreApplication` event loop with
+the existing HTTP routes, database services and PDF generator; it does not open
+the desktop UI or require a display server. It exits with a nonzero status if
+the HTTP listener cannot start.
+
+To build and run it locally using the Windows prerequisites above:
+
+```powershell
+cmake --preset x64-release
+cmake --build --preset x64-release --target InvokeInvoiceBackend
+& .\out\build\x64-release\InvokeInvoiceBackend.exe
+```
+
+With `PORT` unset, visit `http://127.0.0.1:1234/` for the `hello world` response.
+Account routes require the MongoDB configuration described above.
+
+With Docker configured to run Linux containers, build from the repository root:
+
+```powershell
+docker build --platform linux/amd64 -t invoke-invoice-backend .
+```
+
+The first build compiles Qt and can take considerable time and disk space. Build
+parallelism defaults to two jobs; change it with `--build-arg BUILD_JOBS=4` if your
+builder has enough memory. `.dockerignore` excludes local build outputs and `.env`
+files. Pass database credentials at runtime, never as Docker build arguments.
+
+The image supplies the backend executable and supports Heroku's `PORT`. Before
+hosting it for multiple users, implement per-request sessions and a remote PDF
+workflow; the existing routes still share account and invoice state in-process
+and write PDFs to the server's filesystem.
 
 ### 5. Create your first account invoice
 

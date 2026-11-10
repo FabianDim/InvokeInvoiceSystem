@@ -36,6 +36,11 @@
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/tests
     )
+    include(CheckCXXSymbolExists)
+    check_cxx_symbol_exists(arc4random_buf "stdlib.h" INVOKE_HAVE_SYSTEM_ARC4RANDOM_BUF)
+    if(INVOKE_HAVE_SYSTEM_ARC4RANDOM_BUF)
+        target_compile_definitions(passlib PRIVATE INVOKE_HAVE_SYSTEM_ARC4RANDOM_BUF)
+    endif()
 
     # ---------- Auto file pickup ----------
     # Define globs FIRST
@@ -49,8 +54,36 @@
         ${CMAKE_SOURCE_DIR}/forms/*.ui
     )
     set(APP_MAIN_CPP ${CMAKE_SOURCE_DIR}/src/View/InvokeInvoiceSystem.cpp)
+    set(BACKEND_MAIN_CPP ${CMAKE_SOURCE_DIR}/src/Backend/main.cpp)
+    # Each executable must have exactly one entry point.
+    list(REMOVE_ITEM PROJECT_CPP ${BACKEND_MAIN_CPP})
     set(TEST_SOURCES ${PROJECT_CPP})
     list(REMOVE_ITEM TEST_SOURCES ${APP_MAIN_CPP})
+
+    # ---------- Headless HTTP backend (Docker / Heroku) ----------
+    qt_add_executable(InvokeInvoiceBackend
+        ${BACKEND_MAIN_CPP}
+        src/Application/Accounts/AccountManager.cpp
+        src/Application/Accounts/SetUserFromDB.cpp
+        src/Application/Business/SetBusinessFromDB.cpp
+        src/Domain/Accounts/User.cpp
+        src/Infrastructure/Database/Mongo/MongoDBHandler.cpp
+        src/Infrastructure/Database/Mongo/MongoDBDataManager.cpp
+        src/Infrastructure/Database/Services/AccountServices.cpp
+        src/Infrastructure/Database/Services/InvoiceServices.cpp
+        src/Infrastructure/Http/FakeServer.cpp
+        src/Infrastructure/Pdf/InvoicePdfGenerator.cpp
+    )
+    set_target_properties(InvokeInvoiceBackend PROPERTIES WIN32_EXECUTABLE OFF MACOSX_BUNDLE OFF)
+    target_include_directories(InvokeInvoiceBackend PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(InvokeInvoiceBackend PRIVATE
+        passlib
+        Qt6::Core Qt6::Gui Qt6::HttpServer Qt6::Network
+        fmt::fmt
+        unofficial::libharu::hpdf
+        $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
+        $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
+    )
 
     # ---------- App executable ----------
     qt_add_executable(InvokeInvoiceSystem MANUAL_FINALIZATION
@@ -185,7 +218,7 @@
     # JPEG logos need Qt's image-format plugin beside locally built executables.
     if(WIN32)
         find_package(libjpeg-turbo CONFIG REQUIRED)
-        foreach(invoice_target InvokeInvoiceSystem BusinessSessionTests InvokeInvoiceSystemTests)
+        foreach(invoice_target InvokeInvoiceBackend InvokeInvoiceSystem BusinessSessionTests InvokeInvoiceSystemTests)
             add_custom_command(TARGET ${invoice_target} POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${invoice_target}>/imageformats"
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
