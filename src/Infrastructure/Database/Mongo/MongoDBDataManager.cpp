@@ -100,6 +100,24 @@ bool MongoDBDataManager::valid_password(const std::string& password, const std::
     return stored_password.has_value() && bcrypt::validatePassword(password, *stored_password);
 }
 
+std::optional<std::string> MongoDBDataManager::authenticate_account(const std::string& email,
+                                                                 const std::string& password) {
+    if (email.empty() || password.empty())
+        return std::nullopt;
+    const auto document = database()["Users"].find_one(make_document(kvp("UserEmail", email)));
+    if (!document)
+        return std::nullopt;
+    const auto view = document->view();
+    const auto hash = view["UserPassword"];
+    const auto id = view["UserID"];
+    if (!hash || hash.type() != bsoncxx::type::k_string || !id || id.type() != bsoncxx::type::k_string)
+        return std::nullopt;
+    if (!bcrypt::validatePassword(password, std::string(hash.get_string().value)))
+        return std::nullopt;
+    const std::string user_id(id.get_string().value);
+    return user_id.empty() ? std::nullopt : std::make_optional(user_id);
+}
+
 MongoDBDataManager::AccountCreationResult MongoDBDataManager::create_account(const QJsonObject& details) {
     const auto email = details.value("email").toString().trimmed().toStdString();
     const auto password = details.value("password").toString().toStdString();

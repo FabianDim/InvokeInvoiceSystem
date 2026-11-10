@@ -54,6 +54,8 @@ class ApiClient : public QObject {
     Invoke::Domain::Accounts::IAccountManager* account_manager_;
     QNetworkAccessManager* networkManager_;
     QUrl baseUrl_;
+    QByteArray session_token_;
+    QNetworkRequest make_request(const QUrl& url) const;
     QString current_business_id_;
     void invalidate_business_items();
     QJsonDocument business_items_cache_;

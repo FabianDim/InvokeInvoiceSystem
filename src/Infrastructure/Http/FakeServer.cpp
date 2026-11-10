@@ -4,15 +4,21 @@
 #include <QUrlQuery>
 #include "Utils/BusinessLogo.h"
 
-Server::Server(MongoDBDataManager& db_manager, Invoke::Domain::Accounts::IAccountManager* account_manager_)
-    : db_manager_(db_manager), account_services_(db_manager, account_manager_), account_manager_(account_manager_),
-      invoice_service_(db_manager) {
+Server::Server(MongoDBDataManager& db_manager, Invoke::Domain::Accounts::IAccountManager*)
+    : db_manager_(db_manager) {
     create_routes_basic();
     create_routes_auth();
     create_routes_business();
     create_routes_data();
     create_routes_invoices();
     listening_ = start_server() == 0;
+}
+
+std::shared_ptr<Infrastructure::Http::AuthSessions::Session> Server::session_for(const QHttpServerRequest& request) {
+    const auto authorization = request.value("Authorization");
+    if (!authorization.startsWith("Bearer "))
+        return {};
+    return sessions_.find(authorization.mid(7));
 }
 
 void Server::create_routes_basic() {
@@ -23,7 +29,8 @@ void Server::create_routes_invoices() {
     httpServer_.route("/invoices/invoice_start",
                       QHttpServerRequest::Method::Post,
                       [this](const QHttpServerRequest& request) -> QHttpServerResponse {
-                          if (!account_manager_ || !account_manager_->is_logged_in())
+                          const auto session = session_for(request);
+                          if (!session)
                               return QHttpServerResponse("application/json", "{\"error\":\"unauthorized\"}",
                                                          QHttpServerResponse::StatusCode::Unauthorized);
                           QJsonParseError err{};
@@ -32,10 +39,8 @@ void Server::create_routes_invoices() {
                               return QHttpServerResponse(
                                   "Invalid JSON", "text/plain", QHttpServerResponse::StatusCode::BadRequest);
                           }
-                          const auto user = account_manager_->getAccount();
                           const auto business_id = doc.object().value("BusinessID").toString();
-                          const auto businesses = user ? db_manager_.get_account_businesses(user->getMongoUserID()).object()
-                                                       : QJsonObject{};
+                          const auto businesses = db_manager_.get_account_businesses(session->user_id).object();
                           if (business_id.isEmpty() || !businesses.contains(business_id))
                               return QHttpServerResponse("application/json", "{\"error\":\"Choose a business belonging to your account\"}",
                                                          QHttpServerResponse::StatusCode::BadRequest);
@@ -43,7 +48,7 @@ void Server::create_routes_invoices() {
                           QJsonObject selected_client;
                           try {
                               const auto clients = db_manager_.list_resources(
-                                  "clients", user->getMongoUserID(), business_id.toStdString());
+                                  "clients", session->user_id, business_id.toStdString());
                               for (const auto& value : clients.array()) {
                                   if (value.toObject().value("ClientID").toString() == client_id && !client_id.isEmpty()) {
                                       selected_client = value.toObject();
@@ -58,21 +63,29 @@ void Server::create_routes_invoices() {
                               return QHttpServerResponse("application/json", "{\"error\":\"Choose a saved client belonging to this business\"}",
                                                          QHttpServerResponse::StatusCode::BadRequest);
                           // Resolve client details from the database, then bind the whole invoice together.
-                          invoice_service_.add_business_to_invoice(QJsonDocument(businesses.value(business_id).toObject()));
-                          invoice_service_.add_client_to_invoice(QJsonDocument(selected_client));
-                          invoice_service_.begin_invoice_details(doc);
+                          session->invoice = std::make_shared<Infrastructure::Services::InvoiceServices>(db_manager_);
+                          session->invoice->add_business_to_invoice(QJsonDocument(businesses.value(business_id).toObject()));
+                          session->invoice->add_client_to_invoice(QJsonDocument(selected_client));
+                          session->invoice->begin_invoice_details(doc);
                           return QHttpServerResponse("application/json", "{\"ok\":true}", QHttpServerResponse::StatusCode::Ok);
                       });
     httpServer_.route("/invoices/stock-list",
                       QHttpServerRequest::Method::Post,
                       [this](const QHttpServerRequest& request) -> QHttpServerResponse {
+                          const auto session = session_for(request);
+                          if (!session)
+                              return QHttpServerResponse(QJsonObject{{"error", "Please sign in again."}},
+                                                         QHttpServerResponse::StatusCode::Unauthorized);
+                          if (!session->invoice)
+                              return QHttpServerResponse(QJsonObject{{"error", "Start an invoice first."}},
+                                                         QHttpServerResponse::StatusCode::BadRequest);
                           QJsonParseError err{};
                           const QJsonDocument doc = QJsonDocument::fromJson(request.body(), &err);
                           if (err.error != QJsonParseError::NoError) {
                               return QHttpServerResponse(
                                   "Invalid JSON", "text/plain", QHttpServerResponse::StatusCode::BadRequest);
                           }
-                          invoice_service_.add_stock_to_invoice(doc);
+                          session->invoice->add_stock_to_invoice(doc);
                           return QHttpServerResponse("Invalid JSON", "text/plain", QHttpServerResponse::StatusCode::Ok);
                       });
 }
@@ -80,17 +93,17 @@ void Server::create_routes_invoices() {
 void Server::create_routes_business() {
     httpServer_.route("/business/items", QHttpServerRequest::Method::Get,
                       [this](const QHttpServerRequest& request) -> QHttpServerResponse {
-        if (!account_manager_ || !account_manager_->is_logged_in())
+        const auto session = session_for(request);
+        if (!session)
             return QHttpServerResponse("application/json", "{\"error\":\"unauthorized\"}",
                                        QHttpServerResponder::StatusCode::Unauthorized);
-        const auto user = account_manager_->getAccount();
         const auto business_id = QUrlQuery(request.url()).queryItemValue("BusinessID");
-        if (!user || business_id.isEmpty())
+        if (business_id.isEmpty())
             return QHttpServerResponse("application/json", "{\"error\":\"Choose a business first\"}",
                                        QHttpServerResponder::StatusCode::BadRequest);
         try {
             const auto id = business_id.toStdString();
-            const auto user_id = user->getMongoUserID();
+            const auto user_id = session->user_id;
             const auto businesses = db_manager_.list_resources("businesses", user_id, id).array();
             if (businesses.isEmpty())
                 return QHttpServerResponse("application/json", "{\"error\":\"Business is not available for this account\"}",
@@ -104,19 +117,21 @@ void Server::create_routes_business() {
                                        QHttpServerResponder::StatusCode::InternalServerError);
         }
     });
-    httpServer_.route("/business/list", QHttpServerRequest::Method::Get, [this]() -> QHttpServerResponse {
-        if (!account_manager_ || !account_manager_->is_logged_in()) {
+    httpServer_.route("/business/list", QHttpServerRequest::Method::Get, [this](const QHttpServerRequest& request) -> QHttpServerResponse {
+        const auto session = session_for(request);
+        if (!session) {
             QJsonObject err{{"error", "unauthorized"}};
             QJsonDocument doc(err);
             return QHttpServerResponse(
                 "application/json", doc.toJson(QJsonDocument::Compact), QHttpServerResponse::StatusCode::Unauthorized);
         }
-        const QJsonDocument listJson = account_services_.fetch_account_businesses();
+        const QJsonDocument listJson = db_manager_.get_account_businesses(session->user_id);
         return QHttpServerResponse(
             "application/json", listJson.toJson(QJsonDocument::Compact), QHttpServerResponse::StatusCode::Ok);
     });
     httpServer_.route("/business/objectify", QHttpServerRequest::Method::Post, [&](const QHttpServerRequest& request) {
-        if (!account_manager_ || !account_manager_->is_logged_in()) {
+        const auto session = session_for(request);
+        if (!session) {
             QJsonObject err{{"error", "unauthorized"}};
             QJsonDocument doc(err);
             return QHttpServerResponse("No authorised user", QHttpServerResponder::StatusCode::BadRequest);
@@ -124,7 +139,13 @@ void Server::create_routes_business() {
         try {
             QJsonParseError parseError;
             QJsonDocument doc = QJsonDocument::fromJson(request.body(), &parseError);
-            invoice_service_.add_business_to_invoice(doc);
+            const auto business_id = doc.object().value("BusinessID").toString();
+            const auto businesses = db_manager_.get_account_businesses(session->user_id).object();
+            if (!businesses.contains(business_id))
+                return QHttpServerResponse(QJsonObject{{"error", "Business is not available for this account"}},
+                                           QHttpServerResponder::StatusCode::Forbidden);
+            session->invoice = std::make_shared<Infrastructure::Services::InvoiceServices>(db_manager_);
+            session->invoice->add_business_to_invoice(QJsonDocument(businesses.value(business_id).toObject()));
             return QHttpServerResponse("Posting the business", QHttpServerResponder::StatusCode::Ok);
         } catch (const std::exception& e) {
             qDebug() << "Exception setting active business:" << e.what();
@@ -133,17 +154,17 @@ void Server::create_routes_business() {
         }
     });
     httpServer_.route("/stock/list", QHttpServerRequest::Method::Get, [this](const QHttpServerRequest& request) -> QHttpServerResponse {
-        if (!account_manager_ || !account_manager_->is_logged_in()) {
+        const auto session = session_for(request);
+        if (!session) {
             return QHttpServerResponse("application/json", "{\"error\":\"unauthorized\"}",
                                        QHttpServerResponder::StatusCode::Unauthorized);
         }
-        const auto user = account_manager_->getAccount();
         const auto business_id = QUrlQuery(request.url()).queryItemValue("BusinessID");
-        if (!user || business_id.isEmpty())
+        if (business_id.isEmpty())
             return QHttpServerResponse("application/json", "{\"error\":\"Choose a business first\"}",
                                        QHttpServerResponder::StatusCode::BadRequest);
         try {
-            const auto stock = db_manager_.list_resources("stocks", user->getMongoUserID(), business_id.toStdString());
+            const auto stock = db_manager_.list_resources("stocks", session->user_id, business_id.toStdString());
             return QHttpServerResponse("application/json", stock.toJson(QJsonDocument::Compact),
                                        QHttpServerResponder::StatusCode::Ok);
         } catch (const std::exception&) {
@@ -199,25 +220,48 @@ void Server::create_routes_auth() {
         return QHttpServerResponse("application/json", "{\"error\":\"Unknown signup error\"}",
                                    QHttpServerResponder::StatusCode::InternalServerError);
     });
-    httpServer_.route("/auth/login", QHttpServerRequest::Method::Post, [&](const QHttpServerRequest& request) {
+    httpServer_.route("/auth/login", QHttpServerRequest::Method::Post, [this](const QHttpServerRequest& request) {
         QJsonParseError parseError;
-        QJsonDocument doc = QJsonDocument::fromJson(request.body(), &parseError);
-
-        if (account_services_.validate_login(doc)) {
-            const auto obj = doc.object();
-            account_manager_->login(obj.value("email").toString().toStdString(),
-                                    obj.value("password").toString().toStdString());
-            qDebug() << "Logging In Successfully";
-            return QHttpServerResponse("application/json", "{\"ok\":true}", QHttpServerResponder::StatusCode::Ok);
+        const auto doc = QJsonDocument::fromJson(request.body(), &parseError);
+        if (parseError.error != QJsonParseError::NoError || !doc.isObject())
+            return QHttpServerResponse(QJsonObject{{"error", "Invalid login request"}},
+                                       QHttpServerResponder::StatusCode::BadRequest);
+        const auto email = doc.object().value("email").toString().trimmed();
+        const auto password = doc.object().value("password").toString();
+        try {
+            const auto user_id = db_manager_.authenticate_account(email.toStdString(), password.toStdString());
+            if (!user_id)
+                return QHttpServerResponse(QJsonObject{{"error", "Invalid email or password"}},
+                                           QHttpServerResponder::StatusCode::Unauthorized);
+            const auto token = sessions_.create(*user_id);
+            if (token.isEmpty())
+                return QHttpServerResponse(QJsonObject{{"error", "Sign-in is busy. Please try again later."}},
+                                           QHttpServerResponder::StatusCode::ServiceUnavailable);
+            auto response = QHttpServerResponse(QJsonObject{
+                {"ok", true}, {"token", QString::fromLatin1(token)},
+                {"user", QJsonObject{{"id", QString::fromStdString(*user_id)}, {"email", email}}}});
+            auto headers = response.headers();
+            headers.append("Cache-Control", "no-store");
+            response.setHeaders(std::move(headers));
+            return response;
+        } catch (const std::exception&) {
+            qWarning() << "[Server::login] Database authentication lookup failed";
+            return QHttpServerResponse(QJsonObject{{"error", "The server could not connect to the database. Please try again later."}},
+                                       QHttpServerResponder::StatusCode::ServiceUnavailable);
         }
-        return QHttpServerResponse("application/json", "{\"error\":\"Invalid email or password\"}",
-                                   QHttpServerResponder::StatusCode::Unauthorized);
+    });
+    httpServer_.route("/auth/logout", QHttpServerRequest::Method::Post, [this](const QHttpServerRequest& request) {
+        const auto authorization = request.value("Authorization");
+        if (authorization.startsWith("Bearer "))
+            sessions_.revoke(authorization.mid(7));
+        return QHttpServerResponse(QJsonObject{{"ok", true}});
     });
 }
 
 void Server::create_routes_data() {
     const auto save = [this](const QString& resource, const QHttpServerRequest& request) {
-        if (!account_manager_ || !account_manager_->is_logged_in())
+        const auto session = session_for(request);
+        if (!session)
             return QHttpServerResponse("application/json", "{\"error\":\"unauthorized\"}",
                                        QHttpServerResponder::StatusCode::Unauthorized);
         QJsonParseError error{};
@@ -225,7 +269,6 @@ void Server::create_routes_data() {
         if (error.error != QJsonParseError::NoError || !data.isObject())
             return QHttpServerResponse("application/json", "{\"error\":\"Invalid JSON\"}",
                                        QHttpServerResponder::StatusCode::BadRequest);
-        const auto user = account_manager_->getAccount();
         if (resource == "business" && !data.object().value("LogoData").toString().isEmpty()) {
             const auto encoded = data.object().value("LogoData").toString().toLatin1();
             QByteArray png;
@@ -235,7 +278,7 @@ void Server::create_routes_data() {
                 return QHttpServerResponse(QJsonObject{{"error", message}}, QHttpServerResponder::StatusCode::BadRequest);
         }
         QString saved_id;
-        if (!user || !db_manager_.save_resource(resource.toStdString(), data.object(), user->getMongoUserID(), &saved_id))
+        if (!db_manager_.save_resource(resource.toStdString(), data.object(), session->user_id, &saved_id))
             return QHttpServerResponse("application/json", "{\"error\":\"Could not save resource\"}",
                                        QHttpServerResponder::StatusCode::InternalServerError);
         return QHttpServerResponse(QJsonObject{{"ok", true}, {"id", saved_id}});

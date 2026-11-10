@@ -10,6 +10,7 @@
 #include "View/UICode/Views/Dashboard.h"
 #include "View/UICode/Views/NewInvoiceStock.h"
 #include "Infrastructure/Http/ApiClient.h"
+#include "Infrastructure/Http/AuthSessions.h"
 #include "Application/Controllers/AppController.h"
 #include "Utils/BusinessLogo.h"
 #include <QTemporaryDir>
@@ -21,6 +22,7 @@ namespace {
 class TestAccountManager : public Invoke::Domain::Accounts::IAccountManager {
   public:
     bool logged_in = false;
+    std::shared_ptr<User> user;
     bool validEmail(const std::string&) override { return true; }
     bool validName(const std::string&) override { return true; }
     bool doesAccountExist(const std::string&) override { return true; }
@@ -28,10 +30,11 @@ class TestAccountManager : public Invoke::Domain::Accounts::IAccountManager {
     bool validatePassword(const std::string&) override { return true; }
     void createAccount(std::string&, std::string&) override {}
     void login(const std::string&, const std::string&) override { logged_in = true; }
-    void logOut() override { logged_in = false; }
+    void logOut() override { logged_in = false; user.reset(); }
     bool is_logged_in() const override { return logged_in; }
     bool needsAccountSetup(const std::string&) override { return false; }
-    std::shared_ptr<User> getAccount() override { return nullptr; }
+    std::shared_ptr<User> getAccount() override { return user; }
+    void set_authenticated_user(std::shared_ptr<User> identity) override { user = std::move(identity); logged_in = true; }
 };
 
 QJsonDocument business_list() {
@@ -99,7 +102,9 @@ struct RecordingServer {
                        return QHttpServerResponse(QJsonArray{});
                    });
         http.route("/auth/login", QHttpServerRequest::Method::Post, []() {
-            return QHttpServerResponse(QJsonObject{{"ok", true}});
+            return QHttpServerResponse(QJsonObject{
+                {"ok", true}, {"token", "recording-session"},
+                {"user", QJsonObject{{"id", "TEST_USER"}, {"email", "test@example.invalid"}}}});
         });
         return tcp->listen(QHostAddress::LocalHost, 0) && http.bind(tcp);
     }
@@ -111,6 +116,76 @@ struct RecordingServer {
 class BusinessSessionTests : public QObject {
     Q_OBJECT
   private slots:
+    void auth_sessions_isolate_users_and_expire() {
+        Infrastructure::Http::AuthSessions sessions;
+        const auto now = QDateTime::currentDateTimeUtc();
+        const auto first = sessions.create("USER_A", now);
+        const auto second = sessions.create("USER_B", now);
+        QVERIFY(!first.isEmpty());
+        QVERIFY(first != second);
+        QCOMPARE(sessions.find(first, now)->user_id, std::string("USER_A"));
+        QCOMPARE(sessions.find(second, now)->user_id, std::string("USER_B"));
+        QVERIFY(!sessions.find("invalid", now));
+        sessions.revoke(first);
+        QVERIFY(!sessions.find(first, now));
+        QVERIFY(sessions.find(second, now));
+        QVERIFY(!sessions.find(second, now.addSecs(8 * 60 * 60)));
+    }
+
+    void remote_login_carries_session_and_reports_errors() {
+        QHttpServer http;
+        auto* tcp = new QTcpServer(&http);
+        int status = 200;
+        QByteArray body = R"({"ok":true,"token":"test-session-token","user":{"id":"USER_A","email":"alice@example.invalid"}})";
+        QByteArray business_auth;
+        QByteArray logout_auth;
+        http.route("/auth/login", QHttpServerRequest::Method::Post, [&]() {
+            return QHttpServerResponse("application/json", body, static_cast<QHttpServerResponder::StatusCode>(status));
+        });
+        http.route("/business/list", QHttpServerRequest::Method::Get, [&](const QHttpServerRequest& request) {
+            business_auth = request.value("Authorization");
+            return QHttpServerResponse(QJsonObject{});
+        });
+        http.route("/auth/logout", QHttpServerRequest::Method::Post, [&](const QHttpServerRequest& request) {
+            logout_auth = request.value("Authorization");
+            return QHttpServerResponse(QJsonObject{{"ok", true}});
+        });
+        QVERIFY(tcp->listen(QHostAddress::LocalHost, 0));
+        QVERIFY(http.bind(tcp));
+        TestAccountManager account;
+        ApiClient api(QUrl(QString("http://127.0.0.1:%1").arg(tcp->serverPort())), &account);
+        QSignalSpy success(&api, &ApiClient::login_succeeded);
+        QSignalSpy failure(&api, &ApiClient::login_failed);
+        api.do_login("alice@example.invalid", "test-password", false);
+        QTRY_COMPARE(success.count(), 1);
+        QVERIFY(account.is_logged_in());
+        QCOMPARE(account.getAccount()->getMongoUserID(), std::string("USER_A"));
+        QVERIFY(account.getAccount()->getPassword().empty());
+        api.get_business_list();
+        QTRY_COMPARE(business_auth, QByteArray("Bearer test-session-token"));
+        api.clear_session();
+        QVERIFY(!account.is_logged_in());
+        QTRY_COMPARE(logout_auth, QByteArray("Bearer test-session-token"));
+
+        status = 401;
+        body = R"({"error":"Invalid email or password"})";
+        api.do_login("alice@example.invalid", "incorrect", false);
+        QTRY_COMPARE(failure.count(), 1);
+        QCOMPARE(failure.takeFirst().at(0).toString(), QString("Invalid email or password"));
+        status = 503;
+        body = R"({"error":"The server could not connect to the database."})";
+        api.do_login("alice@example.invalid", "test-password", false);
+        QTRY_COMPARE(failure.count(), 1);
+        QCOMPARE(failure.takeFirst().at(0).toString(), QString("The server could not connect to the database."));
+        status = 200;
+        body = R"({"ok":true})";
+        api.do_login("alice@example.invalid", "test-password", false);
+        QTRY_COMPARE(failure.count(), 1);
+        QVERIFY(failure.takeFirst().at(0).toString().contains("invalid sign-in response"));
+        QCOMPARE(success.count(), 1);
+        QVERIFY(!account.is_logged_in());
+    }
+
     void initTestCase() {
 #ifdef Q_OS_WIN
         QFontDatabase::addApplicationFont(qEnvironmentVariable("WINDIR") + "/Fonts/segoeui.ttf");

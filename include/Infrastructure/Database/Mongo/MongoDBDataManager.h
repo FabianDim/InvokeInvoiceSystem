@@ -53,6 +53,8 @@ class MongoDBDataManager {
     std::optional<mongocxx::collection> getCollection(const std::string& collectionName);
 
     bool valid_password(const std::string& password, const std::string& email);
+    // Invalid credentials return no user ID; database errors propagate to the HTTP layer.
+    std::optional<std::string> authenticate_account(const std::string& email, const std::string& password);
     AccountCreationResult create_account(const QJsonObject& details);
     QJsonDocument get_account_businesses(const std::string& user_id);
     QJsonDocument list_resources(const std::string& resource, const std::string& user_id,

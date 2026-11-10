@@ -23,6 +23,7 @@ AppController::AppController(App::Views::MainWindow* main,
     QObject::connect(
         main_->login_page(), &App::Views::LoginPage::login_requested, api_, &Infrastructure::Http::ApiClient::do_login);
     QObject::connect(main_->login_page(), &App::Views::LoginPage::navigate_to, this, &AppController::page_navigation);
+    QObject::connect(main_->signup_page(), &App::Views::SignupPage::navigate_to, this, &AppController::page_navigation);
     QObject::connect(main_->landing_page(), &App::Views::LandingPage::navigate_to, this, [this](Page page) {
         if (page == Page::Signup)
             page_navigation(Page::Signup);

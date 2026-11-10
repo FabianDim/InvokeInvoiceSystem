@@ -66,7 +66,24 @@ $env:QT_PLUGIN_PATH = "$deps\Qt6\plugins"
 & .\out\build\x64-release\InvokeInvoiceSystem.exe
 ```
 
-Keep MongoDB running while using account mode. With `PORT` unset, the desktop executable attempts to start its own HTTP server on `127.0.0.1:1234`; no separate backend process is needed. That port must be free for account mode, so run one app instance at a time. Leave `PORT` unset when running the desktop app because its API client connects to port 1234. Offline invoice operations run in memory without HTTP requests or a database connection.
+The desktop app connects to `https://invoice-backend-app-69d26786220b.herokuapp.com`
+by default. MongoDB credentials belong in the Heroku backend's config vars;
+desktop sign-in and business requests use HTTPS and do not query MongoDB locally.
+The backend must include the session-token login API described below.
+
+To use the embedded local server instead, set
+`$env:INVOICE_API_URL = 'http://127.0.0.1:1234'` before launching the desktop app.
+In that mode, configure MongoDB locally and leave `PORT` unset; port 1234 must
+be free. Remove `INVOICE_API_URL` to restore the Heroku default. Other backend
+URLs must use HTTPS (HTTP is accepted only for `127.0.0.1`).
+Offline invoice operations run in memory without HTTP requests or a database connection.
+
+Successful login returns an opaque, randomly generated token. The client sends
+it as a bearer token on subsequent requests and revokes it on logout. Each token
+has its own account identity and invoice state. Sessions expire after eight hours
+and are held in memory on the single backend dyno, so restarting it requires
+signing in again. The desktop keeps tokens only in memory; automatic sign-in
+across application launches is not implemented.
 
 When `PORT` is set (as it is on Heroku), the HTTP server listens on `0.0.0.0:$PORT` instead. The value must be an integer from 1 to 65535; an invalid or empty value logs an error and prevents the listener from starting. To restore the local default in PowerShell, run `Remove-Item Env:PORT -ErrorAction SilentlyContinue`.
 
@@ -105,10 +122,34 @@ parallelism defaults to two jobs; change it with `--build-arg BUILD_JOBS=4` if y
 builder has enough memory. `.dockerignore` excludes local build outputs and `.env`
 files. Pass database credentials at runtime, never as Docker build arguments.
 
-The image supplies the backend executable and supports Heroku's `PORT`. Before
-hosting it for multiple users, implement per-request sessions and a remote PDF
-workflow; the existing routes still share account and invoice state in-process
-and write PDFs to the server's filesystem.
+### Push the backend to Heroku
+
+Heroku's registry requires Docker Image Manifest V2, Schema 2. With Docker's
+containerd image store, `heroku container:push` can produce an OCI manifest that
+the registry rejects with `unsupported`, even after uploading the layers.
+Use Buildx's registry exporter to explicitly select Docker media types:
+
+```powershell
+heroku container:login
+docker buildx build --platform linux/amd64 --provenance=false --sbom=false `
+    --output "type=registry,name=registry.heroku.com/invoice-backend-app/web,oci-mediatypes=false" .
+```
+
+This builds and uploads the image. After a successful upload, release it:
+
+```powershell
+heroku container:release web --app invoice-backend-app
+heroku logs --tail --app invoice-backend-app
+```
+
+The registry exporter avoids a separate `docker push` and reuses existing build
+cache. See the [Heroku manifest requirements](https://devcenter.heroku.com/articles/container-registry-and-runtime#known-issues-and-limitations)
+and [Docker exporter options](https://docs.docker.com/build/exporters/image-registry/).
+
+The image supplies the backend executable and supports Heroku's `PORT`. Sessions
+and invoice state are isolated by token. Remote PDF delivery is still incomplete:
+the existing invoice routes write PDFs to the server's filesystem. The offline
+desktop workflow continues to save PDFs locally.
 
 ### 5. Create your first account invoice
 
@@ -192,6 +233,11 @@ The demo tests export PDFs into temporary directories that are removed when the 
 ### Database health checks
 
 These read-only integration tests check connectivity, authentication, writable-primary status and access to the `Users` collection. They require an explicitly set `MONGODB_URI` with valid database credentials. An unauthenticated local connection will fail the authentication check even if the app can use it.
+
+On Windows, the manifest selects the MongoDB C driver's `openssl` feature to
+avoid the pinned driver's native TLS handshake failure (`0x80090326`) with
+Atlas. Certificate verification remains enabled. Reconfigure CMake after pulling
+this dependency change so vcpkg rebuilds the MongoDB drivers before running tests.
 
 ```powershell
 cmake --build --preset x64-release --target DatabaseTests

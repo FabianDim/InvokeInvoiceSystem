@@ -8,6 +8,16 @@ using namespace Infrastructure::Http;
 ApiClient::ApiClient(const QUrl& baseUrl, Invoke::Domain::Accounts::IAccountManager* mgr, QObject* parent)
     : QObject(parent), networkManager_(new QNetworkAccessManager(this)), baseUrl_(baseUrl), account_manager_(mgr) {}
 
+QNetworkRequest ApiClient::make_request(const QUrl& url) const {
+    QNetworkRequest request(url);
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    request.setTransferTimeout(30000);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
+    if (!session_token_.isEmpty())
+        request.setRawHeader("Authorization", "Bearer " + session_token_);
+    return request;
+}
+
 void ApiClient::invalidate_business_items() {
     ++business_items_generation_;
     business_items_cache_ = QJsonDocument{};
@@ -24,6 +34,10 @@ void ApiClient::set_offline(bool offline) {
 }
 
 void ApiClient::clear_session() {
+    const auto old_token = session_token_;
+    session_token_.clear();
+    if (account_manager_)
+        account_manager_->logOut();
     offline_session_ = {};
     loginInProgress_ = false;
     // Disconnect before aborting: no late online response may populate a demo.
@@ -36,6 +50,14 @@ void ApiClient::clear_session() {
     ++session_generation_;
     current_business_id_.clear();
     invalidate_business_items();
+    if (!old_token.isEmpty()) {
+        QUrl url = baseUrl_;
+        url.setPath("/auth/logout");
+        auto request = make_request(url);
+        request.setRawHeader("Authorization", "Bearer " + old_token);
+        auto* reply = networkManager_->post(request, QByteArray("{}"));
+        connect(reply, &QNetworkReply::finished, reply, &QObject::deleteLater);
+    }
 }
 
 void ApiClient::get_business_items(bool refresh) {
@@ -64,7 +86,7 @@ void ApiClient::get_business_items(bool refresh) {
     QUrlQuery query;
     query.addQueryItem("BusinessID", business_id);
     url.setQuery(query);
-    QNetworkRequest request(url);
+    auto request = make_request(url);
     request.setTransferTimeout(30000);
     auto* reply = networkManager_->get(request);
     business_items_reply_ = reply;
@@ -101,8 +123,7 @@ void Infrastructure::Http::ApiClient::get_business_list() {
     const auto session = session_generation_;
     QUrl url = baseUrl_;
     url.setPath("/business/list");
-    QNetworkRequest request;
-    request.setUrl(url);
+    auto request = make_request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     try {
         auto reply = networkManager_->get(request);
@@ -128,8 +149,7 @@ void Infrastructure::Http::ApiClient::do_signup(const QJsonDocument& details) {
     }
     QUrl url = baseUrl_;
     url.setPath("/auth/signup");
-    QNetworkRequest request;
-    request.setUrl(url);
+    auto request = make_request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     const auto payload = details.object();
     qDebug() << "[ApiClient::do_signup] Sending signup request to" << url.toString()
@@ -175,8 +195,7 @@ void Infrastructure::Http::ApiClient::get_stock_list() {
     QUrlQuery query;
     query.addQueryItem("BusinessID", business_id);
     url.setQuery(query);
-    QNetworkRequest request;
-    request.setUrl(url);
+    auto request = make_request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     try {
         auto reply = networkManager_->get(request);
@@ -226,8 +245,7 @@ void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoi
     payload["BusinessID"] = current_business_id_;
     QUrl url = baseUrl_;
     url.setPath("/invoices/invoice_start");
-    QNetworkRequest request;
-    request.setUrl(url);
+    auto request = make_request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     try {
         request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
@@ -262,8 +280,7 @@ void Infrastructure::Http::ApiClient::stock_list(const QJsonDocument& stock) {
     QUrl url = baseUrl_;
     url.setPath("/invoices/stock-list");
     qDebug() << "Sending invoice item list to: " << url.toString();
-    QNetworkRequest request;
-    request.setUrl(url);
+    auto request = make_request(url);
 
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
@@ -322,7 +339,7 @@ void ApiClient::post_resource(const QString& resource,
     }
     QUrl url = baseUrl_;
     url.setPath("/data/" + resource);
-    QNetworkRequest request(url);
+    auto request = make_request(url);
     request.setTransferTimeout(30000);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     auto* reply = networkManager_->post(request, QJsonDocument(payload).toJson(QJsonDocument::Compact));
@@ -361,13 +378,13 @@ void Infrastructure::Http::ApiClient::do_login(const QString& email, const QStri
     }
     if (loginInProgress_)
         return;
+    clear_session();
     loginInProgress_ = true;
 
     QUrl url = baseUrl_;
     url.setPath("/auth/login");
     qDebug() << "Sending login request to" << url.toString();
-    QNetworkRequest request;
-    request.setUrl(url);
+    auto request = make_request(url);
 
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
@@ -378,11 +395,28 @@ void Infrastructure::Http::ApiClient::do_login(const QString& email, const QStri
     auto* reply = networkManager_->post(request, QJsonDocument(json).toJson());
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         loginInProgress_ = false;
+        const auto response = QJsonDocument::fromJson(reply->readAll()).object();
         if (reply->error() == QNetworkReply::NoError) {
-            clear_session();
+            const auto token = response.value("token").toString().toLatin1();
+            const auto identity = response.value("user").toObject();
+            if (!response.value("ok").toBool() || token.isEmpty() || identity.value("id").toString().isEmpty()) {
+                emit login_failed("The server returned an invalid sign-in response. Please update the backend.");
+                reply->deleteLater();
+                return;
+            }
+            session_token_ = token;
+            auto user = std::make_shared<User>(identity.value("email").toString().toStdString(), "");
+            user->setMongoUserID(identity.value("id").toString().toStdString());
+            if (account_manager_)
+                account_manager_->set_authenticated_user(std::move(user));
             emit login_succeeded();
         } else {
-            emit login_failed(reply->errorString());
+            auto message = response.value("error").toString();
+            if (message.isEmpty()) {
+                message = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 401
+                    ? "Invalid email or password" : reply->errorString();
+            }
+            emit login_failed(message);
         }
         reply->deleteLater();
     });

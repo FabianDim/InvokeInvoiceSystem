@@ -5,6 +5,7 @@
 #include "Infrastructure/Database/Services/InvoiceServices.h"
 #include "Infrastructure/Database/Services/BusinessService.h"
 #include "Domain/Accounts/Interfaces/IAccountManager.h"
+#include "Infrastructure/Http/AuthSessions.h"
 using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::make_document;
 
@@ -14,10 +15,9 @@ class Server {
     QHttpServer httpServer_;
     bool listening_ = false;
     int start_server();
-    AccountServices account_services_;
     MongoDBDataManager& db_manager_;
-    Infrastructure::Services::InvoiceServices invoice_service_;
-    Invoke::Domain::Accounts::IAccountManager* account_manager_;
+    Infrastructure::Http::AuthSessions sessions_;
+    std::shared_ptr<Infrastructure::Http::AuthSessions::Session> session_for(const QHttpServerRequest& request);
     // Infrastructure::Services::BusinessService business_service_;
 
   public:

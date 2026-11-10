@@ -174,7 +174,7 @@
         $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
         $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
     )
-    enable_testing()
+    include(CTest)
     qt_add_executable(BusinessSessionTests
         tests/BusinessSessionTests.cpp
         src/Application/Invoices/OfflineInvoiceSession.cpp
