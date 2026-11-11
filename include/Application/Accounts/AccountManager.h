@@ -28,6 +28,7 @@ class AccountManager : public Invoke::Domain::Accounts::IAccountManager {
     std::string makeUserID();
 
     void setTestUser(std::shared_ptr<User> user);
+    void set_authenticated_user(std::shared_ptr<User> user) override { currentUser = std::move(user); }
 
     bool needsAccountSetup(const std::string& email);
     static std::shared_ptr<User> currentUser;

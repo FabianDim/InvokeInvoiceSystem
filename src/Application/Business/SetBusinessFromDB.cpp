@@ -1,6 +1,8 @@
+#include "Infrastructure/Logging/Logging.h"
 #include "Application/Business/SetBusinessFromDB.h"
 #include "Application/Accounts/AccountManager.h"
 std::shared_ptr<BusinessRepository> SetBusiness::setUpBusiness(const std::string businessID) {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::database(), "SetBusiness.setUpBusiness");
     MongoDBDataManager dbManager;
     auto result = dbManager.findOne("Business", make_document(kvp("BusinessID", businessID)));
     if (result) {

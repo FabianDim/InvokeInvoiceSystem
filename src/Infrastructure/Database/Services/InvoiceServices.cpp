@@ -1,8 +1,12 @@
+#include "Infrastructure/Logging/Logging.h"
 #include "Domain/Invoices/InvoiceTemplateEnum.h"
 #include "Infrastructure/Database/Services/InvoiceServices.h"
 #include <QJsonObject>
 #include <functional>
 #include <QJsonArray>
+#include <QTemporaryDir>
+#include <QFile>
+#include <cmath>
 #include <stdexcept>
 #include "Infrastructure/Pdf/InvoicePdfGenerator.h"
 using namespace Infrastructure::Services;
@@ -31,7 +35,8 @@ bool InvoiceServices::save_invoice(QJsonDocument& doc) {
 }
 
 void InvoiceServices::add_business_to_invoice(const QJsonDocument& doc) {
-    clear_session();
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::pdf(), "InvoiceServices.add_business_to_invoice");
+    invoice_.clear_invoice();
     auto biz = std::shared_ptr<BusinessRepository>(new BusinessRepository());
     QJsonObject obj = doc.object();
     if (!obj["BusinessID"].isUndefined())
@@ -49,10 +54,11 @@ void InvoiceServices::add_business_to_invoice(const QJsonDocument& doc) {
     biz->set_business_logo_data(obj.value("LogoData").toString().toStdString());
 
     invoice_.setBusiness(biz);
-    qDebug() << "Business added to invoice." << QString::fromStdString(biz->getBizName());
+    qCDebug(Infrastructure::Logging::pdf) << "event=invoice.business.attached";
 }
 
 void InvoiceServices::add_client_to_invoice(const QJsonDocument& doc) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::pdf(), "InvoiceServices.add_client_to_invoice");
     const auto data = doc.object();
     auto client = std::make_shared<Client>();
     client->setClientID(data.value("ClientID").toString().toStdString());
@@ -64,6 +70,7 @@ void InvoiceServices::add_client_to_invoice(const QJsonDocument& doc) {
 }
 
 void Infrastructure::Services::InvoiceServices::begin_invoice_details(const QJsonDocument& doc) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::pdf(), "InvoiceServices.begin_invoice_details");
     auto template_converter = [&](std::string s) -> InvoiceTemplateEnum {
         if (s == "PEECE")
             return InvoiceTemplateEnum::PEECE;
@@ -73,70 +80,49 @@ void Infrastructure::Services::InvoiceServices::begin_invoice_details(const QJso
     invoice_.setDueDate(doc.object().value("date_due").toString().toStdString());
     invoice_.setCurrentDate(doc.object().value("date_created").toString().toStdString());
     invoice_.setTemplate(template_converter(doc.object().value("invoice_theme").toString().toStdString()));
-    invoice_.set_file_name(doc.object().value("file_dir").toString().toStdString() + "/" +
-                           normalise_file_name(doc.object().value("file_name").toString().toStdString()));
 }
 
-/**
- * @brief Add the list of stock items to the invoice object.
- *
- * Takes the json object passed through the api from the frontend
- * and creates stock objects and adds them to the current invoice object.
- *
- * @param doc A JSon object list of stock items
- * @return Void
- * @pre An invoice object should be created.
- */
-std::string Infrastructure::Services::InvoiceServices::add_stock_to_invoice(const QJsonDocument& doc) {
-    if (!has_invoice_details())
-        throw std::invalid_argument("Choose a business and client and enter invoice details first.");
-    if (!doc.isArray() || doc.array().isEmpty())
-        throw std::invalid_argument("Add at least one stock item to the invoice.");
-    const QJsonArray stock_array = doc.array();
-    // A retry replaces the submitted items rather than duplicating the previous attempt.
-    invoice_.getStockQuantityMap().clear();
-    qDebug() << "Adding stock to invoices.\n";
-    for (const auto& obj : stock_array) {
-        const auto& stock_object = obj.toObject();
-        if (stock_object.empty())
-            throw std::invalid_argument("Invalid invoice stock item.");
+// Generate in a backend-owned temporary folder. A desktop path is never a server path.
+QByteArray InvoiceServices::generate_pdf(const QJsonDocument& stock) const {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::pdf(), "InvoiceServices.generate_pdf");
+    if (!stock.isArray() || stock.array().isEmpty())
+        throw std::invalid_argument("Add at least one item to the invoice.");
+    if (!invoice_.getBusiness() || !invoice_.getClient())
+        throw std::invalid_argument("Start an invoice with a business and client first.");
+
+    auto invoice = std::make_shared<Invoice>(invoice_);
+    // A retry renders the submitted items once, without appending to the previous attempt.
+    invoice->setStockQuantityMap({});
+    for (const auto& value : stock.array()) {
+        const auto item_data = value.toObject();
+        const auto name = item_data.value("Name").toString().trimmed();
+        const auto quantity = item_data.value("Quantity").toDouble(-1);
+        const auto price = item_data.value("Price").toDouble(-1);
+        if (name.isEmpty() || !std::isfinite(quantity) || quantity < 1 || quantity > 1'000'000 ||
+            std::floor(quantity) != quantity || !std::isfinite(price) || price < 0 || price > 1e9)
+            throw std::invalid_argument("Each item needs a name, a positive whole quantity and a valid price.");
         auto item = std::make_shared<StockItem>();
-        item->setStockID(stock_object.value("StockID").toString().toStdString());
-        item->set_description(stock_object["Name"].toString().toStdString());
-        item->setStdPrice(stock_object["Price"].toDouble());
-        invoice_.addStockItem(item, stock_object["Quantity"].toInt());
+        item->setStockID(item_data.value("StockID").toString().toStdString());
+        item->set_description(name.toStdString());
+        item->setStdPrice(price);
+        invoice->addStockItem(item, static_cast<int>(quantity));
     }
-    if (!build_invoice())
-        throw std::runtime_error("Could not write the PDF. Check the output folder and try again.");
-    return invoice_.get_file_name();
-}
 
-/**
- * @brief Create an instance of the PDF builder and build the Invoice.
- *
- * Uses the invoice object to build the InvoicePDFGenerator class and generate
- * the invoice in a specified format.
- *
- * @return Bool flag of successful completion
- * @pre An invoice object should be created.
- */
-bool Infrastructure::Services::InvoiceServices::build_invoice() {
-    Infrastructure::PDF::InvoicePdfGenerator pdf_gen(std::make_shared<Invoice>(invoice_));
-    return pdf_gen.peece_template();
-}
-
-/**
- * @brief Takes the file name and normalises it to not have spaces and end with pdf.
- *
- *
- * @param file_name the raw file name from the front end.
- * @return String with normalised name
- */
-std::string Infrastructure::Services::InvoiceServices::normalise_file_name(const std::string& file_name) {
-    std::string new_file_name = file_name;
-    std::replace(new_file_name.begin(), new_file_name.end(), ' ', '_');
-    if (!new_file_name.ends_with(".pdf")) {
-        new_file_name.append(".pdf");
-    }
-    return new_file_name;
+    qCDebug(Infrastructure::Logging::pdf) << "event=invoice.items.validated count=" << stock.array().size();
+    QTemporaryDir output;
+    if (!output.isValid())
+        throw std::runtime_error("Could not create a temporary PDF folder.");
+    const auto path = output.filePath("invoice.pdf");
+    invoice->set_file_name(path.toStdString());
+    Infrastructure::PDF::InvoicePdfGenerator generator(invoice);
+    if (!generator.peece_template())
+        throw std::runtime_error("Could not generate the invoice PDF.");
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        throw std::runtime_error("Could not read the generated invoice PDF.");
+    const auto pdf = file.readAll();
+    if (file.error() != QFileDevice::NoError || !pdf.startsWith("%PDF-"))
+        throw std::runtime_error("The generated invoice PDF is invalid.");
+    qCDebug(Infrastructure::Logging::pdf) << "event=pdf.response.ready bytes=" << pdf.size();
+    return pdf;
 }

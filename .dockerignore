@@ -1,0 +1,21 @@
+.git
+.vs
+.vscode
+.freebuff
+out
+build
+vcpkg_installed
+vcpkg
+vcpkg_buildtrees
+vcpkg_downloads
+vcpkg_out
+CMakeUserPresets.json
+# Empty repository placeholder interferes with CMake's executable lookup.
+/cmake
+.env
+.env.*
+*.log
+*.exe
+*.dll
+*.obj
+*.pdb

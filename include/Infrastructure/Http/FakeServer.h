@@ -6,6 +6,7 @@
 #include "Infrastructure/Database/Services/InvoiceServices.h"
 #include "Infrastructure/Database/Services/BusinessService.h"
 #include "Domain/Accounts/Interfaces/IAccountManager.h"
+#include "Infrastructure/Http/AuthSessions.h"
 using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::make_document;
 
@@ -13,22 +14,17 @@ class Server {
 
   private:
     QHttpServer httpServer_;
-    QTcpServer* tcpServer_ = nullptr;
-    QString error_string_;
-    void clear_session();
-    AccountServices account_services_;
+    bool listening_ = false;
+    int start_server();
     MongoDBDataManager& db_manager_;
-    Infrastructure::Services::InvoiceServices invoice_service_;
-    Invoke::Domain::Accounts::IAccountManager* account_manager_;
+    Infrastructure::Http::AuthSessions sessions_;
+    std::shared_ptr<Infrastructure::Http::AuthSessions::Session> session_for(const QHttpServerRequest& request);
     // Infrastructure::Services::BusinessService business_service_;
 
   public:
     Server(MongoDBDataManager& db_manager, Invoke::Domain::Accounts::IAccountManager* account_manager_);
     ~Server() = default;
-    bool start(quint16 port = 1234);
-    bool is_listening() const;
-    quint16 port() const;
-    QString error_string() const { return error_string_; }
+    bool is_listening() const { return listening_; }
     void create_routes_basic();
     void create_routes_invoices();
     void create_routes_auth();

@@ -1,3 +1,4 @@
+#include "Infrastructure/Logging/Logging.h"
 #include <sstream>
 #include <filesystem>
 #include "Infrastructure/Pdf/InvoicePdfGenerator.h"
@@ -39,10 +40,11 @@ const std::set<std::string> InvoicePdfGenerator::fontList{"Courier",
                                                           "ZapfDingbats"};
 
 void error_handler(HPDF_STATUS error_no, HPDF_STATUS detail_no, void* user_data) {
-    std::cerr << "Error: " << std::hex << error_no << ", Detail: " << detail_no << std::endl;
+    qCWarning(Infrastructure::Logging::pdf) << "event=pdf.library.error code=" << error_no << "detail=" << detail_no;
 }
 
 HPDF_Doc InvoicePdfGenerator::createPDF(const char* font) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::pdf(), "InvoicePdfGenerator.createPDF");
     HPDF_Doc pdf = HPDF_New(error_handler, NULL);
     if (!pdf) {
         printf("ERROR: cannot create pdf object.\n");
@@ -85,6 +87,7 @@ void InvoicePdfGenerator::addPageBefore(HPDF_Doc pdf, HPDF_Page page_1) {
 }
 
 void InvoicePdfGenerator::save_pdf(HPDF_Doc pdf, const char* name) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::pdf(), "InvoicePdfGenerator.save_pdf");
     if (HPDF_SaveToFile(pdf, name) != HPDF_OK)
         throw std::runtime_error("Could not write the PDF file.");
 }
@@ -390,14 +393,17 @@ bool InvoicePdfGenerator::row_fits_on_page(const TableLayout& table, int rowInde
  * @pre An instance of this class should be created.
  */
 bool InvoicePdfGenerator::peece_template() {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::pdf(), "InvoicePdfGenerator.peece_template");
     HPDF_Doc peeceInvoicePDF = nullptr;
     try {
         if (!cur_invoice_ || cur_invoice_->get_file_name().empty()) {
+            qCWarning(Infrastructure::Logging::pdf) << "event=pdf.render.rejected reason=missing_invoice_or_filename";
             return false;
         }
 
         peeceInvoicePDF = createPDF("Helvetica");
         if (!peeceInvoicePDF) {
+            qCWarning(Infrastructure::Logging::pdf) << "event=pdf.render.failed reason=document_creation";
             return false;
         }
 
@@ -415,8 +421,6 @@ bool InvoicePdfGenerator::peece_template() {
                 page = start_invoice_table_page(peeceInvoicePDF, false, ++page_number, table);
                 row_index = 0;
             }
-
-            std::cout << stock.first->getName() << " " << stock.second << " x " << stock.first->getStdPrice() << "\n";
             draw_stock_item_row(page, *stock.first, stock.second, table, row_index);
             row_index++;
         }
@@ -424,12 +428,12 @@ bool InvoicePdfGenerator::peece_template() {
         save_pdf(peeceInvoicePDF, cur_invoice_->get_file_name().c_str());
         HPDF_Free(peeceInvoicePDF);
         peeceInvoicePDF = nullptr;
-        qDebug() << "Saved PDF to" << cur_invoice_->get_file_name().c_str();
+        qCDebug(Infrastructure::Logging::pdf) << "event=pdf.render.completed pages=" << page_number;
         return true;
     } catch (const std::exception& e) {
-        qDebug() << "Error at peece template: " << e.what();
+        qCWarning(Infrastructure::Logging::pdf) << "event=pdf.render.failed reason=exception";
     } catch (...) {
-        std::cerr << "Error in the peece template\n";
+        qCWarning(Infrastructure::Logging::pdf) << "event=pdf.render.failed reason=unknown_exception";
     }
 
     if (peeceInvoicePDF) {

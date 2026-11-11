@@ -1,3 +1,4 @@
+#include "Infrastructure/Logging/Logging.h"
 #include "Application/Invoices/OfflineInvoiceSession.h"
 #include "Infrastructure/Pdf/InvoicePdfGenerator.h"
 #include <QDir>
@@ -30,6 +31,7 @@ double number(const QJsonValue& value, bool optional = false) {
 } // namespace
 
 QString OfflineInvoiceSession::save(const QString& resource, QJsonObject data, const QString& business_id) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::offline(), "OfflineInvoiceSession.save");
     if (resource != "business" && resource != "client" && resource != "stock")
         throw std::runtime_error("Offline mode only supports new businesses, clients and stock.");
     if (resource != "business" && !businesses.contains(business_id))
@@ -64,18 +66,21 @@ QString OfflineInvoiceSession::save(const QString& resource, QJsonObject data, c
 }
 
 QJsonObject OfflineInvoiceSession::items(const QString& business_id) const {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::offline(), "OfflineInvoiceSession.items");
     return {{"BusinessID", business_id},
             {"businesses", businesses.contains(business_id) ? QJsonArray{businesses.value(business_id)} : QJsonArray{}},
             {"clients", for_business(clients, business_id)}, {"stocks", for_business(stocks, business_id)}};
 }
 
 void OfflineInvoiceSession::clear_invoice() {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::offline(), "OfflineInvoiceSession.clear_invoice");
     invoice_details_ = {};
     invoice_business_ = {};
     invoice_client_ = {};
 }
 
 void OfflineInvoiceSession::begin_invoice(QJsonObject details, const QString& business_id) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::offline(), "OfflineInvoiceSession.begin_invoice");
     clear_invoice();
     if (!businesses.contains(business_id))
         throw std::runtime_error("Create and select an offline business first.");
@@ -102,6 +107,7 @@ void OfflineInvoiceSession::begin_invoice(QJsonObject details, const QString& bu
 }
 
 QString OfflineInvoiceSession::generate_pdf(const QJsonArray& stock) const {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::offline(), "OfflineInvoiceSession.generate_pdf");
     if (invoice_details_.isEmpty() || stock.isEmpty())
         throw std::runtime_error("Complete the invoice details and add at least one item.");
     auto invoice = std::make_shared<Invoice>();

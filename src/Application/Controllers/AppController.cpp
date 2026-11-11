@@ -1,3 +1,4 @@
+#include "Infrastructure/Logging/Logging.h"
 #include "Application/Controllers/AppController.h"
 #include "View/UICode/Views/LoginPage.h"
 #include "View/UICode/Views/LandingPage.h"
@@ -23,6 +24,7 @@ AppController::AppController(App::Views::MainWindow* main,
     QObject::connect(
         main_->login_page(), &App::Views::LoginPage::login_requested, api_, &Infrastructure::Http::ApiClient::do_login);
     QObject::connect(main_->login_page(), &App::Views::LoginPage::navigate_to, this, &AppController::page_navigation);
+    QObject::connect(main_->signup_page(), &App::Views::SignupPage::navigate_to, this, &AppController::page_navigation);
     QObject::connect(main_->landing_page(), &App::Views::LandingPage::navigate_to, this, [this](Page page) {
         if (page == Page::Signup)
             page_navigation(Page::Signup);
@@ -145,6 +147,7 @@ AppController::AppController(App::Views::MainWindow* main,
 }
 
 void AppController::start_offline() {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "AppController.start_offline");
     if (accountManager_.is_logged_in())
         accountManager_.logOut();
     api_->set_offline(true);
@@ -154,6 +157,7 @@ void AppController::start_offline() {
 }
 
 void AppController::exit_offline() {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "AppController.exit_offline");
     api_->set_offline(false);
     main_->set_offline(false);
     main_->dashboard_page()->populate_business_list(QJsonDocument(QJsonObject{}));
@@ -161,6 +165,7 @@ void AppController::exit_offline() {
 }
 
 void AppController::resource_saved(const QString& resource) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "AppController.resource_saved");
     if (api_->is_offline()) {
         if (resource == "business")
             api_->get_business_list();
@@ -195,14 +200,19 @@ void AppController::resource_saved(const QString& resource) {
  * @pre All the pages should be built in the main page
  */
 void AppController::page_navigation(Page page) {
-    if (api_->is_offline() && (page == Page::AccountSettings || page == Page::Login || page == Page::Signup))
+    qCDebug(Infrastructure::Logging::ui) << "event=ui.navigation.requested page=" << static_cast<int>(page) << "offline=" << api_->is_offline();
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "AppController.page_navigation");
+    if (api_->is_offline() && (page == Page::AccountSettings || page == Page::Login || page == Page::Signup)) {
+        qCDebug(Infrastructure::Logging::ui) << "event=ui.navigation.blocked reason=offline_mode";
         return;
+    }
     if (api_->is_offline() && page == Page::Landing) {
         exit_offline();
         return;
     }
     if ((page == Page::NewInvoice || page == Page::NewClient || page == Page::StockSettings ||
          page == Page::StockInput || page == Page::Items) && !main_->dashboard_page()->has_business()) {
+        qCDebug(Infrastructure::Logging::ui) << "event=ui.navigation.redirected reason=missing_business";
         main_->show_page(main_->dashboard_page());
         return;
     }

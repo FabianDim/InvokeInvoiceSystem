@@ -83,24 +83,94 @@ $env:QT_PLUGIN_PATH = "$deps\Qt6\plugins"
 & .\out\build\x64-release\InvokeInvoiceSystem.exe
 ```
 
-The frontend connects to the backend at `http://127.0.0.1:1234` and does not start it automatically. Keep both the backend and MongoDB running while using account mode. The backend owns the account session, database access and account PDF export. Output folders are paths on the backend's computer, so run both executables on the same computer. The backend currently supports one active account session: use one frontend per backend, rather than treating it as a shared remote service.
+The desktop app connects to `https://invoice-backend-app-69d26786220b.herokuapp.com`
+by default. MongoDB credentials belong in the Heroku backend's config vars;
+desktop sign-in and business requests use HTTPS and do not query MongoDB locally.
+The backend must include the session-token login API described below.
 
-Closing the frontend leaves the backend running; stop the backend separately with **Ctrl+C** in its terminal. Restarting the backend clears its active login session, so log in again from the frontend. Offline invoice operations and PDF export run entirely in the frontend without HTTP requests, a backend process or a database connection.
+To use the embedded local server instead, set
+`$env:INVOICE_API_URL = 'http://127.0.0.1:1234'` before launching the desktop app.
+In that mode, configure MongoDB locally and leave `PORT` unset; port 1234 must
+be free. Remove `INVOICE_API_URL` to restore the Heroku default. Other backend
+URLs must use HTTPS (HTTP is accepted only for `127.0.0.1`).
+Offline invoice operations run in memory without HTTP requests or a database connection.
 
-### Package the frontend and backend separately
+Successful login returns an opaque, randomly generated token. The client sends
+it as a bearer token on subsequent requests and revokes it on logout. Each token
+has its own account identity and invoice state. Sessions expire after eight hours
+and are held in memory on the single backend dyno, so restarting it requires
+signing in again. The desktop keeps tokens only in memory; automatic sign-in
+across application launches is not implemented.
 
-After building both executables, install each component into its own directory. Use absolute install paths because Qt's deployment script requires them:
+When `PORT` is set (as it is on Heroku), the HTTP server listens on `0.0.0.0:$PORT` instead. The value must be an integer from 1 to 65535; an invalid or empty value logs an error and prevents the listener from starting. To restore the local default in PowerShell, run `Remove-Item Env:PORT -ErrorAction SilentlyContinue`.
+
+### Build the backend Docker image
+
+The root `Dockerfile` installs Ubuntu 24.04 build tools, Qt's Linux system dependencies,
+and the libraries in `vcpkg.json`, using the repository's pinned vcpkg revision. It
+compiles only `InvokeInvoiceBackend` and starts it as an unprivileged user. This
+initial image retains the compiler and dependency installation; it is not a minimal
+runtime image.
+
+The `InvokeInvoiceBackend` CMake target runs a `QCoreApplication` event loop with
+the existing HTTP routes, database services and PDF generator; it does not open
+the desktop UI or require a display server. It exits with a nonzero status if
+the HTTP listener cannot start.
+
+To build and run it locally using the Windows prerequisites above:
 
 ```powershell
-cmake --install out/build/x64-release --prefix "$PWD/out/install/frontend" --component Frontend
-cmake --install out/build/x64-release --prefix "$PWD/out/install/backend" --component Backend
+cmake --preset x64-release
+cmake --build --preset x64-release --target InvokeInvoiceBackend
+& .\out\build\x64-release\InvokeInvoiceBackend.exe
 ```
 
-Distribute the entire `out/install/frontend` folder, including its `bin` and `plugins` directories. Launch `bin/InvokeInvoiceSystem.exe`. This package contains the desktop UI, offline PDF support and HTTP client; it excludes the backend executable, MongoDB drivers and Qt HTTP server. The backend package has its own `bin/InvokeInvoiceBackend.exe` and dependencies. Neither package includes database credentials. On a computer without the Microsoft Visual C++ runtime, run the included `bin/vc_redist.x64.exe` installer first.
+With `PORT` unset, visit `http://127.0.0.1:1234/` for the `hello world` response.
+Account routes require the MongoDB configuration described above.
 
-For account mode in this version, run the backend package on the same computer and set its MongoDB environment variables as above. The offline demo only needs the frontend package. For a `x64-relwithdebinfo` build, substitute that build directory in the install commands.
+With Docker configured to run Linux containers, build from the repository root:
 
-The executable split is the first step toward online hosting. Before deploying a shared backend, replace the single active account and invoice state with expiring user sessions authenticated on every request, enforce record ownership, configure the HTTPS API URL and hosting listener, and return PDF downloads or generate account PDFs in the frontend. The current local backend must not be exposed as a shared internet service.
+```powershell
+docker build --platform linux/amd64 -t invoke-invoice-backend .
+```
+
+The first build compiles Qt and can take considerable time and disk space. Build
+parallelism defaults to two jobs; change it with `--build-arg BUILD_JOBS=4` if your
+builder has enough memory. `.dockerignore` excludes local build outputs and `.env`
+files. Pass database credentials at runtime, never as Docker build arguments.
+
+### Push the backend to Heroku
+
+Heroku's registry requires Docker Image Manifest V2, Schema 2. With Docker's
+containerd image store, `heroku container:push` can produce an OCI manifest that
+the registry rejects with `unsupported`, even after uploading the layers.
+Use Buildx's registry exporter to explicitly select Docker media types:
+
+```powershell
+heroku container:login
+docker buildx build --platform linux/amd64 --provenance=false --sbom=false `
+    --output "type=registry,name=registry.heroku.com/invoice-backend-app/web,oci-mediatypes=false" .
+```
+
+This builds and uploads the image. After a successful upload, release it:
+
+```powershell
+heroku container:release web --app invoice-backend-app
+heroku logs --tail --app invoice-backend-app
+```
+
+The registry exporter avoids a separate `docker push` and reuses existing build
+cache. See the [Heroku manifest requirements](https://devcenter.heroku.com/articles/container-registry-and-runtime#known-issues-and-limitations)
+and [Docker exporter options](https://docs.docker.com/build/exporters/image-registry/).
+
+The image supplies the backend executable and supports Heroku's `PORT`. Sessions
+and invoice state are isolated by token. Finishing an invoice generates a PDF in
+a temporary backend folder and returns it over HTTPS. The desktop saves it to
+the folder selected in the invoice form and shows the saved path. Local paths
+are never sent to the backend. Failed exports show an error and can be retried;
+an unsuccessful download does not replace an existing PDF. The offline desktop
+workflow continues to generate and save PDFs locally. Exported invoices are not
+archived in MongoDB; keep the downloaded PDF for your records.
 
 ### 5. Create your first account invoice
 
@@ -110,6 +180,53 @@ The executable split is the first step toward online hosting. Before deploying a
 4. Select **Create new invoice** and choose a saved client. Enter the invoice number, file name, output folder, creation date and due date. The available theme is **PEECE**.
 5. Select **Next**, then choose **New item** or **Saved stock**. Enter a positive whole invoice quantity and a non-negative price, then select **Add item**. New items can be used just for this invoice, or saved with **Save this item to business stock** for reuse. Select **Finish invoice** once you have added all items.
 6. Open the PDF in your chosen output folder. File-name spaces are replaced with underscores, and `.pdf` is appended if needed.
+
+## Debug logs
+
+Debug logging is enabled by default in desktop and backend builds, including
+Release builds. Events cover startup/shutdown, navigation and form validation,
+sign-in/signup/logout and session expiry, HTTP requests, business selection and
+cache invalidation, database reads/writes, offline records, PDF rendering,
+download validation and local file writes. Warnings identify rejected operations
+and failures; operation logs include elapsed milliseconds. `operation.returned`
+means a function returned normally, not necessarily that validation succeeded.
+
+The Windows desktop writes to
+`%LOCALAPPDATA%\Invoke\InvokeInvoiceSystem\logs\application.log` as well as stderr.
+It rotates at 5 MiB and keeps one previous file, `application.log.1`. To watch it:
+
+```powershell
+Get-Content "$env:LOCALAPPDATA\Invoke\InvokeInvoiceSystem\logs\application.log" -Tail 100 -Wait
+```
+
+The backend writes to stderr, which Heroku collects. After deploying the updated
+backend, use `heroku logs --tail --app invoice-backend-app`. Each HTTP request has
+an `X-Request-ID`; search for the matching `request_id` in client and server logs.
+Server database and PDF logs inherit that request ID. Request logs include the
+route, numeric method/operation, status, network error code and duration. They
+describe response creation/receipt, not proof that a remote user opened the PDF.
+
+Set `INVOICE_LOG_FILE` before launch to use another file (also supported by the
+backend). If file writing or rotation fails, logging continues on stderr.
+Use different files for separate running instances. Qt category rules control
+verbosity without rebuilding:
+
+```powershell
+# Turn off debug noise while retaining info, warnings and errors.
+$env:QT_LOGGING_RULES = 'invoice.*.debug=false'
+# Or focus debug output on HTTP and PDF processing.
+$env:QT_LOGGING_RULES = 'invoice.*.debug=false;invoice.http.debug=true;invoice.pdf.debug=true'
+```
+
+Categories are `invoice.app`, `invoice.ui`, `invoice.http`, `invoice.auth`,
+`invoice.database`, `invoice.pdf` and `invoice.offline`. Remove `QT_LOGGING_RULES`
+to restore the defaults. Logs omit credentials, tokens, request/response bodies,
+customer details and invoice item contents. Database exceptions use numeric
+driver codes instead of raw exception text. Request IDs are validated before
+logging, and file log entries escape embedded newlines.
+
+The `Logging` CTest checks HTTP status/body preservation, request correlation,
+payload exclusion, exception logging, category filtering and file rotation.
 
 ## Try the offline invoice demo
 
@@ -189,6 +306,11 @@ The demo tests export PDFs into temporary directories that are removed when the 
 ### Database health checks
 
 These read-only integration tests check connectivity, authentication, writable-primary status and access to the `Users` collection. They require an explicitly set `MONGODB_URI` with valid database credentials. An unauthenticated local connection will fail the authentication check even if the app can use it.
+
+On Windows, the manifest selects the MongoDB C driver's `openssl` feature to
+avoid the pinned driver's native TLS handshake failure (`0x80090326`) with
+Atlas. Certificate verification remains enabled. Reconfigure CMake after pulling
+this dependency change so vcpkg rebuilds the MongoDB drivers before running tests.
 
 ```powershell
 cmake --build --preset x64-release --target DatabaseTests

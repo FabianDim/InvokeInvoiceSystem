@@ -17,13 +17,9 @@ class InvoiceServices {
     void add_business_to_invoice(const QJsonDocument& doc);
     void add_client_to_invoice(const QJsonDocument& doc);
     void begin_invoice_details(const QJsonDocument& doc);
-    std::string add_stock_to_invoice(const QJsonDocument& doc);
-    void clear_session();
-    bool has_invoice_details() const;
+    QByteArray generate_pdf(const QJsonDocument& stock) const;
 
   private:
-    bool build_invoice();
-    std::string normalise_file_name(const std::string& file_name);
     Invoice invoice_;
     MongoDBDataManager& db_manager_;
 };

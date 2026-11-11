@@ -1,4 +1,5 @@
 #include "View/UICode/Views/SignupPage.h"
+#include "Infrastructure/Logging/Logging.h"
 #include "Infrastructure/Enums/RouteEnums.h"
 #include <QFormLayout>
 #include <QJsonDocument>
@@ -72,15 +73,18 @@ void SignupPage::create_page_layout() {
 }
 
 void SignupPage::submit_signup() {
+    qCDebug(Infrastructure::Logging::auth) << "event=ui.signup.submitted";
     const QString first = first_name_input_->text().trimmed();
     const QString last = last_name_input_->text().trimmed();
     const QString email = email_input_->text().trimmed();
     const QString password = password_input_->text();
     if (first.isEmpty() || last.isEmpty() || email.isEmpty() || password.isEmpty()) {
+        qCWarning(Infrastructure::Logging::auth) << "event=ui.signup.rejected reason=missing_fields";
         set_status("Complete all fields to create your account.");
         return;
     }
     if (password != confirm_password_input_->text()) {
+        qCWarning(Infrastructure::Logging::auth) << "event=ui.signup.rejected reason=password_confirmation";
         set_status("Passwords do not match.");
         return;
     }

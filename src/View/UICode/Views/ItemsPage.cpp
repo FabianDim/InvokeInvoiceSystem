@@ -1,3 +1,4 @@
+#include "Infrastructure/Logging/Logging.h"
 #include "View/UICode/Views/ItemsPage.h"
 #include "View/UiStyle.h"
 #include <QHeaderView>
@@ -65,6 +66,7 @@ void ItemsPage::create_page_layout() {
 }
 
 void ItemsPage::business_selected(const QJsonObject& business) {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::ui(), "ItemsPage.business_selected");
     const auto id = business.value("BusinessID").toString();
     business_label_->setText(id.isEmpty() ? "Choose a business on the home page."
                                         : business.value("BusinessName").toString(id) + " (" + id + ")");
@@ -82,6 +84,7 @@ void ItemsPage::business_selected(const QJsonObject& business) {
 }
 
 void ItemsPage::load_items(bool refresh) {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::ui(), "ItemsPage.load_items");
     if (business_id_.isEmpty())
         return;
     status_label_->setText("Loading business records...");
@@ -116,6 +119,7 @@ void ItemsPage::populate_table(QTableWidget* table, const QJsonArray& items, con
 }
 
 void ItemsPage::populate_items(const QJsonDocument& items) {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::ui(), "ItemsPage.populate_items");
     const auto data = items.object();
     if (business_id_.isEmpty() || data.value("BusinessID").toString() != business_id_)
         return;
@@ -133,6 +137,7 @@ void ItemsPage::populate_items(const QJsonDocument& items) {
 }
 
 void ItemsPage::set_error(const QString& message) {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::ui(), "ItemsPage.set_error");
     status_label_->setText("Could not load records: " + message + " Use Refresh to try again.");
     refresh_button_->setEnabled(!business_id_.isEmpty());
 }

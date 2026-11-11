@@ -1,3 +1,4 @@
+#include "Infrastructure/Logging/Logging.h"
 #include "View/UICode/Views/Dashboard.h"
 #include <QPushButton>
 #include <QLabel>
@@ -123,6 +124,7 @@ bool Dashboard::has_business() const {
 }
 
 void Dashboard::populate_business_list(const QJsonDocument& list) {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::ui(), "Dashboard.populate_business_list");
     const auto previous_id = business_select_->currentData().toJsonObject().value("BusinessID").toString();
     {
         const QSignalBlocker blocker(business_select_);
@@ -156,6 +158,7 @@ void Dashboard::populate_business_list(const QJsonDocument& list) {
 }
 
 void Dashboard::update_business_selection() {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::ui(), "Dashboard.update_business_selection");
     const bool selected = has_business();
     invoice_button->setEnabled(selected);
     client_button->setEnabled(selected);

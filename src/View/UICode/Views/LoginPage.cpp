@@ -1,3 +1,4 @@
+#include "Infrastructure/Logging/Logging.h"
 #include "View/UICode/Views/LoginPage.h"
 #include <QDebug>
 #include <QFormLayout>
@@ -88,10 +89,10 @@ void LoginPage::on_login_clicked() {
     QString email = email_input_->text();
     QString password = password_input_->text();
     const QString trimmed_email = email.trimmed();
+    qCDebug(Infrastructure::Logging::auth) << "event=ui.login.submitted";
     emit login_requested(trimmed_email, password, remember_me_->isChecked());
 
     password_input_->selectAll();
-    qDebug() << "Login requested with email:" << trimmed_email << "and password length:" << password.length();
 }
 
 void LoginPage::set_status(const QString& message) {

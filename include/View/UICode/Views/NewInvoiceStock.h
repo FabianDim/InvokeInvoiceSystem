@@ -53,6 +53,7 @@ class NewInvoiceStock : public QWidget {
     QLabel* status_label_;
     QPushButton* back_button_;
     bool saving_stock_ = false;
+    bool saving_pdf_ = false;
     bool offline_ = false;
     quint64 stock_request_ = 0;
     QString business_id_;
