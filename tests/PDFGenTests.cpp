@@ -12,6 +12,7 @@ class TestPDFGen : public QObject {
     void pdf_creation_test();
     void pdf_multiple_page_creation_test();
     void pdf_three_long_lines();
+    void pdf_client_details();
 
   private:
     std::string delete_old_pdfs(fs::path dir);
@@ -19,6 +20,38 @@ class TestPDFGen : public QObject {
     const std::string pdf_out_path_multi = "G:/misc/Test_Invoices/test_invoice_multi";
     const std::string pdf_out_path_long = "G:/misc/Test_Invoices/test_invoice_long";
 };
+
+void TestPDFGen::pdf_client_details() {
+    auto invoice = std::make_shared<Invoice>();
+    auto business = std::make_shared<BusinessRepository>();
+    business->setBizName("Example Plumbing");
+    business->set_website_url("https://example.com");
+    business->set_business_logo_path("missing-original-logo.png");
+    QFile logo(QFileInfo(QString::fromUtf8(__FILE__)).absolutePath() + "/test_resources/logo.png");
+    QVERIFY(logo.open(QIODevice::ReadOnly));
+    business->set_business_logo_data(logo.readAll().toBase64().toStdString());
+    QCOMPARE(business->get_business_logo_path(), std::string("missing-original-logo.png"));
+    invoice->setBusiness(business);
+    auto client = std::make_shared<Client>();
+    client->setClientID("CLI1");
+    client->setName("Example Client");
+    client->setAddress("Suite 12, Example Commercial Centre, 100 Example Street, Sydney NSW 2000, Australia\nAccounts Department");
+    client->setEmail("accounts@example.com");
+    client->setPhoneNumber("02 1234 5678");
+    invoice->setClient(client);
+    for (int index = 0; index < 60; ++index) {
+        auto item = std::make_shared<StockItem>();
+        item->setStockID("STK" + std::to_string(index));
+        item->set_description("Copper pipe");
+        item->setStdPrice(12.5);
+        invoice->addStockItem(item, 2);
+    }
+    const auto path = QCoreApplication::applicationDirPath() + "/invoice-client-test.pdf";
+    invoice->set_file_name(path.toStdString());
+    Infrastructure::PDF::InvoicePdfGenerator generator(invoice);
+    QVERIFY(generator.peece_template());
+    QVERIFY(QFileInfo(path).size() > 0);
+}
 
 void TestPDFGen::pdf_multiple_page_creation_test() {
     Invoice test_invoice;

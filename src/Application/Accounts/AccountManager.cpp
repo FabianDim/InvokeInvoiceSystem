@@ -1,3 +1,4 @@
+#include "Infrastructure/Logging/Logging.h"
 #include "Application/Accounts/AccountManager.h"
 #include <iostream>
 #include <iso646.h>
@@ -61,6 +62,7 @@ bool AccountManager::validatePassword(const std::string& password) {
 }
 
 void AccountManager::createAccount(std::string& userEmail, std::string& userPassword) {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::auth(), "AccountManager.createAccount");
 
     while (true) {
         std::cout << "Please enter your new email (or * to cancel): ";
@@ -120,6 +122,7 @@ void AccountManager::createAccount(std::string& userEmail, std::string& userPass
 }
 
 void AccountManager::login(const std::string& userEmail, const std::string& userPassword) {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::auth(), "AccountManager.login");
     while (true) {
         if (dataManager.valid_password(userPassword, userEmail)) {
             SetUser setuser(dataManager);
@@ -141,6 +144,7 @@ bool AccountManager::is_logged_in() const {
 }
 
 void AccountManager::logOut() {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::auth(), "AccountManager.logOut");
     if (!is_logged_in()) {
         return;
     }

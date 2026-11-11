@@ -12,6 +12,8 @@
 #include "UICode/Views/NewInvoiceStock.h"
 #include "UICode/Views/BusinessInvoiceChoice.h"
 #include "UICode/Views/ManagementForm.h"
+#include "UICode/Views/SignupPage.h"
+#include "UICode/Views/ItemsPage.h"
 
 namespace Invoke {
 namespace Domain {
@@ -36,9 +38,11 @@ class MainWindow : public QMainWindow {
     explicit MainWindow(Invoke::Domain::Accounts::IAccountManager& acctMgr, QWidget* parent = nullptr);
     ~MainWindow();
     void show_page(QWidget* widget);
+    void set_offline(bool offline);
 
     LandingPage* landing_page();
     LoginPage* login_page();
+    SignupPage* signup_page();
     Dashboard* dashboard_page();
     InvoiceDetailsInput* new_invoice_page();
     NewInvoiceStock* new_invoice_stock_page();
@@ -47,9 +51,16 @@ class MainWindow : public QMainWindow {
     ManagementForm* business_settings_page();
     ManagementForm* stock_settings_page();
     ManagementForm* account_settings_page();
+    ItemsPage* items_page();
+
+  signals:
+    void logged_out();
+    void offline_exit_requested();
 
   private:
     Ui::MainWindow* ui;
+    bool offline_ = false;
+    QWidget* offline_banner_ = nullptr;
 
     /*App Setup*/
 
@@ -58,6 +69,7 @@ class MainWindow : public QMainWindow {
     LandingPage* landingPage_ = nullptr;
     Dashboard* dashboard_page_ = nullptr;
     LoginPage* login_page_ = nullptr;
+    SignupPage* signup_page_ = nullptr;
     BusinessInvoiceChoice* business_invoice_choice_ = nullptr;
     InvoiceDetailsInput* new_invoice_page_ = nullptr;
     NewInvoiceStock* new_invoice_stock_ = nullptr;
@@ -65,6 +77,7 @@ class MainWindow : public QMainWindow {
     ManagementForm* business_settings_page_ = nullptr;
     ManagementForm* stock_settings_page_ = nullptr;
     ManagementForm* account_settings_page_ = nullptr;
+    ItemsPage* items_page_ = nullptr;
     QVBoxLayout* mainLayout();
 
     QMenu* fileMenu;

@@ -1,9 +1,11 @@
+#include "Infrastructure/Logging/Logging.h"
 #include "Application/Accounts/SetUserFromDB.h"
 #include <bsoncxx/document/view_or_value.hpp>
 #include <bsoncxx/builder/stream/document.hpp>
 #include <bsoncxx/builder/stream/helpers.hpp>
 
 std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const std::string& password) {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::database(), "SetUser.setUserOnLogin");
 
     auto filter = bsoncxx::builder::stream::document{} << "UserEmail" << email << bsoncxx::builder::stream::finalize;
     auto result = mongoDataManager.findOne("Users", filter.view());
@@ -16,6 +18,7 @@ std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const st
         auto last = view["LastName"];
         auto email = view["UserEmail"];
         auto pass = view["UserPassword"];
+        auto business_id_array = view["BusinessIDs"];
         if (!first || first.type() != bsoncxx::type::k_string) {
             throw std::runtime_error("FirstName missing or wrong type");
         }
@@ -24,6 +27,16 @@ std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const st
         std::string lastName{last.get_string().value};
         std::string userEmail{email.get_string().value};
         std::string password{pass.get_string().value};
+        std::vector<std::string> business_ids;
+        if (business_id_array && business_id_array.type() == bsoncxx::type::k_array) {
+            for (const auto& business_id : business_id_array.get_array().value) {
+                if (business_id.type() != bsoncxx::type::k_string) {
+                    throw std::runtime_error("BusinessIDs contains a non-string value");
+                }
+                business_ids.emplace_back(business_id.get_string().value);
+            }
+        }
+        user->set_user_business(business_ids);
         user->setMongoUserID(userID);
         user->setFirstName(firstName);
         user->setLastName(lastName);
@@ -36,6 +49,7 @@ std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const st
 }
 
 bool SetUser::addBusinessToUser(const std::string& userID, const std::string& businessID) {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::database(), "SetUser.addBusinessToUser");
     try {
         auto filter = mongoDataManager.findOne("Users", make_document(kvp("UserID", userID)));
         auto update = make_document(kvp("$addToSet", make_document(kvp("BusinessIDs", businessID))));
@@ -45,7 +59,7 @@ bool SetUser::addBusinessToUser(const std::string& userID, const std::string& bu
         }
         mongoDataManager.getCollection("Users")->update_one(filter->view(), update.view());
     } catch (mongocxx::exception e) {
-        std::cerr << e.what() << std::endl;
+        qCWarning(::Infrastructure::Logging::database) << "event=account.business_link.failed";
     }
     return false;
 }

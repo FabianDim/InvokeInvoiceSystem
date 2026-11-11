@@ -7,11 +7,15 @@
     "jansson",
     "libharu",
     "libiconv",
+    {
+      "name": "mongo-c-driver",
+      "features": ["openssl"],
+      "platform": "windows"
+    },
     "mongo-cxx-driver",
     "qtkeychain-qt6",
     "qtbase",
     "qttools",
-    "qthttpserver",
-    "libiconv"
+    "qthttpserver"
   ]
 }

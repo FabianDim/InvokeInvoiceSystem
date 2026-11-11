@@ -1,3 +1,4 @@
+#include "Infrastructure/Logging/Logging.h"
 #include "View/MainWindow.h"
 #include "Domain/Accounts/Interfaces/IAccountManager.h"
 #include "View/UICode/Views/LandingPage.h" // use forward slashes
@@ -9,19 +10,33 @@
 #include <QIcon>
 #include <QDebug>
 #include <QWidget>
+#include "View/UiStyle.h"
 #include "Infrastructure/Enums/RouteEnums.h"
 
 App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& acctMgr, QWidget* parent)
     : QMainWindow(parent), fileMenu(nullptr), newAct(nullptr), openAct(nullptr), saveAct(nullptr), loginAct(nullptr),
-      logoutAct(nullptr), acctMgr(acctMgr), landingPage_(new App::Views::LandingPage(acctMgr, this)),
+      logoutAct(nullptr), acctMgr(acctMgr),
       pagesStack(new QStackedWidget(this)) {
 
     auto* central = new QWidget(this);
     auto* vbox = new QVBoxLayout(central);
-    vbox->setAlignment(Qt::AlignCenter);
-    // vbox->setContentsMargins(0, 0, 0, 0);
+    vbox->setContentsMargins(0, 0, 0, 0);
     vbox->setSpacing(6);
     setCentralWidget(central);
+
+    offline_banner_ = new QWidget(central);
+    offline_banner_->setObjectName("offline_banner");
+    auto* demo_layout = new QHBoxLayout(offline_banner_);
+    auto* demo_label = UiStyle::label("Offline demo: records are temporary. Only the PDF is saved.", offline_banner_, "status");
+    demo_label->setWordWrap(true);
+    auto* exit_demo = new QPushButton("Exit demo", offline_banner_);
+    exit_demo->setObjectName("exit_offline_button");
+    UiStyle::button(exit_demo);
+    demo_layout->addWidget(demo_label, 1);
+    demo_layout->addWidget(exit_demo);
+    connect(exit_demo, &QPushButton::clicked, this, &MainWindow::offline_exit_requested);
+    vbox->addWidget(offline_banner_);
+    offline_banner_->hide();
 
     // Top control(s)
     // pageComboBox->addItem("Landing Page");
@@ -36,24 +51,21 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
     auto* stock = stock_settings_page();
     auto* account = account_settings_page();
 
-    // start page
-    QWidget* start_page = acctMgr.is_logged_in() ? static_cast<QWidget*>(dashboard_page()) : static_cast<QWidget*>(landing);
+    // Start at login so the account flow always establishes the current user first.
+    QWidget* start_page = login_page();
     pagesStack->setCurrentWidget(start_page);
     // start page
 
-    vbox->addWidget(pagesStack, /*stretch*/ 1, Qt::AlignCenter);
+    vbox->addWidget(pagesStack, /*stretch*/ 1);
 
     // Menus & actions
     createAccountActions();
     createFileActions();
     createMenus();
     connect(loginAct, &QAction::triggered, this, [this]() { show_page(login_page()); });
-    connect(login_page(), &App::Views::LoginPage::login_succeeded, this, [this]() {
-        loginAct->setVisible(false);
-        logoutAct->setVisible(true);
-    });
     connect(logoutAct, &QAction::triggered, this, [this]() {
         this->acctMgr.logOut();
+        emit logged_out();
         loginAct->setVisible(true);
         logoutAct->setVisible(false);
         show_page(landing_page());
@@ -64,6 +76,14 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
 
 App::Views::MainWindow::~MainWindow() = default;
 
+App::Views::ItemsPage* App::Views::MainWindow::items_page() {
+    if (!items_page_) {
+        items_page_ = new ItemsPage(this);
+        pagesStack->addWidget(items_page_);
+    }
+    return items_page_;
+}
+
 void App::Views::MainWindow::createMenus() {
     fileMenu = menuBar()->addMenu(tr("&File"));
     fileMenu->addAction(newAct);
@@ -73,8 +93,8 @@ void App::Views::MainWindow::createMenus() {
     accountMenu = menuBar()->addMenu(tr("&Account"));
     accountMenu->addAction(loginAct);
     accountMenu->addAction(logoutAct);
-    loginAct->setVisible(!acctMgr.is_logged_in());
-    logoutAct->setVisible(acctMgr.is_logged_in());
+    loginAct->setVisible(!offline_ && !acctMgr.is_logged_in());
+    logoutAct->setVisible(!offline_ && acctMgr.is_logged_in());
 }
 
 void App::Views::MainWindow::createAccountActions() {
@@ -93,7 +113,25 @@ void App::Views::MainWindow::createFileActions() {
 }
 
 // application could pass in the page instance instead of using a switch
+void App::Views::MainWindow::set_offline(bool offline) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "MainWindow.set_offline");
+    offline_ = offline;
+    offline_banner_->setVisible(offline);
+    setWindowTitle(offline ? "Invoke Invoice System (Offline demo)" : "Invoke Invoice System");
+    accountMenu->menuAction()->setVisible(!offline);
+    fileMenu->menuAction()->setVisible(!offline);
+    dashboard_page()->set_offline(offline);
+    new_invoice_stock_page()->set_offline(offline);
+    new_invoice_page()->reset_form();
+    for (auto* form : {client_page(), business_settings_page(), stock_settings_page(), account_settings_page()})
+        form->set_offline(offline);
+}
+
 void App::Views::MainWindow::show_page(QWidget* widget) {
+    qCDebug(Infrastructure::Logging::ui) << "event=ui.page.shown page=" << (widget ? widget->metaObject()->className() : "null");
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "MainWindow.show_page");
+    loginAct->setVisible(!offline_ && !acctMgr.is_logged_in());
+    logoutAct->setVisible(!offline_ && acctMgr.is_logged_in());
     pagesStack->setCurrentWidget(widget);
 }
 
@@ -111,6 +149,14 @@ App::Views::LoginPage* App::Views::MainWindow::login_page() {
         pagesStack->addWidget(login_page_);
     }
     return login_page_;
+}
+
+App::Views::SignupPage* App::Views::MainWindow::signup_page() {
+    if (!signup_page_) {
+        signup_page_ = new App::Views::SignupPage(this);
+        pagesStack->addWidget(signup_page_);
+    }
+    return signup_page_;
 }
 
 App::Views::Dashboard* App::Views::MainWindow::dashboard_page() {
@@ -148,7 +194,7 @@ App::Views::BusinessInvoiceChoice* App::Views::MainWindow::business_invoice_choi
 App::Views::ManagementForm* App::Views::MainWindow::client_page() {
     if (!client_page_) {
         client_page_ = new ManagementForm(
-            "Create New Client",
+            "Create New Client", "client",
             {"Name", "Phone", "Email", "Country", "State or province", "City", "Street address", "Postcode"},
             this);
         pagesStack->addWidget(client_page_);
@@ -159,8 +205,8 @@ App::Views::ManagementForm* App::Views::MainWindow::client_page() {
 App::Views::ManagementForm* App::Views::MainWindow::business_settings_page() {
     if (!business_settings_page_) {
         business_settings_page_ = new ManagementForm(
-            "Configure Business",
-            {"ABN", "Business name", "Business phone", "Country", "State or province", "City", "Street address", "Postcode", "ACN"},
+            "Configure Business", "business",
+            {"ABN", "Business name", "Business phone", "Country", "State or province", "City", "Street address", "Postcode", "ACN", "Website"},
             this);
         pagesStack->addWidget(business_settings_page_);
     }
@@ -170,7 +216,7 @@ App::Views::ManagementForm* App::Views::MainWindow::business_settings_page() {
 App::Views::ManagementForm* App::Views::MainWindow::stock_settings_page() {
     if (!stock_settings_page_) {
         stock_settings_page_ = new ManagementForm(
-            "Create Stock Item", {"Name", "Quantity", "Price", "Margin", "Keywords", "Unit"}, this);
+            "Create Stock Item", "stock", {"Name", "Quantity", "Price", "Margin", "Keywords", "Unit"}, this);
         pagesStack->addWidget(stock_settings_page_);
     }
     return stock_settings_page_;
@@ -179,7 +225,7 @@ App::Views::ManagementForm* App::Views::MainWindow::stock_settings_page() {
 App::Views::ManagementForm* App::Views::MainWindow::account_settings_page() {
     if (!account_settings_page_) {
         account_settings_page_ = new ManagementForm(
-            "Account Settings", {"First name", "Last name", "Email", "Password"}, this);
+            "Account Settings", "account", {"First name", "Last name", "Email", "Password"}, this);
         pagesStack->addWidget(account_settings_page_);
     }
     return account_settings_page_;

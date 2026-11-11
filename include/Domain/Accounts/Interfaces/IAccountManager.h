@@ -28,6 +28,8 @@ class IAccountManager {
 
     // access
     virtual std::shared_ptr<::User> getAccount() = 0;
+    // Accept identity returned by an authenticated API response without querying MongoDB locally.
+    virtual void set_authenticated_user(std::shared_ptr<::User>) {}
 };
 
 } // namespace Invoke::Domain::Accounts

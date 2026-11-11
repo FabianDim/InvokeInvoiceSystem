@@ -2,7 +2,6 @@
 #include "pch.h"
 #include "Domain/Accounts/User.h"
 #include "Application/Accounts/SetUserFromDB.h"
-#include "View/LegacyMenus/MainMenu.h"
 #include "Infrastructure/Security/PasswordHashing/bcrypt.h"
 #include "Infrastructure/Database/Mongo/MongoDBHandler.h"
 #include "Infrastructure/Database/Mongo/MongoDBDataManager.h"
@@ -29,6 +28,7 @@ class AccountManager : public Invoke::Domain::Accounts::IAccountManager {
     std::string makeUserID();
 
     void setTestUser(std::shared_ptr<User> user);
+    void set_authenticated_user(std::shared_ptr<User> user) override { currentUser = std::move(user); }
 
     bool needsAccountSetup(const std::string& email);
     static std::shared_ptr<User> currentUser;

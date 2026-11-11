@@ -1,151 +1,242 @@
+#include "Infrastructure/Logging/Logging.h"
 #include "View/UICode/Views/NewInvoiceCreation.h"
-#include <QLineEdit>
-#include <qlabel.h>
+#include "View/UiStyle.h"
 #include <QComboBox>
-#include <string>
-#include "pch.h"
 #include <QDateEdit>
-#include <QPushButton>
-#include "Infrastructure/Enums/RouteEnums.h"
-#include "Domain/Invoices/InvoiceTemplateEnum.h"
-#include "Domain/Invoices/Invoice.h"
+#include <QFileDialog>
+#include <QGridLayout>
 #include <QJsonObject>
-#include <qfiledialog.h>
+#include <QLineEdit>
+#include <QJsonArray>
+#include <QSignalBlocker>
+
 using namespace App::Views;
-InvoiceDetailsInput::InvoiceDetailsInput(QWidget* parent) {
-    parent_widget_ = new QWidget(this);
-    form_layout_ = new QWidget(parent_widget_);
+
+InvoiceDetailsInput::InvoiceDetailsInput(QWidget* parent) : QWidget(parent) {
     create_page_layout();
+    business_selected(QJsonObject{});
 }
 
 void InvoiceDetailsInput::create_page_layout() {
-    QGridLayout* main_form_layout = new QGridLayout(form_layout_);
-    main_form_layout->setAlignment(Qt::AlignCenter);
-    main_form_layout->setObjectName("form_grid_layout");
-    std::vector<FormField> fields = {
-        {"invoice_theme", "Invoice Theme:", FormField::Type::ComboBox, {}},
-        {"invoice_number", "Invoice Number:", FormField::Type::LineEdit, {.placeholder = "e.g. INV-000123"}},
-        {"invoice_file_name", "File Name:", FormField::Type::LineEdit, {.placeholder = "Name"}},
-        {"invoice_file_dir", "Save PDF to:", FormField::Type::DirBrowse, {}},
-        {"date_created", "Date Created:", FormField::Type::DateEdit, {.defaultToday = true}},
-        {"date_due", "Date Due:", FormField::Type::DateEdit, {.defaultToday = true}},
-        {"website", "Website", FormField::Type::LineEdit, {}}};
-    QLineEdit* output_path_edit = new QLineEdit(this);
-    output_path_edit->setReadOnly(true);
-    output_path_edit->setHidden(true);
-    for (auto& element : fields) {
-        QLabel* label = new QLabel(element.label, form_layout_);
-        label->setObjectName("form_label");
-        int row = main_form_layout->rowCount();
-        main_form_layout->addWidget(label, row, 0);
-        if (element.type == FormField::Type::LineEdit) {
-            QLineEdit* input = new QLineEdit(form_layout_);
-            input->setObjectName("form_input");
-            input->setPlaceholderText(element.opt.placeholder);
-            main_form_layout->addWidget(input, row, 1);
-            base_invoice_form_fields_[element.key] = input;
-        } else if (element.type == FormField::Type::ComboBox) {
-            QComboBox* input = new QComboBox(form_layout_);
-            input->setObjectName("form_input");
-            main_form_layout->addWidget(input, row, 1);
-            base_invoice_form_fields_[element.key] = input;
-        } else if (element.type == FormField::Type::DateEdit && element.opt.fromNow) {
-            QDateEdit* input = new QDateEdit(QDate::currentDate(), form_layout_);
-            input->setDateRange(QDate::currentDate(), QDate::currentDate().addYears(100));
-            input->setObjectName("form_date_input");
-            input->setCalendarPopup(true);
-            main_form_layout->addWidget(input, row, 1);
-            base_invoice_form_fields_[element.key] = input;
-        } else if (element.type == FormField::Type::DateEdit && element.opt.defaultToday) {
-            QDateEdit* input = new QDateEdit(QDate::currentDate(), form_layout_);
-            input->setObjectName("form_date_input");
-            input->setCalendarPopup(true);
-            main_form_layout->addWidget(input, row, 1);
-            base_invoice_form_fields_[element.key] = input;
-        } else if (element.type == FormField::Type::DateEdit && !element.opt.defaultToday) {
-            QDateEdit* input = new QDateEdit(form_layout_);
-            input->setObjectName("form_date_input");
-            input->setCalendarPopup(true);
-            main_form_layout->addWidget(input, row, 1);
-            base_invoice_form_fields_[element.key] = input;
-        } else if (element.type == FormField::Type::DirBrowse) {
-            dir_button_ = new QPushButton("Browse...", form_layout_);
-            dir_button_->setObjectName("form_dir_input");
-            main_form_layout->addWidget(dir_button_, row, 1);
-            connect(dir_button_, &QPushButton::clicked, this, [this, output_path_edit, element]() {
-                QString file = QFileDialog::getExistingDirectory();
-                if (!file.isEmpty()) {
-                    output_path_edit->setText(file);
-                }
-                base_invoice_form_fields_[element.key] = output_path_edit;
+    auto* content = UiStyle::page_content(this);
+    auto* layout = new QVBoxLayout(content);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(16);
+    auto* title = UiStyle::label("New invoice", content, "title");
+    title->setAlignment(Qt::AlignCenter);
+    layout->addWidget(title);
+
+    auto* form = new QGridLayout;
+    form->setHorizontalSpacing(16);
+    form->setVerticalSpacing(10);
+    form->setColumnStretch(1, 1);
+    auto* client_label = UiStyle::label("Client", content);
+    client_select_ = new QComboBox(content);
+    client_select_->setObjectName("invoice_client");
+    client_select_->setProperty("role", "input");
+    client_select_->setAccessibleName("Invoice client");
+    client_select_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    client_select_->setMinimumContentsLength(16);
+    client_select_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    client_label->setBuddy(client_select_);
+    refresh_clients_ = new QPushButton("Refresh clients", content);
+    refresh_clients_->setObjectName("refresh_invoice_clients");
+    UiStyle::button(refresh_clients_);
+    auto* client_row = new QHBoxLayout;
+    client_row->setSpacing(8);
+    client_row->addWidget(client_select_, 1);
+    client_row->addWidget(refresh_clients_);
+    form->addWidget(client_label, 0, 0);
+    form->addLayout(client_row, 0, 1);
+    client_details_ = UiStyle::label("", content);
+    client_details_->setObjectName("invoice_client_details");
+    client_details_->setTextFormat(Qt::PlainText);
+    client_details_->setWordWrap(true);
+    form->addWidget(client_details_, 1, 1);
+    client_status_ = UiStyle::label("", content, "status");
+    client_status_->setObjectName("invoice_client_status");
+    client_status_->setTextFormat(Qt::PlainText);
+    client_status_->setWordWrap(true);
+    form->addWidget(client_status_, 2, 1);
+    const std::vector<FormField> fields = {
+        {"invoice_theme", "Invoice theme", FormField::Type::ComboBox, {}},
+        {"invoice_number", "Invoice number", FormField::Type::LineEdit, {.placeholder = "e.g. INV-000123"}},
+        {"invoice_file_name", "File name", FormField::Type::LineEdit, {.placeholder = "Name"}},
+        {"invoice_file_dir", "Save PDF to", FormField::Type::DirBrowse, {}},
+        {"date_created", "Date created", FormField::Type::DateEdit, {.defaultToday = true}},
+        {"date_due", "Date due", FormField::Type::DateEdit, {.defaultToday = true}}};
+
+    int row = 3;
+    for (const auto& field : fields) {
+        auto* label = UiStyle::label(field.label, content);
+        form->addWidget(label, row, 0);
+        QWidget* input = nullptr;
+        if (field.type == FormField::Type::LineEdit) {
+            auto* edit = new QLineEdit(content);
+            edit->setPlaceholderText(field.opt.placeholder);
+            input = edit;
+        } else if (field.type == FormField::Type::ComboBox) {
+            auto* combo = new QComboBox(content);
+            combo->addItem("PEECE");
+            input = combo;
+        } else if (field.type == FormField::Type::DateEdit) {
+            auto* date = new QDateEdit(QDate::currentDate(), content);
+            date->setCalendarPopup(true);
+            date->setDisplayFormat("dd/MM/yyyy");
+            input = date;
+        } else if (field.type == FormField::Type::DirBrowse) {
+            auto* path = new QLineEdit(content);
+            path->setReadOnly(true);
+            path->setPlaceholderText("Choose a folder");
+            auto* browse = new QPushButton("Browse…", content);
+            browse->setObjectName("browse_folder_button");
+            UiStyle::button(browse);
+            auto* folder_row = new QHBoxLayout;
+            folder_row->setSpacing(8);
+            folder_row->addWidget(path, 1);
+            folder_row->addWidget(browse);
+            form->addLayout(folder_row, row, 1);
+            connect(browse, &QPushButton::clicked, this, [this, path]() {
+                const auto directory = QFileDialog::getExistingDirectory(this, "Save invoice to", path->text());
+                if (!directory.isEmpty())
+                    path->setText(directory);
             });
+            input = path;
         }
+        if (input) {
+            input->setObjectName(field.key);
+            input->setProperty("role", "input");
+            input->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+            label->setBuddy(input);
+            base_invoice_form_fields_[field.key] = input;
+            if (field.type != FormField::Type::DirBrowse)
+                form->addWidget(input, row, 1);
+        }
+        ++row;
     }
+    layout->addLayout(form);
 
-    form_layout_->setLayout(main_form_layout);
-    this->setLayout(main_form_layout);
-
-    QPushButton* next_page_button = new QPushButton("Next >>", parent_widget_);
-    QPushButton* back_button = new QPushButton("Back to dashboard", parent_widget_);
-
-    connect(next_page_button, &QPushButton::clicked, this, [this]() {
-        auto idLe = qobject_cast<QLineEdit*>(base_invoice_form_fields_.value("invoice_number"));
-        auto theme = qobject_cast<QComboBox*>(base_invoice_form_fields_.value("invoice_theme"));
-        auto file_name = qobject_cast<QLineEdit*>(base_invoice_form_fields_.value("invoice_file_name"));
-        auto created = qobject_cast<QDateEdit*>(base_invoice_form_fields_.value("date_created"));
-        auto due = qobject_cast<QDateEdit*>(base_invoice_form_fields_.value("date_due"));
-        auto dir_name = qobject_cast<QLineEdit*>(base_invoice_form_fields_.value("invoice_file_dir"));
-        auto website = qobject_cast<QLineEdit*>(base_invoice_form_fields_.value("website"));
-        if (!idLe || !theme || !created || !due || !file_name || !dir_name) {
+    auto* buttons = new QHBoxLayout;
+    buttons->setSpacing(12);
+    auto* back = new QPushButton("Back to dashboard", content);
+    next_button_ = new QPushButton("Next", content);
+    next_button_->setObjectName("invoice_next");
+    UiStyle::button(back);
+    UiStyle::button(next_button_, "primary");
+    buttons->addWidget(back, 1);
+    buttons->addWidget(next_button_, 1);
+    layout->addLayout(buttons);
+    connect(back, &QPushButton::clicked, this, [this]() { emit invoice_navigation(Page::Dashboard); });
+    connect(client_select_, &QComboBox::currentIndexChanged, this, &InvoiceDetailsInput::update_client_selection);
+    connect(refresh_clients_, &QPushButton::clicked, this, [this]() { load_clients(true); });
+    connect(next_button_, &QPushButton::clicked, this, [this]() {
+        const auto client_id = client_select_->currentData().toJsonObject().value("ClientID").toString();
+        if (client_id.isEmpty())
             return;
-        }
-
-        QJsonObject inv_obj = {{"invoice_number", idLe->text()},
-                               {"invoice_theme", theme->currentText()},
-                               {"file_name", file_name->text()},
-                               {"date_created", created->date().toString(Qt::ISODate)},
-                               {"date_due", due->date().toString(Qt::ISODate)},
-                               {"file_dir", dir_name->text()},
-                               {"website", website->text()}};
-
-        QJsonDocument doc(inv_obj);
-        emit set_invoice_details(doc);
-
-        emit invoice_navigation(Page::StockInput);
+        const auto text = [this](const QString& key) {
+            return qobject_cast<QLineEdit*>(base_invoice_form_fields_.value(key))->text();
+        };
+        const auto date = [this](const QString& key) {
+            return qobject_cast<QDateEdit*>(base_invoice_form_fields_.value(key))->date().toString(Qt::ISODate);
+        };
+        const auto theme = qobject_cast<QComboBox*>(base_invoice_form_fields_.value("invoice_theme"))->currentText();
+        emit set_invoice_details(QJsonDocument(QJsonObject{
+            {"ClientID", client_id},
+            {"invoice_number", text("invoice_number")}, {"invoice_theme", theme},
+            {"file_name", text("invoice_file_name")}, {"file_dir", text("invoice_file_dir")},
+            {"date_created", date("date_created")}, {"date_due", date("date_due")}}));
     });
-
-    main_form_layout->addWidget(next_page_button, main_form_layout->rowCount(), 1, Qt::AlignRight);
-    main_form_layout->addWidget(back_button, main_form_layout->rowCount(), 1, Qt::AlignRight);
-    connect(back_button, &QPushButton::clicked, this, [this]() { emit invoice_navigation(Page::Dashboard); });
 }
 
-void InvoiceDetailsInput::create_form_layout() {
-    QGridLayout* main_form_layout = new QGridLayout(form_layout_);
-    main_form_layout->setAlignment(Qt::AlignCenter);
+void InvoiceDetailsInput::business_selected(const QJsonObject& business) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "InvoiceDetailsInput.business_selected");
+    const auto id = business.value("BusinessID").toString();
+    if (id != business_id_ || id.isEmpty()) {
+        business_id_ = id;
+        client_select_->clear();
+        client_select_->addItem("Choose a client");
+        client_select_->setEnabled(false);
+        client_status_->setText(id.isEmpty() ? "Choose a business on the dashboard first." : "");
+        update_client_selection();
+    }
+    refresh_clients_->setEnabled(!id.isEmpty());
+}
 
-    QLabel* invoice_label = new QLabel("Invoice Number:", form_layout_);
-    QLineEdit* invoice_input = new QLineEdit(form_layout_);
-    invoice_label->setObjectName("form_label");
-    invoice_input->setObjectName("form_input");
+void InvoiceDetailsInput::load_clients(bool refresh) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "InvoiceDetailsInput.load_clients");
+    if (business_id_.isEmpty())
+        return;
+    client_select_->clear();
+    client_select_->addItem("Loading clients...");
+    client_select_->setEnabled(false);
+    refresh_clients_->setEnabled(false);
+    client_status_->setText("Loading clients...");
+    update_client_selection();
+    emit clients_requested(refresh);
+}
 
-    main_form_layout->addWidget(invoice_label, 0, 0);
-    main_form_layout->addWidget(invoice_input, 0, 1);
+void InvoiceDetailsInput::populate_clients(const QJsonDocument& items) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "InvoiceDetailsInput.populate_clients");
+    const auto data = items.object();
+    if (business_id_.isEmpty() || data.value("BusinessID").toString() != business_id_)
+        return;
+    const auto previous_id = client_select_->currentData().toJsonObject().value("ClientID").toString();
+    {
+        const QSignalBlocker blocker(client_select_);
+        client_select_->clear();
+        client_select_->addItem("Choose a client");
+        QVector<QJsonObject> clients;
+        for (const auto& value : data.value("clients").toArray()) {
+            const auto client = value.toObject();
+            if (!client.value("ClientID").toString().isEmpty())
+                clients.append(client);
+        }
+        std::sort(clients.begin(), clients.end(), [](const QJsonObject& a, const QJsonObject& b) {
+            return a.value("Name").toString().localeAwareCompare(b.value("Name").toString()) < 0;
+        });
+        for (const auto& client : clients) {
+            const auto id = client.value("ClientID").toString();
+            client_select_->addItem(client.value("Name").toString(id) + " (" + id + ")", client);
+            if (id == previous_id)
+                client_select_->setCurrentIndex(client_select_->count() - 1);
+        }
+    }
+    const bool has_clients = client_select_->count() > 1;
+    client_select_->setEnabled(has_clients);
+    refresh_clients_->setEnabled(true);
+    client_status_->setText(has_clients ? "" : "No clients saved for this business. Create a client from the dashboard first.");
+    update_client_selection();
+}
 
-    QLabel* business_label = new QLabel("Choose your business:", form_layout_);
-    QComboBox* business_select = new QComboBox(form_layout_);
-    business_label->setObjectName("form_label");
-    business_select->setObjectName("form_input");
+void InvoiceDetailsInput::update_client_selection() {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "InvoiceDetailsInput.update_client_selection");
+    const auto client = client_select_->currentData().toJsonObject();
+    QStringList details;
+    for (const auto& key : {"Address", "Email", "Phone"}) {
+        if (!client.value(key).toString().isEmpty())
+            details.append(client.value(key).toString());
+    }
+    client_details_->setText(details.join("\n"));
+    next_button_->setEnabled(!client.value("ClientID").toString().isEmpty());
+}
 
-    main_form_layout->addWidget(business_label, 1, 0);
-    main_form_layout->addWidget(business_select, 1, 1);
+void InvoiceDetailsInput::set_client_error(const QString& message) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "InvoiceDetailsInput.set_client_error");
+    client_select_->clear();
+    client_select_->addItem("Clients unavailable");
+    client_select_->setEnabled(false);
+    client_status_->setText("Could not load clients: " + message + " Use Refresh clients to try again.");
+    refresh_clients_->setEnabled(!business_id_.isEmpty());
+    update_client_selection();
+}
 
-    QLabel* client_name_label = new QLabel("Client Name:", form_layout_);
-    QComboBox* client_select = new QComboBox(form_layout_);
-    client_name_label->setObjectName("form_label");
-
-    main_form_layout->addWidget(client_name_label, 2, 0);
-    main_form_layout->addWidget(client_select, 2, 1);
-
-    form_layout_->setLayout(main_form_layout);
-    this->setLayout(main_form_layout);
+void InvoiceDetailsInput::reset_form() {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "InvoiceDetailsInput.reset_form");
+    for (auto* field : base_invoice_form_fields_) {
+        if (auto* edit = qobject_cast<QLineEdit*>(field))
+            edit->clear();
+        else if (auto* date = qobject_cast<QDateEdit*>(field))
+            date->setDate(QDate::currentDate());
+    }
+    business_selected(QJsonObject{});
 }
