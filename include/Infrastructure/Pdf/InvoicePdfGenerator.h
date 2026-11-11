@@ -1,6 +1,5 @@
 #pragma once
 #include "pch.h"
-#include "Application/Accounts/AccountManager.h"
 #include <hpdf.h>
 #include <setjmp.h>
 #include "Domain/Invoices/Invoice.h"

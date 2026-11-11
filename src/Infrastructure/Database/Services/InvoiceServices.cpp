@@ -12,6 +12,15 @@
 using namespace Infrastructure::Services;
 
 InvoiceServices::InvoiceServices(MongoDBDataManager& db_manager) : db_manager_(db_manager) {}
+
+void InvoiceServices::clear_session() {
+    invoice_.clear_invoice();
+    invoice_.set_file_name({});
+}
+
+bool InvoiceServices::has_invoice_details() const {
+    return invoice_.getBusiness() && invoice_.getClient() && !invoice_.get_file_name().empty();
+}
 /**
  * @brief this shit does nothing shlawg.
  */

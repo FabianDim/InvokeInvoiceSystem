@@ -1,3 +1,4 @@
+#pragma once
 #include "Infrastructure/Database/Mongo/MongoDBHandler.h"
 #include "pch.h"
 #include <QtHttpServer>

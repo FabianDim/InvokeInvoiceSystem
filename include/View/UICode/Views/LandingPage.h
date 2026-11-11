@@ -4,11 +4,9 @@
 #include <QWidget>
 #include <qlayout.h>
 #include <QPushButton>
-#include "Application/Accounts/AccountManager.h"
-#include "View/MainWindow.h"
+#include "Domain/Accounts/Interfaces/IAccountManager.h"
 #include "Infrastructure/Enums/RouteEnums.h"
 
-class Invoke::Domain::Accounts::IAccountManager;
 namespace App::Views {
 class LandingPage : public QWidget {
     Q_OBJECT

@@ -1,7 +1,6 @@
 #include "Infrastructure/Logging/HttpLogging.h"
 #include "Infrastructure/Http/ApiClient.h"
-#include "Infrastructure/Http/FakeServer.h"
-#include "Domain/Accounts/User.h"
+#include <QJsonArray>
 #include <QUrlQuery>
 #include <QDir>
 #include <QFileInfo>
@@ -494,6 +493,7 @@ void Infrastructure::Http::ApiClient::do_login(const QString& email, const QStri
     }
     clear_session();
     loginInProgress_ = true;
+    const auto session = session_generation_;
 
     QUrl url = baseUrl_;
     url.setPath("/auth/login");
@@ -501,6 +501,7 @@ void Infrastructure::Http::ApiClient::do_login(const QString& email, const QStri
     auto request = make_request(url);
 
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    request.setTransferTimeout(30000);
 
     QJsonObject json;
     json["email"] = email;
@@ -535,7 +536,6 @@ void Infrastructure::Http::ApiClient::do_login(const QString& email, const QStri
             }
             emit login_failed(message);
         }
-        reply->deleteLater();
     });
 }
 

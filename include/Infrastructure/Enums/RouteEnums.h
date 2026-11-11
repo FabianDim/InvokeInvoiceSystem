@@ -12,5 +12,6 @@ enum class Page {
     BusinessSettings,
     StockSettings,
     AccountSettings,
-    Items
+    Items,
+    DefaultInvoiceSettings
 };

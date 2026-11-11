@@ -8,7 +8,6 @@
 #include <QPointer>
 #include "Application/Invoices/OfflineInvoiceSession.h"
 #include "Domain/Accounts/Interfaces/IAccountManager.h"
-class Server;
 
 namespace Infrastructure::Http {
 class ApiClient : public QObject {
@@ -51,6 +50,9 @@ class ApiClient : public QObject {
     bool offline_ = false;
     Application::Invoices::OfflineInvoiceSession offline_session_;
     bool loginInProgress_ = false;
+    bool server_session_active_ = false;
+    QPointer<QNetworkReply> login_reply_;
+    QPointer<QNetworkReply> logout_reply_;
     Invoke::Domain::Accounts::IAccountManager* account_manager_;
     QNetworkAccessManager* networkManager_;
     QUrl baseUrl_;

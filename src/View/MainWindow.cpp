@@ -15,8 +15,7 @@
 
 App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& acctMgr, QWidget* parent)
     : QMainWindow(parent), fileMenu(nullptr), newAct(nullptr), openAct(nullptr), saveAct(nullptr), loginAct(nullptr),
-      logoutAct(nullptr), acctMgr(acctMgr),
-      pagesStack(new QStackedWidget(this)) {
+      logoutAct(nullptr), acctMgr(acctMgr), pagesStack(new QStackedWidget(this)) {
 
     auto* central = new QWidget(this);
     auto* vbox = new QVBoxLayout(central);
@@ -27,7 +26,8 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
     offline_banner_ = new QWidget(central);
     offline_banner_->setObjectName("offline_banner");
     auto* demo_layout = new QHBoxLayout(offline_banner_);
-    auto* demo_label = UiStyle::label("Offline demo: records are temporary. Only the PDF is saved.", offline_banner_, "status");
+    auto* demo_label =
+        UiStyle::label("Offline demo: records are temporary. Only the PDF is saved.", offline_banner_, "status");
     demo_label->setWordWrap(true);
     auto* exit_demo = new QPushButton("Exit demo", offline_banner_);
     exit_demo->setObjectName("exit_offline_button");
@@ -167,6 +167,14 @@ App::Views::Dashboard* App::Views::MainWindow::dashboard_page() {
     return dashboard_page_;
 }
 
+App::Views::DefaultInvoiceSettings* App::Views::MainWindow::default_invoice_settings_page() {
+    if (!default_invoice_settings_page_) {
+        default_invoice_settings_page_ = new DefaultInvoiceSettings(this);
+        pagesStack->addWidget(default_invoice_settings_page_);
+    }
+    return default_invoice_settings_page_;
+}
+
 App::Views::InvoiceDetailsInput* App::Views::MainWindow::new_invoice_page() {
     if (!new_invoice_page_) {
         new_invoice_page_ = new App::Views::InvoiceDetailsInput(this);
@@ -194,7 +202,8 @@ App::Views::BusinessInvoiceChoice* App::Views::MainWindow::business_invoice_choi
 App::Views::ManagementForm* App::Views::MainWindow::client_page() {
     if (!client_page_) {
         client_page_ = new ManagementForm(
-            "Create New Client", "client",
+            "Create New Client",
+            "client",
             {"Name", "Phone", "Email", "Country", "State or province", "City", "Street address", "Postcode"},
             this);
         pagesStack->addWidget(client_page_);
@@ -204,10 +213,19 @@ App::Views::ManagementForm* App::Views::MainWindow::client_page() {
 
 App::Views::ManagementForm* App::Views::MainWindow::business_settings_page() {
     if (!business_settings_page_) {
-        business_settings_page_ = new ManagementForm(
-            "Configure Business", "business",
-            {"ABN", "Business name", "Business phone", "Country", "State or province", "City", "Street address", "Postcode", "ACN", "Website"},
-            this);
+        business_settings_page_ = new ManagementForm("Configure Your Business",
+                                                     "business",
+                                                     {"ABN",
+                                                      "Business name",
+                                                      "Business phone",
+                                                      "Country",
+                                                      "State or province",
+                                                      "City",
+                                                      "Street address",
+                                                      "Postcode",
+                                                      "ACN",
+                                                      "Website"},
+                                                     this);
         pagesStack->addWidget(business_settings_page_);
     }
     return business_settings_page_;
@@ -224,8 +242,8 @@ App::Views::ManagementForm* App::Views::MainWindow::stock_settings_page() {
 
 App::Views::ManagementForm* App::Views::MainWindow::account_settings_page() {
     if (!account_settings_page_) {
-        account_settings_page_ = new ManagementForm(
-            "Account Settings", "account", {"First name", "Last name", "Email", "Password"}, this);
+        account_settings_page_ =
+            new ManagementForm("Account Settings", "account", {"First name", "Last name", "Email", "Password"}, this);
         pagesStack->addWidget(account_settings_page_);
     }
     return account_settings_page_;

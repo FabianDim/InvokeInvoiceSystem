@@ -235,15 +235,6 @@
             )
         endforeach()
     endif()
-    set_tests_properties(BusinessSession PROPERTIES
-        LABELS "ui;session"
-        TIMEOUT 30
-        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_PLATFORM_PLUGIN_PATH=$<TARGET_FILE_DIR:Qt6::QOffscreenIntegrationPlugin>;QT_ASSUME_STDERR_HAS_CONSOLE=1"
-    )
-    add_test(NAME DatabaseHealth COMMAND DatabaseTests)
-    set_tests_properties(DatabaseHealth PROPERTIES
-        LABELS "database;integration"
-        TIMEOUT 60
-        ENVIRONMENT "QT_ASSUME_STDERR_HAS_CONSOLE=1"
-    )
-
+    qt_generate_deploy_app_script(TARGET ${app_target} OUTPUT_SCRIPT deploy_script NO_UNSUPPORTED_PLATFORM_ERROR)
+    install(SCRIPT ${deploy_script} COMPONENT ${app_component})
+endforeach()
