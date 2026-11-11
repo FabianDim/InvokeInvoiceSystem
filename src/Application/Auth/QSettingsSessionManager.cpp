@@ -1,3 +1,4 @@
+#include "Infrastructure/Logging/Logging.h"
 #include "Application/Auth/QSettingsSessionManager.h"
 #include <ctime>
 #include <QStandardPaths>
@@ -18,6 +19,7 @@ namespace Invoke::Application::Auth {
     QSettingsSessionManager::QSettingsSessionManager() : settings_(new QSettings), session_active_(false) {}
 
     void QSettingsSessionManager::start_new_session(const std::string& user_id) {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::auth(), "QSettingsSessionManager.start_new_session");
         try {
             if (!user_id.empty()) {
                 current_user_id_ = user_id;
@@ -32,6 +34,7 @@ namespace Invoke::Application::Auth {
         }
     }
     void QSettingsSessionManager::restart_session(const std::unordered_map<std::string, std::string>& session_info) {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::auth(), "QSettingsSessionManager.restart_session");
         try {
             if (is_session_data_valid(session_info)) {
                 current_user_id_ = session_info.at(KEY_USER_ID);
@@ -81,6 +84,7 @@ namespace Invoke::Application::Auth {
     }
 
     bool QSettingsSessionManager::save_secure_token(const QString& token) {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::auth(), "QSettingsSessionManager.save_secure_token");
         auto* job = new WritePasswordJob(SERVICE);
         job->setAutoDelete(false);
         job->setKey(KEY_TOKEN);
@@ -106,11 +110,13 @@ namespace Invoke::Application::Auth {
     }
 
     void QSettingsSessionManager::end_session() {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::auth(), "QSettingsSessionManager.end_session");
         session_active_ = false;
         current_user_id_.clear();
     }
 
     bool Invoke::Application::Auth::QSettingsSessionManager::delete_session_data() {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::auth(), "QSettingsSessionManager.delete_session_data");
         auto* job = new DeletePasswordJob(SERVICE);
         job->setKey(KEY_TOKEN);
 
@@ -138,6 +144,7 @@ namespace Invoke::Application::Auth {
 
     std::optional<std::unordered_map<std::string, std::string>>
     Invoke::Application::Auth::QSettingsSessionManager::get_session_token() const {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::auth(), "QSettingsSessionManager.get_session_token");
         auto* job = new ReadPasswordJob(SERVICE);
         job->setAutoDelete(false);
         job->setKey(KEY_TOKEN);

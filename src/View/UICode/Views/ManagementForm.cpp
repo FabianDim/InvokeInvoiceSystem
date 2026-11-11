@@ -1,3 +1,4 @@
+#include "Infrastructure/Logging/Logging.h"
 #include "View/UICode/Views/ManagementForm.h"
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -116,8 +117,10 @@ bool ManagementForm::field_required(const QString& field) const {
 }
 
 void ManagementForm::submit_form() {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "ManagementForm.submit_form");
     for (int index = 0; index < inputs_.size(); ++index) {
         if (field_required(field_names_[index]) && inputs_[index]->text().trimmed().isEmpty()) {
+            qCWarning(Infrastructure::Logging::ui) << "event=form.rejected reason=required_field_missing field_index=" << index;
             status_label_->setText("Please enter " + field_names_[index].toLower() + ".");
             inputs_[index]->setFocus();
             return;
@@ -145,6 +148,7 @@ void ManagementForm::submit_form() {
             const double value = text.isEmpty() ? 0 : QLocale().toDouble(text, &valid);
             if (!valid || !std::isfinite(value) || value < 0 ||
                 (QString(field) == "Quantity" && (value > 1'000'000 || std::floor(value) != value))) {
+                qCWarning(Infrastructure::Logging::ui) << "event=form.rejected reason=invalid_stock_number field=" << field;
                 set_status(QString(field) == "Quantity"
                     ? "Stock on hand must be a whole number from 0 to 1,000,000, or left blank."
                     : QString("Enter a valid, non-negative %1.").arg(QString(field).toLower()));
@@ -160,6 +164,7 @@ void ManagementForm::submit_form() {
         if (!website.isEmpty()) {
             const auto url = QUrl::fromUserInput(website);
             if (!url.isValid() || url.host().isEmpty() || (url.scheme() != "https" && url.scheme() != "http")) {
+                qCWarning(Infrastructure::Logging::ui) << "event=form.rejected reason=invalid_website";
                 set_status("Enter a valid business website, such as https://example.com.");
                 return;
             }
@@ -168,6 +173,7 @@ void ManagementForm::submit_form() {
         data["LogoPath"] = logo_path_->text();
         data["LogoData"] = QString::fromLatin1(logo_data_.toBase64());
     }
+    qCDebug(Infrastructure::Logging::ui) << "event=form.validated resource=" << resource_;
     emit submit_resource(resource_, QJsonDocument(data));
     if (logo_path_) {
         logo_path_->clear();
@@ -184,20 +190,24 @@ void ManagementForm::submit_form() {
 }
 
 void ManagementForm::select_logo(const QString& path) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "ManagementForm.select_logo");
     if (!logo_path_)
         return;
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly) || file.size() > BusinessLogo::maximum_bytes) {
+        qCWarning(Infrastructure::Logging::ui) << "event=logo.rejected reason=unreadable_or_oversized";
         set_status("Choose a readable PNG or JPEG logo no larger than 5 MB.");
         return;
     }
     QByteArray png;
     QString error;
     if (!BusinessLogo::normalise(file.read(BusinessLogo::maximum_bytes + 1), png, error)) {
+        qCWarning(Infrastructure::Logging::ui) << "event=logo.rejected reason=invalid_image";
         set_status(error);
         return;
     }
     logo_data_ = png;
+    qCDebug(Infrastructure::Logging::ui) << "event=logo.normalized bytes=" << png.size();
     logo_path_->setText(path);
     set_status("Logo selected.");
 }

@@ -1,3 +1,4 @@
+#include "Infrastructure/Logging/Logging.h"
 #include "Infrastructure/Database/Mongo/MongoDBDataManager.h"
 #include <bsoncxx/json.hpp>
 #include <mongocxx/exception/bulk_write_exception.hpp>
@@ -21,28 +22,34 @@ bsoncxx::document::value MongoDBDataManager::buildNewUser(const std::shared_ptr<
 }
 
 bool MongoDBDataManager::insertDocument(const std::string& collectionName, const bsoncxx::document::view& docView) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::database(), "MongoDBDataManager.insertDocument");
     auto collection = database()[collectionName];
 
     try {
         auto result = collection.insert_one(docView);
+        qCDebug(Infrastructure::Logging::database) << "event=database.insert.completed acknowledged=" << static_cast<bool>(result)
+            << "inserted_count=" << (result ? result->result().inserted_count() : 0);
         return result && result->result().inserted_count() == 1;
     } catch (const mongocxx::exception& e) {
-        std::cerr << e.what() << std::endl;
+        qCWarning(Infrastructure::Logging::database) << "event=database.exception code=" << e.code().value();
         return false;
     }
 }
 
 std::optional<bsoncxx::document::value> MongoDBDataManager::findOne(const std::string& collectionName,
                                                                     const bsoncxx::document::view_or_value& filter) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::database(), "MongoDBDataManager.findOne");
     auto collection = database()[collectionName];
     try {
         if (auto result = collection.find_one(filter)) {
+            qCDebug(Infrastructure::Logging::database) << "event=database.find.completed found=true";
             return bsoncxx::document::value{result->view()};
         } else {
+            qCDebug(Infrastructure::Logging::database) << "event=database.find.completed found=false";
             return std::nullopt;
         }
     } catch (const mongocxx::exception& e) {
-        std::cerr << e.what() << std::endl;
+        qCWarning(Infrastructure::Logging::database) << "event=database.exception code=" << e.code().value();
         return std::nullopt;
     }
 }
@@ -59,13 +66,14 @@ MongoDBDataManager::findElement(const std::string& collectionName,
             return bsoncxx::document::element{idElem};
         }
     } catch (const mongocxx::exception& e) {
-        std::cerr << e.what() << std::endl;
+        qCWarning(Infrastructure::Logging::database) << "event=database.exception code=" << e.code().value();
         return std::nullopt;
     }
     return std::nullopt;
 }
 
 std::optional<std::string> MongoDBDataManager::fetchStoredPassword(const std::string& email) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::database(), "MongoDBDataManager.fetchStoredPassword");
     try {
         constexpr char kCollectionName[] = "Users";
         auto collection = database()[kCollectionName];
@@ -73,94 +81,95 @@ std::optional<std::string> MongoDBDataManager::fetchStoredPassword(const std::st
         auto result = collection.find_one(make_document(kvp("UserEmail", email)));
 
         if (!result) {
-            qDebug() << "[fetchStoredPassword] No user document found for email:" << email.c_str();
+            qCDebug(Infrastructure::Logging::database) << "event=auth.password_lookup.missing_account";
             return std::nullopt;
         }
         bsoncxx::document::view view = result->view();
         auto pw = view["UserPassword"];
 
         if (!pw) {
-            qDebug() << "[fetchStoredPassword] 'UserPassword' field missing for email:" << email.c_str();
+            qCDebug(Infrastructure::Logging::database) << "event=auth.password_lookup.missing_hash";
             return std::nullopt;
         }
 
         std::string hashedPW{pw.get_string().value};
-        qDebug() << "[fetchStoredPassword] Password hash retrieved for email:" << email.c_str()
-                 << "| hash length:" << static_cast<int>(hashedPW.size());
+        qCDebug(Infrastructure::Logging::database) << "event=auth.password_lookup.completed";
         return hashedPW;
     } catch (const mongocxx::exception& e) {
-        std::cerr << e.what() << std::endl;
-        qDebug() << "[fetchStoredPassword] MongoDB exception for email:" << email.c_str() << "| what():" << e.what();
+        qCWarning(Infrastructure::Logging::database) << "event=database.exception code=" << e.code().value();
+        qCDebug(Infrastructure::Logging::database) << "event=auth.password_lookup.failed";
         return std::nullopt;
     }
 }
 
 bool MongoDBDataManager::valid_password(const std::string& password, const std::string& email) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::database(), "MongoDBDataManager.valid_password");
     const auto stored_password = fetchStoredPassword(email);
     return stored_password.has_value() && bcrypt::validatePassword(password, *stored_password);
 }
 
 std::optional<std::string> MongoDBDataManager::authenticate_account(const std::string& email,
                                                                  const std::string& password) {
-    if (email.empty() || password.empty())
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::database(), "MongoDBDataManager.authenticate_account");
+    if (email.empty() || password.empty()) {
+        qCWarning(Infrastructure::Logging::auth) << "event=auth.credentials.rejected reason=missing_fields";
         return std::nullopt;
+    }
     const auto document = database()["Users"].find_one(make_document(kvp("UserEmail", email)));
-    if (!document)
+    if (!document) {
+        qCWarning(Infrastructure::Logging::auth) << "event=auth.credentials.rejected reason=account_not_found";
         return std::nullopt;
+    }
     const auto view = document->view();
     const auto hash = view["UserPassword"];
     const auto id = view["UserID"];
-    if (!hash || hash.type() != bsoncxx::type::k_string || !id || id.type() != bsoncxx::type::k_string)
+    if (!hash || hash.type() != bsoncxx::type::k_string || !id || id.type() != bsoncxx::type::k_string) {
+        qCWarning(Infrastructure::Logging::auth) << "event=auth.credentials.rejected reason=invalid_account_record";
         return std::nullopt;
-    if (!bcrypt::validatePassword(password, std::string(hash.get_string().value)))
+    }
+    qCDebug(Infrastructure::Logging::auth) << "event=auth.password_check.started";
+    if (!bcrypt::validatePassword(password, std::string(hash.get_string().value))) {
+        qCWarning(Infrastructure::Logging::auth) << "event=auth.credentials.rejected reason=password_mismatch";
         return std::nullopt;
+    }
     const std::string user_id(id.get_string().value);
+    qCDebug(Infrastructure::Logging::auth) << "event=auth.password_check.completed identity_valid=" << !user_id.empty();
     return user_id.empty() ? std::nullopt : std::make_optional(user_id);
 }
 
 MongoDBDataManager::AccountCreationResult MongoDBDataManager::create_account(const QJsonObject& details) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::database(), "MongoDBDataManager.create_account");
     const auto email = details.value("email").toString().trimmed().toStdString();
     const auto password = details.value("password").toString().toStdString();
-    qDebug() << "[MongoDBDataManager::create_account] Starting account creation"
-             << "| email:" << QString::fromStdString(email)
-             << "| password length:" << static_cast<int>(password.size())
-             << "| firstName:" << details.value("firstName").toString()
-             << "| lastName:" << details.value("lastName").toString();
+    qCDebug(Infrastructure::Logging::database) << "event=account.create.started";
 
     if (email.empty() || password.empty()) {
-        qWarning() << "[MongoDBDataManager::create_account] Missing required signup field"
-                   << "| has email:" << !email.empty()
-                   << "| has password:" << !password.empty();
+        qCWarning(Infrastructure::Logging::database) << "event=account.create.rejected reason=missing_fields";
         return AccountCreationResult::InvalidInput;
     }
 
-    qDebug() << "[MongoDBDataManager::create_account] Checking for existing email"
-             << "| email:" << QString::fromStdString(email);
+    qCDebug(Infrastructure::Logging::database) << "event=account.duplicate_check.started";
     std::optional<mongocxx::collection> collection;
     try {
         collection = database()["Users"];
     } catch (const std::exception&) {
-        qWarning() << "Could not initialize MongoDB. Check the connection configuration.";
+        qCWarning(Infrastructure::Logging::database) << "Could not initialize MongoDB. Check the connection configuration.";
         return AccountCreationResult::DatabaseError;
     }
     try {
         if (collection->find_one(make_document(kvp("UserEmail", email)))) {
-            qWarning() << "[MongoDBDataManager::create_account] Email already exists"
-                       << "| email:" << QString::fromStdString(email);
+            qCWarning(Infrastructure::Logging::database) << "event=account.create.rejected reason=duplicate_email";
             return AccountCreationResult::EmailExists;
         }
     } catch (const mongocxx::exception& e) {
-        qWarning() << "[MongoDBDataManager::create_account] MongoDB exception during email check"
-                   << "| email:" << QString::fromStdString(email)
-                   << "| what():" << e.what();
+        qCWarning(Infrastructure::Logging::database) << "event=account.duplicate_check.failed" << "code=" << e.code().value();
         return AccountCreationResult::DatabaseError;
     }
 
     const auto user_id = std::string("USR") +
                          QUuid::createUuid().toString(QUuid::WithoutBraces).left(8).toUpper().toStdString();
-    qDebug() << "[MongoDBDataManager::create_account] Generated user id"
-             << "| email:" << QString::fromStdString(email)
-             << "| user id:" << QString::fromStdString(user_id);
+    qCDebug(Infrastructure::Logging::database) << "event=account.identity.created";
+    qCDebug(Infrastructure::Logging::auth) << "event=account.password_hash.started";
     const auto document = bsoncxx::builder::stream::document{}
         << "UserID" << user_id
         << "UserEmail" << email
@@ -169,25 +178,17 @@ MongoDBDataManager::AccountCreationResult MongoDBDataManager::create_account(con
         << "LastName" << details.value("lastName").toString().trimmed().toStdString()
         << "AccountSetupNeeded" << true
         << bsoncxx::builder::stream::finalize;
-    qDebug() << "[MongoDBDataManager::create_account] Inserting user document"
-             << "| email:" << QString::fromStdString(email)
-             << "| user id:" << QString::fromStdString(user_id);
+    qCDebug(Infrastructure::Logging::auth) << "event=account.password_hash.completed";
+    qCDebug(Infrastructure::Logging::database) << "event=account.insert.started";
     try {
         const auto result = collection->insert_one(document.view());
         if (result && result->result().inserted_count() == 1) {
-            qDebug() << "[MongoDBDataManager::create_account] User document inserted"
-                     << "| email:" << QString::fromStdString(email)
-                     << "| user id:" << QString::fromStdString(user_id);
+            qCDebug(Infrastructure::Logging::database) << "event=account.insert.completed";
             return AccountCreationResult::Created;
         }
-        qWarning() << "[MongoDBDataManager::create_account] User document insert returned no inserted document"
-                   << "| email:" << QString::fromStdString(email)
-                   << "| user id:" << QString::fromStdString(user_id);
+        qCWarning(Infrastructure::Logging::database) << "event=account.insert.failed reason=unacknowledged";
     } catch (const mongocxx::exception& e) {
-        qWarning() << "[MongoDBDataManager::create_account] MongoDB exception during user insert"
-                   << "| email:" << QString::fromStdString(email)
-                   << "| user id:" << QString::fromStdString(user_id)
-                   << "| what():" << e.what();
+        qCWarning(Infrastructure::Logging::database) << "event=account.insert.failed reason=database_exception" << "code=" << e.code().value();
         return AccountCreationResult::DatabaseError;
     }
 
@@ -195,10 +196,11 @@ MongoDBDataManager::AccountCreationResult MongoDBDataManager::create_account(con
 }
 
 QJsonDocument MongoDBDataManager::get_account_businesses(const std::string& user_id) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::database(), "MongoDBDataManager.get_account_businesses");
     try {
         constexpr char kCollectionName[] = "Users";
         auto collection = database()[kCollectionName];
-        qDebug() << "Fetching businesses for user ID:" << QString::fromStdString(user_id);
+        qCDebug(Infrastructure::Logging::database) << "event=businesses.lookup.started";
         auto result = collection.find_one(make_document(kvp("UserID", user_id)));
 
         if (result) {
@@ -225,25 +227,29 @@ QJsonDocument MongoDBDataManager::get_account_businesses(const std::string& user
                         json_id[QString::fromStdString(std::string(elem.get_string().value))] = json_object;
                     }
                 }
+                qCDebug(Infrastructure::Logging::database) << "event=businesses.lookup.completed count=" << json_id.size();
                 return QJsonDocument(json_id);
             }
         }
         return QJsonDocument();
     } catch (mongocxx::exception e) {
-        qDebug() << "Error processing business IDs for user ID:" << QString::fromStdString(user_id);
-        qDebug() << "MongoDB exception:" << e.what();
+        qCDebug(Infrastructure::Logging::database) << "event=businesses.lookup.failed";
+        qCDebug(Infrastructure::Logging::database) << "event=database.exception" << "code=" << e.code().value();
         return QJsonDocument();
     }
 }
 
 QJsonDocument MongoDBDataManager::list_resources(const std::string& resource, const std::string& user_id,
                                                  const std::string& selected_business_id) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::database(), "MongoDBDataManager.list_resources");
     QJsonArray result;
     // Let read errors reach the HTTP handler instead of caching an empty result
     // when the database is unavailable.
     const auto user = database()["Users"].find_one(make_document(kvp("UserID", user_id)));
-    if (!user)
+    if (!user) {
+        qCDebug(Infrastructure::Logging::database) << "event=resources.lookup.completed count=" << result.size();
         return QJsonDocument(result);
+    }
 
     const auto business_ids = user->view()["BusinessIDs"];
     if (resource == "businesses") {
@@ -274,13 +280,16 @@ QJsonDocument MongoDBDataManager::list_resources(const std::string& resource, co
                 }
             }
         }
+        qCDebug(Infrastructure::Logging::database) << "event=resources.lookup.completed count=" << result.size();
         return QJsonDocument(result);
     }
 
     const char* collection = resource == "clients" ? "Clients" : "Stock";
     const char* array_name = resource == "clients" ? "ClientIDs" : "StockIDs";
-    if (!business_ids || business_ids.type() != bsoncxx::type::k_array)
+    if (!business_ids || business_ids.type() != bsoncxx::type::k_array) {
+        qCDebug(Infrastructure::Logging::database) << "event=resources.lookup.completed count=" << result.size();
         return QJsonDocument(result);
+    }
     for (const auto& business_id : business_ids.get_array().value) {
         if (business_id.type() != bsoncxx::type::k_string)
             continue;
@@ -330,11 +339,13 @@ QJsonDocument MongoDBDataManager::list_resources(const std::string& resource, co
             result.append(json);
         }
     }
+    qCDebug(Infrastructure::Logging::database) << "event=resources.lookup.completed count=" << result.size();
     return QJsonDocument(result);
 }
 
 bool MongoDBDataManager::save_resource(const std::string& resource, QJsonObject data, const std::string& user_id,
                                        QString* saved_id) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::database(), "MongoDBDataManager.save_resource");
     try {
         const auto id = QString::fromStdString(resource == "business" ? "BUS"
                                                : resource == "client" ? "CLI"
@@ -368,6 +379,8 @@ bool MongoDBDataManager::save_resource(const std::string& resource, QJsonObject 
                 return false;
             const auto update = make_document(kvp("$addToSet", make_document(kvp("BusinessIDs", id.toStdString()))));
             const auto result = database()["Users"].update_one(user->view(), update.view());
+            qCDebug(Infrastructure::Logging::database) << "event=database.business_link.completed acknowledged=" << static_cast<bool>(result)
+                << "matched_count=" << (result ? result->matched_count() : 0);
             if (result && saved_id)
                 *saved_id = id;
             return static_cast<bool>(result);
@@ -408,11 +421,13 @@ bool MongoDBDataManager::save_resource(const std::string& resource, QJsonObject 
         const auto value = id.toStdString();
         const auto update = make_document(kvp("$addToSet", make_document(kvp(key, value))));
         const auto result = database()["Business"].update_one(business->view(), update.view());
+        qCDebug(Infrastructure::Logging::database) << "event=database.resource_link.completed acknowledged=" << static_cast<bool>(result)
+            << "matched_count=" << (result ? result->matched_count() : 0);
         if (result && saved_id)
             *saved_id = id;
         return static_cast<bool>(result);
     } catch (const std::exception& error) {
-        qWarning() << "Could not save resource:" << error.what();
+        qCWarning(Infrastructure::Logging::database) << "event=resource.save.failed reason=exception";
         return false;
     }
 }
@@ -436,10 +451,11 @@ void MongoDBDataManager::updateDoc(const std::string& collectionName,
 // }
 
 std::optional<mongocxx::collection> MongoDBDataManager::getCollection(const std::string& collectionName) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::database(), "MongoDBDataManager.getCollection");
     try {
         return database()[collectionName];
     } catch (const mongocxx::exception& e) {
-        std::cerr << e.what() << std::endl;
+        qCWarning(Infrastructure::Logging::database) << "event=database.exception code=" << e.code().value();
         std::cerr << "collection probably does not exist" << std::endl;
         return std::nullopt;
     }

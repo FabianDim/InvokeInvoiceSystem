@@ -1,4 +1,5 @@
 #pragma once
+#include "Infrastructure/Logging/Logging.h"
 #include "pch.h"
 #include <mongocxx/client.hpp>
 #include <mongocxx/instance.hpp>
@@ -26,8 +27,11 @@ class MongoDBDataManager {
     // Offline startup must not parse a MongoDB URI or contact an SRV host.
     std::unique_ptr<MongoDBHandler> dbHandler;
     mongocxx::database database() {
-        if (!dbHandler)
+        if (!dbHandler) {
+            qCDebug(Infrastructure::Logging::database) << "event=database.client.initializing";
             dbHandler = std::make_unique<MongoDBHandler>();
+            qCDebug(Infrastructure::Logging::database) << "event=database.client.ready";
+        }
         return dbHandler->getDatabase();
     }
 

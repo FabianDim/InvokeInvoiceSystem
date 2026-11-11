@@ -175,6 +175,12 @@
         $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
     )
     include(CTest)
+    qt_add_executable(LoggingTests tests/LoggingTests.cpp)
+    set_target_properties(LoggingTests PROPERTIES WIN32_EXECUTABLE OFF MACOSX_BUNDLE OFF)
+    target_include_directories(LoggingTests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(LoggingTests PRIVATE Qt6::Test Qt6::HttpServer Qt6::Network)
+    add_test(NAME Logging COMMAND LoggingTests)
+    set_tests_properties(Logging PROPERTIES TIMEOUT 30 LABELS "logging" ENVIRONMENT "QT_ASSUME_STDERR_HAS_CONSOLE=1")
     qt_add_executable(BusinessSessionTests
         tests/BusinessSessionTests.cpp
         src/Application/Invoices/OfflineInvoiceSession.cpp

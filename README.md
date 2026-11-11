@@ -147,9 +147,13 @@ cache. See the [Heroku manifest requirements](https://devcenter.heroku.com/artic
 and [Docker exporter options](https://docs.docker.com/build/exporters/image-registry/).
 
 The image supplies the backend executable and supports Heroku's `PORT`. Sessions
-and invoice state are isolated by token. Remote PDF delivery is still incomplete:
-the existing invoice routes write PDFs to the server's filesystem. The offline
-desktop workflow continues to save PDFs locally.
+and invoice state are isolated by token. Finishing an invoice generates a PDF in
+a temporary backend folder and returns it over HTTPS. The desktop saves it to
+the folder selected in the invoice form and shows the saved path. Local paths
+are never sent to the backend. Failed exports show an error and can be retried;
+an unsuccessful download does not replace an existing PDF. The offline desktop
+workflow continues to generate and save PDFs locally. Exported invoices are not
+archived in MongoDB; keep the downloaded PDF for your records.
 
 ### 5. Create your first account invoice
 
@@ -159,6 +163,53 @@ desktop workflow continues to save PDFs locally.
 4. Select **Create new invoice** and choose a saved client. Enter the invoice number, file name, output folder, creation date and due date. The available theme is **PEECE**.
 5. Select **Next**, then choose **New item** or **Saved stock**. Enter a positive whole invoice quantity and a non-negative price, then select **Add item**. New items can be used just for this invoice, or saved with **Save this item to business stock** for reuse. Select **Finish invoice** once you have added all items.
 6. Open the PDF in your chosen output folder. File-name spaces are replaced with underscores, and `.pdf` is appended if needed.
+
+## Debug logs
+
+Debug logging is enabled by default in desktop and backend builds, including
+Release builds. Events cover startup/shutdown, navigation and form validation,
+sign-in/signup/logout and session expiry, HTTP requests, business selection and
+cache invalidation, database reads/writes, offline records, PDF rendering,
+download validation and local file writes. Warnings identify rejected operations
+and failures; operation logs include elapsed milliseconds. `operation.returned`
+means a function returned normally, not necessarily that validation succeeded.
+
+The Windows desktop writes to
+`%LOCALAPPDATA%\Invoke\InvokeInvoiceSystem\logs\application.log` as well as stderr.
+It rotates at 5 MiB and keeps one previous file, `application.log.1`. To watch it:
+
+```powershell
+Get-Content "$env:LOCALAPPDATA\Invoke\InvokeInvoiceSystem\logs\application.log" -Tail 100 -Wait
+```
+
+The backend writes to stderr, which Heroku collects. After deploying the updated
+backend, use `heroku logs --tail --app invoice-backend-app`. Each HTTP request has
+an `X-Request-ID`; search for the matching `request_id` in client and server logs.
+Server database and PDF logs inherit that request ID. Request logs include the
+route, numeric method/operation, status, network error code and duration. They
+describe response creation/receipt, not proof that a remote user opened the PDF.
+
+Set `INVOICE_LOG_FILE` before launch to use another file (also supported by the
+backend). If file writing or rotation fails, logging continues on stderr.
+Use different files for separate running instances. Qt category rules control
+verbosity without rebuilding:
+
+```powershell
+# Turn off debug noise while retaining info, warnings and errors.
+$env:QT_LOGGING_RULES = 'invoice.*.debug=false'
+# Or focus debug output on HTTP and PDF processing.
+$env:QT_LOGGING_RULES = 'invoice.*.debug=false;invoice.http.debug=true;invoice.pdf.debug=true'
+```
+
+Categories are `invoice.app`, `invoice.ui`, `invoice.http`, `invoice.auth`,
+`invoice.database`, `invoice.pdf` and `invoice.offline`. Remove `QT_LOGGING_RULES`
+to restore the defaults. Logs omit credentials, tokens, request/response bodies,
+customer details and invoice item contents. Database exceptions use numeric
+driver codes instead of raw exception text. Request IDs are validated before
+logging, and file log entries escape embedded newlines.
+
+The `Logging` CTest checks HTTP status/body preservation, request correlation,
+payload exclusion, exception logging, category filtering and file rotation.
 
 ## Try the offline invoice demo
 

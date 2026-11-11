@@ -1,4 +1,5 @@
-﻿#include "View/UICode/Views/NewInvoiceCreation.h"
+#include "Infrastructure/Logging/Logging.h"
+#include "View/UICode/Views/NewInvoiceCreation.h"
 #include "View/UiStyle.h"
 #include <QComboBox>
 #include <QDateEdit>
@@ -148,6 +149,7 @@ void InvoiceDetailsInput::create_page_layout() {
 }
 
 void InvoiceDetailsInput::business_selected(const QJsonObject& business) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "InvoiceDetailsInput.business_selected");
     const auto id = business.value("BusinessID").toString();
     if (id != business_id_ || id.isEmpty()) {
         business_id_ = id;
@@ -161,6 +163,7 @@ void InvoiceDetailsInput::business_selected(const QJsonObject& business) {
 }
 
 void InvoiceDetailsInput::load_clients(bool refresh) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "InvoiceDetailsInput.load_clients");
     if (business_id_.isEmpty())
         return;
     client_select_->clear();
@@ -173,6 +176,7 @@ void InvoiceDetailsInput::load_clients(bool refresh) {
 }
 
 void InvoiceDetailsInput::populate_clients(const QJsonDocument& items) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "InvoiceDetailsInput.populate_clients");
     const auto data = items.object();
     if (business_id_.isEmpty() || data.value("BusinessID").toString() != business_id_)
         return;
@@ -205,6 +209,7 @@ void InvoiceDetailsInput::populate_clients(const QJsonDocument& items) {
 }
 
 void InvoiceDetailsInput::update_client_selection() {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "InvoiceDetailsInput.update_client_selection");
     const auto client = client_select_->currentData().toJsonObject();
     QStringList details;
     for (const auto& key : {"Address", "Email", "Phone"}) {
@@ -216,6 +221,7 @@ void InvoiceDetailsInput::update_client_selection() {
 }
 
 void InvoiceDetailsInput::set_client_error(const QString& message) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "InvoiceDetailsInput.set_client_error");
     client_select_->clear();
     client_select_->addItem("Clients unavailable");
     client_select_->setEnabled(false);
@@ -225,6 +231,7 @@ void InvoiceDetailsInput::set_client_error(const QString& message) {
 }
 
 void InvoiceDetailsInput::reset_form() {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "InvoiceDetailsInput.reset_form");
     for (auto* field : base_invoice_form_fields_) {
         if (auto* edit = qobject_cast<QLineEdit*>(field))
             edit->clear();

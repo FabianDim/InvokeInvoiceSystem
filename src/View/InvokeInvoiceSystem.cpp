@@ -1,3 +1,4 @@
+#include "Infrastructure/Logging/Logging.h"
 #include "View/InvokeInvoiceSystem.h"
 #include <qfile.h>
 #include <QIcon>
@@ -47,6 +48,13 @@ int main(int argc, char* argv[]) {
 
     MongoDBDataManager data_manager;
     QApplication app(argc, argv);
+    QCoreApplication::setOrganizationName("Invoke");
+    QCoreApplication::setApplicationName("InvokeInvoiceSystem");
+    Infrastructure::Logging::initialize(true);
+    qCInfo(Infrastructure::Logging::app) << "event=application.starting qt_version=" << qVersion();
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, []() {
+        qCInfo(Infrastructure::Logging::app) << "event=application.stopping";
+    });
 
     app.setWindowIcon(QIcon(":/icons/invoice_icon.png"));
     QFile f(":/styles/UI/Global.qss");
@@ -57,8 +65,7 @@ int main(int argc, char* argv[]) {
         qWarning() << "Failed to load stylesheet" << f.fileName() << f.errorString();
     }
     Invoke::Application::Auth::QSettingsSessionManager session_manager;
-    QCoreApplication::setOrganizationName("Invoke");
-    QCoreApplication::setApplicationName("InvokeInvoiceSystem");
+
 
     AccountManager accountManager(data_manager);
     const QUrl backendUrl(qEnvironmentVariable("INVOICE_API_URL",
@@ -80,5 +87,6 @@ int main(int argc, char* argv[]) {
     Application::Controllers::AppController controller(&window, accountManager, api);
     window.resize(800, 800);
     window.show();
+    qCInfo(Infrastructure::Logging::app) << "event=application.ready mode=" << (localBackend ? "local_backend" : "remote_backend");
     return app.exec();
 }

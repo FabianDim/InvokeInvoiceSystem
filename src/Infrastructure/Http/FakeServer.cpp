@@ -1,4 +1,5 @@
-﻿#include "Infrastructure/Http/FakeServer.h"
+#include "Infrastructure/Logging/HttpLogging.h"
+#include "Infrastructure/Http/FakeServer.h"
 #include "Infrastructure/Database/Mongo/MongoDBDataManager.h"
 #include <QJsonArray>
 #include <QUrlQuery>
@@ -6,29 +7,33 @@
 
 Server::Server(MongoDBDataManager& db_manager, Invoke::Domain::Accounts::IAccountManager*)
     : db_manager_(db_manager) {
+    qCInfo(Infrastructure::Logging::app) << "event=server.routes.registering";
     create_routes_basic();
     create_routes_auth();
     create_routes_business();
     create_routes_data();
     create_routes_invoices();
     listening_ = start_server() == 0;
+    qCInfo(Infrastructure::Logging::app) << "event=server.initialized listening=" << listening_;
 }
 
 std::shared_ptr<Infrastructure::Http::AuthSessions::Session> Server::session_for(const QHttpServerRequest& request) {
     const auto authorization = request.value("Authorization");
-    if (!authorization.startsWith("Bearer "))
+    if (!authorization.startsWith("Bearer ")) {
+        qCWarning(Infrastructure::Logging::auth) << "event=auth.rejected reason=missing_bearer";
         return {};
+    }
     return sessions_.find(authorization.mid(7));
 }
 
 void Server::create_routes_basic() {
-    httpServer_.route("/", []() { return "hello world"; });
+    httpServer_.route("/", Infrastructure::Logging::tracedRoute("/", [](const QHttpServerRequest&) { return QHttpServerResponse("hello world"); }));
 }
 
 void Server::create_routes_invoices() {
     httpServer_.route("/invoices/invoice_start",
                       QHttpServerRequest::Method::Post,
-                      [this](const QHttpServerRequest& request) -> QHttpServerResponse {
+                      Infrastructure::Logging::tracedRoute("/invoices/invoice_start", [this](const QHttpServerRequest& request) -> QHttpServerResponse {
                           const auto session = session_for(request);
                           if (!session)
                               return QHttpServerResponse("application/json", "{\"error\":\"unauthorized\"}",
@@ -67,11 +72,12 @@ void Server::create_routes_invoices() {
                           session->invoice->add_business_to_invoice(QJsonDocument(businesses.value(business_id).toObject()));
                           session->invoice->add_client_to_invoice(QJsonDocument(selected_client));
                           session->invoice->begin_invoice_details(doc);
+                          qCDebug(Infrastructure::Logging::pdf) << "event=invoice.session.ready";
                           return QHttpServerResponse("application/json", "{\"ok\":true}", QHttpServerResponse::StatusCode::Ok);
-                      });
+                      }));
     httpServer_.route("/invoices/stock-list",
                       QHttpServerRequest::Method::Post,
-                      [this](const QHttpServerRequest& request) -> QHttpServerResponse {
+                      Infrastructure::Logging::tracedRoute("/invoices/stock-list", [this](const QHttpServerRequest& request) -> QHttpServerResponse {
                           const auto session = session_for(request);
                           if (!session)
                               return QHttpServerResponse(QJsonObject{{"error", "Please sign in again."}},
@@ -81,18 +87,28 @@ void Server::create_routes_invoices() {
                                                          QHttpServerResponse::StatusCode::BadRequest);
                           QJsonParseError err{};
                           const QJsonDocument doc = QJsonDocument::fromJson(request.body(), &err);
-                          if (err.error != QJsonParseError::NoError) {
-                              return QHttpServerResponse(
-                                  "Invalid JSON", "text/plain", QHttpServerResponse::StatusCode::BadRequest);
+                          if (err.error != QJsonParseError::NoError || !doc.isArray())
+                              return QHttpServerResponse(QJsonObject{{"error", "Expected an invoice item list."}},
+                                                         QHttpServerResponse::StatusCode::BadRequest);
+                          try {
+                              QHttpServerResponse response("application/pdf", session->invoice->generate_pdf(doc));
+                              auto headers = response.headers();
+                              headers.append("Cache-Control", "no-store");
+                              response.setHeaders(std::move(headers));
+                              return response;
+                          } catch (const std::invalid_argument& error) {
+                              return QHttpServerResponse(QJsonObject{{"error", QString::fromUtf8(error.what())}},
+                                                         QHttpServerResponse::StatusCode::BadRequest);
+                          } catch (const std::exception&) {
+                              return QHttpServerResponse(QJsonObject{{"error", "Could not generate the invoice PDF. Please try again."}},
+                                                         QHttpServerResponse::StatusCode::InternalServerError);
                           }
-                          session->invoice->add_stock_to_invoice(doc);
-                          return QHttpServerResponse("Invalid JSON", "text/plain", QHttpServerResponse::StatusCode::Ok);
-                      });
+                      }));
 }
 
 void Server::create_routes_business() {
     httpServer_.route("/business/items", QHttpServerRequest::Method::Get,
-                      [this](const QHttpServerRequest& request) -> QHttpServerResponse {
+                      Infrastructure::Logging::tracedRoute("/business/items", [this](const QHttpServerRequest& request) -> QHttpServerResponse {
         const auto session = session_for(request);
         if (!session)
             return QHttpServerResponse("application/json", "{\"error\":\"unauthorized\"}",
@@ -116,8 +132,8 @@ void Server::create_routes_business() {
             return QHttpServerResponse("application/json", "{\"error\":\"Could not load business records\"}",
                                        QHttpServerResponder::StatusCode::InternalServerError);
         }
-    });
-    httpServer_.route("/business/list", QHttpServerRequest::Method::Get, [this](const QHttpServerRequest& request) -> QHttpServerResponse {
+    }));
+    httpServer_.route("/business/list", QHttpServerRequest::Method::Get, Infrastructure::Logging::tracedRoute("/business/list", [this](const QHttpServerRequest& request) -> QHttpServerResponse {
         const auto session = session_for(request);
         if (!session) {
             QJsonObject err{{"error", "unauthorized"}};
@@ -128,8 +144,8 @@ void Server::create_routes_business() {
         const QJsonDocument listJson = db_manager_.get_account_businesses(session->user_id);
         return QHttpServerResponse(
             "application/json", listJson.toJson(QJsonDocument::Compact), QHttpServerResponse::StatusCode::Ok);
-    });
-    httpServer_.route("/business/objectify", QHttpServerRequest::Method::Post, [&](const QHttpServerRequest& request) {
+    }));
+    httpServer_.route("/business/objectify", QHttpServerRequest::Method::Post, Infrastructure::Logging::tracedRoute("/business/objectify", [&](const QHttpServerRequest& request) {
         const auto session = session_for(request);
         if (!session) {
             QJsonObject err{{"error", "unauthorized"}};
@@ -148,12 +164,12 @@ void Server::create_routes_business() {
             session->invoice->add_business_to_invoice(QJsonDocument(businesses.value(business_id).toObject()));
             return QHttpServerResponse("Posting the business", QHttpServerResponder::StatusCode::Ok);
         } catch (const std::exception& e) {
-            qDebug() << "Exception setting active business:" << e.what();
+            qCDebug(Infrastructure::Logging::http) << "Exception setting active business:";
             return QHttpServerResponse("Failed to set active business",
                                        QHttpServerResponder::StatusCode::InternalServerError);
         }
-    });
-    httpServer_.route("/stock/list", QHttpServerRequest::Method::Get, [this](const QHttpServerRequest& request) -> QHttpServerResponse {
+    }));
+    httpServer_.route("/stock/list", QHttpServerRequest::Method::Get, Infrastructure::Logging::tracedRoute("/stock/list", [this](const QHttpServerRequest& request) -> QHttpServerResponse {
         const auto session = session_for(request);
         if (!session) {
             return QHttpServerResponse("application/json", "{\"error\":\"unauthorized\"}",
@@ -171,47 +187,36 @@ void Server::create_routes_business() {
             return QHttpServerResponse("application/json", "{\"error\":\"Could not load stock\"}",
                                        QHttpServerResponder::StatusCode::InternalServerError);
         }
-    });
+    }));
 }
 void Server::create_routes_auth() {
-    httpServer_.route("/auth/signup", QHttpServerRequest::Method::Post, [this](const QHttpServerRequest& request) {
-        qDebug() << "[Server::signup] Request received"
-                 << "| body bytes:" << request.body().size();
+    httpServer_.route("/auth/signup", QHttpServerRequest::Method::Post, Infrastructure::Logging::tracedRoute("/auth/signup", [this](const QHttpServerRequest& request) {
+        qCDebug(Infrastructure::Logging::http) << "[Server::signup] Request received";
         QJsonParseError parseError;
         const auto doc = QJsonDocument::fromJson(request.body(), &parseError);
         if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
-            qWarning() << "[Server::signup] Invalid signup JSON"
-                       << "| parse error:" << parseError.errorString()
-                       << "| is object:" << doc.isObject();
+            qCWarning(Infrastructure::Logging::http) << "[Server::signup] Invalid signup JSON";
             return QHttpServerResponse("application/json", "{\"error\":\"Invalid signup data\"}",
                                        QHttpServerResponder::StatusCode::BadRequest);
         }
 
         const auto obj = doc.object();
-        qDebug() << "[Server::signup] Parsed signup payload"
-                 << "| email:" << obj.value("email").toString()
-                 << "| firstName:" << obj.value("firstName").toString()
-                 << "| lastName:" << obj.value("lastName").toString()
-                 << "| password length:" << obj.value("password").toString().length();
+        qCDebug(Infrastructure::Logging::http) << "[Server::signup] Parsed signup payload";
         const auto result = db_manager_.create_account(obj);
         switch (result) {
         case MongoDBDataManager::AccountCreationResult::Created:
-            qDebug() << "[Server::signup] Account created"
-                     << "| email:" << obj.value("email").toString();
+            qCDebug(Infrastructure::Logging::http) << "[Server::signup] Account created";
             return QHttpServerResponse("application/json", "{\"ok\":true}", QHttpServerResponder::StatusCode::Created);
         case MongoDBDataManager::AccountCreationResult::InvalidInput:
-            qWarning() << "[Server::signup] Account creation rejected: invalid input"
-                       << "| email:" << obj.value("email").toString();
+            qCWarning(Infrastructure::Logging::http) << "[Server::signup] Account creation rejected: invalid input";
             return QHttpServerResponse("application/json", "{\"error\":\"Invalid signup data\"}",
                                        QHttpServerResponder::StatusCode::BadRequest);
         case MongoDBDataManager::AccountCreationResult::EmailExists:
-            qWarning() << "[Server::signup] Account creation rejected: email already exists"
-                       << "| email:" << obj.value("email").toString();
+            qCWarning(Infrastructure::Logging::http) << "[Server::signup] Account creation rejected: email already exists";
             return QHttpServerResponse("application/json", "{\"error\":\"Email already exists\"}",
                                        QHttpServerResponder::StatusCode::Conflict);
         case MongoDBDataManager::AccountCreationResult::DatabaseError:
-            qWarning() << "[Server::signup] Account creation rejected: database error"
-                       << "| email:" << obj.value("email").toString();
+            qCWarning(Infrastructure::Logging::http) << "[Server::signup] Account creation rejected: database error";
             return QHttpServerResponse(
                 "application/json",
                 "{\"error\":\"Database error while creating account. Check MongoDB connection credentials.\"}",
@@ -219,8 +224,8 @@ void Server::create_routes_auth() {
         }
         return QHttpServerResponse("application/json", "{\"error\":\"Unknown signup error\"}",
                                    QHttpServerResponder::StatusCode::InternalServerError);
-    });
-    httpServer_.route("/auth/login", QHttpServerRequest::Method::Post, [this](const QHttpServerRequest& request) {
+    }));
+    httpServer_.route("/auth/login", QHttpServerRequest::Method::Post, Infrastructure::Logging::tracedRoute("/auth/login", [this](const QHttpServerRequest& request) {
         QJsonParseError parseError;
         const auto doc = QJsonDocument::fromJson(request.body(), &parseError);
         if (parseError.error != QJsonParseError::NoError || !doc.isObject())
@@ -245,17 +250,17 @@ void Server::create_routes_auth() {
             response.setHeaders(std::move(headers));
             return response;
         } catch (const std::exception&) {
-            qWarning() << "[Server::login] Database authentication lookup failed";
+            qCWarning(Infrastructure::Logging::http) << "[Server::login] Database authentication lookup failed";
             return QHttpServerResponse(QJsonObject{{"error", "The server could not connect to the database. Please try again later."}},
                                        QHttpServerResponder::StatusCode::ServiceUnavailable);
         }
-    });
-    httpServer_.route("/auth/logout", QHttpServerRequest::Method::Post, [this](const QHttpServerRequest& request) {
+    }));
+    httpServer_.route("/auth/logout", QHttpServerRequest::Method::Post, Infrastructure::Logging::tracedRoute("/auth/logout", [this](const QHttpServerRequest& request) {
         const auto authorization = request.value("Authorization");
         if (authorization.startsWith("Bearer "))
             sessions_.revoke(authorization.mid(7));
         return QHttpServerResponse(QJsonObject{{"ok", true}});
-    });
+    }));
 }
 
 void Server::create_routes_data() {
@@ -284,21 +289,22 @@ void Server::create_routes_data() {
         return QHttpServerResponse(QJsonObject{{"ok", true}, {"id", saved_id}});
     };
     httpServer_.route("/data/business", QHttpServerRequest::Method::Post,
-                      [save](const QHttpServerRequest& request) { return save("business", request); });
+                      Infrastructure::Logging::tracedRoute("/data/business", [save](const QHttpServerRequest& request) { return save("business", request); }));
     httpServer_.route("/data/client", QHttpServerRequest::Method::Post,
-                      [save](const QHttpServerRequest& request) { return save("client", request); });
+                      Infrastructure::Logging::tracedRoute("/data/client", [save](const QHttpServerRequest& request) { return save("client", request); }));
     httpServer_.route("/data/stock", QHttpServerRequest::Method::Post,
-                      [save](const QHttpServerRequest& request) { return save("stock", request); });
+                      Infrastructure::Logging::tracedRoute("/data/stock", [save](const QHttpServerRequest& request) { return save("stock", request); }));
 }
 
 int Server::start_server() {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::http(), "Server.start_server");
     QHostAddress host = QHostAddress::LocalHost;
     quint16 port = 1234;
     if (qEnvironmentVariableIsSet("PORT")) {
         bool valid = false;
         const int configuredPort = qgetenv("PORT").toInt(&valid);
         if (!valid || configuredPort < 1 || configuredPort > 65535) {
-            qCritical() << "PORT must be an integer between 1 and 65535; server was not started.";
+            qCCritical(Infrastructure::Logging::http) << "PORT must be an integer between 1 and 65535; server was not started.";
             return -1;
         }
         // Heroku routes HTTP traffic to the assigned port on all IPv4 interfaces.
@@ -308,17 +314,16 @@ int Server::start_server() {
 
     auto* tcpServer = new QTcpServer(&httpServer_);
     if (!tcpServer->listen(host, port)) {
-        qCritical() << "Could not listen on" << host.toString() << port << tcpServer->errorString();
+        qCCritical(Infrastructure::Logging::http) << "event=server.listen.failed address=" << host.toString()
+            << "port=" << port << "socket_error=" << static_cast<int>(tcpServer->serverError());
         delete tcpServer;
         return -1;
     }
     if (!httpServer_.bind(tcpServer)) {
-        qCritical() << "Could not bind the HTTP server on" << host.toString() << port;
+        qCCritical(Infrastructure::Logging::http) << "event=server.bind.failed address=" << host.toString() << "port=" << port;
         delete tcpServer;
         return -1;
     }
-    QString url = QString("http://%1:%2").arg(tcpServer->serverAddress().toString()).arg(tcpServer->serverPort());
-
-    qDebug() << "🗄 Server listening at:" << url;
+    qCInfo(Infrastructure::Logging::http) << "event=server.listening address=" << host.toString() << "port=" << port;
     return 0;
 }

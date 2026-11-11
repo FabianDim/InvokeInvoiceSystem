@@ -6,6 +6,7 @@
 #include <QRandomGenerator>
 #include <memory>
 #include <string>
+#include "Infrastructure/Logging/Logging.h"
 
 namespace Infrastructure::Services { class InvoiceServices; }
 
@@ -20,14 +21,18 @@ class AuthSessions {
     };
 
     QByteArray create(const std::string& user_id, const QDateTime& now = QDateTime::currentDateTimeUtc()) {
+        const auto before = sessions_.size();
         for (auto it = sessions_.begin(); it != sessions_.end();) {
             if (it.value()->expires <= now)
                 it = sessions_.erase(it);
             else
                 ++it;
         }
-        if (user_id.empty() || sessions_.size() >= 1000)
+        qCDebug(Logging::auth) << "event=session.expired_cleanup removed=" << before - sessions_.size();
+        if (user_id.empty() || sessions_.size() >= 1000) {
+            qCWarning(Logging::auth) << "event=session.create.rejected reason=" << (user_id.empty() ? "missing_identity" : "capacity");
             return {};
+        }
         QByteArray token;
         do {
             QByteArray random(32, Qt::Uninitialized);
@@ -42,21 +47,28 @@ class AuthSessions {
         session->user_id = user_id;
         session->expires = now.addSecs(8 * 60 * 60);
         sessions_.insert(token, session);
+        qCDebug(Logging::auth) << "event=session.created active_count=" << sessions_.size();
         return token;
     }
 
     std::shared_ptr<Session> find(const QByteArray& token, const QDateTime& now = QDateTime::currentDateTimeUtc()) {
         auto it = sessions_.find(token);
-        if (it == sessions_.end())
+        if (it == sessions_.end()) {
+            qCWarning(Logging::auth) << "event=session.rejected reason=unknown_token";
             return {};
+        }
         if (it.value()->expires <= now) {
             sessions_.erase(it);
+            qCWarning(Logging::auth) << "event=session.rejected reason=expired";
             return {};
         }
         return it.value();
     }
 
-    void revoke(const QByteArray& token) { sessions_.remove(token); }
+    void revoke(const QByteArray& token) {
+        const bool removed = sessions_.remove(token);
+        qCDebug(Logging::auth) << "event=session.revoked removed=" << removed << "active_count=" << sessions_.size();
+    }
 
   private:
     QHash<QByteArray, std::shared_ptr<Session>> sessions_;

@@ -1,3 +1,4 @@
+#include "Infrastructure/Logging/Logging.h"
 #include "View/MainWindow.h"
 #include "Domain/Accounts/Interfaces/IAccountManager.h"
 #include "View/UICode/Views/LandingPage.h" // use forward slashes
@@ -113,6 +114,7 @@ void App::Views::MainWindow::createFileActions() {
 
 // application could pass in the page instance instead of using a switch
 void App::Views::MainWindow::set_offline(bool offline) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "MainWindow.set_offline");
     offline_ = offline;
     offline_banner_->setVisible(offline);
     setWindowTitle(offline ? "Invoke Invoice System (Offline demo)" : "Invoke Invoice System");
@@ -126,6 +128,8 @@ void App::Views::MainWindow::set_offline(bool offline) {
 }
 
 void App::Views::MainWindow::show_page(QWidget* widget) {
+    qCDebug(Infrastructure::Logging::ui) << "event=ui.page.shown page=" << (widget ? widget->metaObject()->className() : "null");
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "MainWindow.show_page");
     loginAct->setVisible(!offline_ && !acctMgr.is_logged_in());
     logoutAct->setVisible(!offline_ && acctMgr.is_logged_in());
     pagesStack->setCurrentWidget(widget);

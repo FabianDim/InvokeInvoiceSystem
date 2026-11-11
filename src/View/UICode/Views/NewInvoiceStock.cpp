@@ -1,4 +1,5 @@
-﻿#include "View/UICode/Views/NewInvoiceStock.h"
+#include "Infrastructure/Logging/Logging.h"
+#include "View/UICode/Views/NewInvoiceStock.h"
 #include "View/UiStyle.h"
 #include <QGroupBox>
 #include <QJsonDocument>
@@ -11,7 +12,9 @@ NewInvoiceStock::NewInvoiceStock(QWidget* parent) : QWidget(parent) {
 }
 
 void NewInvoiceStock::reset_invoice() {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "NewInvoiceStock.reset_invoice");
     ++stock_request_;
+    saving_pdf_ = false;
     set_saving_stock(false);
     stock_items = QJsonArray{};
     for (auto* label : item_labels_)
@@ -36,6 +39,7 @@ void NewInvoiceStock::reset_invoice() {
 }
 
 void NewInvoiceStock::business_selected(const QJsonObject& business) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "NewInvoiceStock.business_selected");
     const auto id = business.value("BusinessID").toString();
     if (id != business_id_ || id.isEmpty()) {
         business_id_ = id;
@@ -44,6 +48,7 @@ void NewInvoiceStock::business_selected(const QJsonObject& business) {
 }
 
 void NewInvoiceStock::populate_stock_list(const QJsonDocument& list) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "NewInvoiceStock.populate_stock_list");
     auto* selector = qobject_cast<QComboBox*>(invoice_body_form_fields.value("stock_selector"));
     if (!selector || !list.isArray()) return;
     selector->clear();
@@ -99,6 +104,7 @@ void NewInvoiceStock::create_page_layout() {
             });
 
     create_invoice_pdf = new QPushButton("Finish invoice", content);
+    create_invoice_pdf->setObjectName("invoice_finish");
     back_button_ = new QPushButton("Back to dashboard", content);
     UiStyle::button(create_invoice_pdf, "primary");
     UiStyle::button(back_button_);
@@ -199,12 +205,14 @@ QLayout* NewInvoiceStock::create_item_entry_form() {
     update_item_source();
 
     connect(add, &QPushButton::clicked, this, [=, this]() {
+        qCDebug(Infrastructure::Logging::ui) << "event=invoice.item.add_requested saving_pending=" << saving_stock_;
         if (saving_stock_) return;
         const bool is_new = item_source_->currentIndex() == 0;
         const auto selected = name->currentData().toJsonObject();
         if (!quantity->hasAcceptableInput() || (is_new && new_name_->text().trimmed().isEmpty()) ||
             (!is_new && selected.isEmpty()) ||
             ((is_new || !price->text().isEmpty()) && !price->hasAcceptableInput())) {
+            qCWarning(Infrastructure::Logging::ui) << "event=invoice.item.rejected reason=invalid_fields";
             status_label_->setText("Enter an item name, a positive invoice quantity, and a valid price.");
             return;
         }
@@ -231,8 +239,14 @@ QLayout* NewInvoiceStock::create_item_entry_form() {
         status_label_->setText("Item added to this invoice.");
     });
     connect(create_invoice_pdf, &QPushButton::clicked, this, [this]() {
-        if (stock_items.empty() || saving_stock_) return;
-        create_invoice_pdf->setDisabled(true);
+        if (saving_stock_ || saving_pdf_) return;
+        if (stock_items.empty()) {
+            status_label_->setText("Add at least one item before finishing the invoice.");
+            return;
+        }
+        saving_pdf_ = true;
+        set_saving_stock(false);
+        status_label_->setText("Creating and saving PDF...");
         emit add_item_list_to_invoice(QJsonDocument(stock_items));
     });
     return container;
@@ -249,12 +263,13 @@ void NewInvoiceStock::update_item_source() {
 
 void NewInvoiceStock::set_saving_stock(bool saving) {
     saving_stock_ = saving;
-    entry_widget_->setEnabled(!saving);
-    back_button_->setEnabled(!saving);
-    create_invoice_pdf->setEnabled(!saving);
+    entry_widget_->setEnabled(!saving && !saving_pdf_);
+    back_button_->setEnabled(!saving && !saving_pdf_);
+    create_invoice_pdf->setEnabled(!saving && !saving_pdf_);
 }
 
 void NewInvoiceStock::append_item(const QJsonObject& item) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "NewInvoiceStock.append_item");
     stock_items.append(item);
     emit add_item_to_invoice(item);
     for (const auto& key : {"quantity", "price", "notes"})
@@ -268,6 +283,7 @@ void NewInvoiceStock::append_item(const QJsonObject& item) {
 }
 
 void NewInvoiceStock::stock_saved(const QJsonDocument& item, quint64 request_id) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "NewInvoiceStock.stock_saved");
     if (!saving_stock_ || request_id != stock_request_) return;
     set_saving_stock(false);
     append_item(item.object());
@@ -280,6 +296,7 @@ void NewInvoiceStock::stock_saved(const QJsonDocument& item, quint64 request_id)
 }
 
 void NewInvoiceStock::stock_save_failed(const QString& message, quint64 request_id) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "NewInvoiceStock.stock_save_failed");
     if (!saving_stock_ || request_id != stock_request_) return;
     set_saving_stock(false);
     status_label_->setText(message + " Retry, or untick Save to add it only to this invoice.");
@@ -293,10 +310,15 @@ void NewInvoiceStock::set_offline(bool offline) {
 }
 
 void NewInvoiceStock::pdf_generated(const QString& path) {
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "NewInvoiceStock.pdf_generated");
+    saving_pdf_ = false;
+    set_saving_stock(false);
     status_label_->setText("PDF saved to " + path);
 }
 
 void NewInvoiceStock::pdf_failed(const QString& message) {
-    create_invoice_pdf->setEnabled(true);
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "NewInvoiceStock.pdf_failed");
+    saving_pdf_ = false;
+    set_saving_stock(false);
     status_label_->setText(message);
 }

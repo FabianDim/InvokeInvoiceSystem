@@ -57,6 +57,9 @@ class ApiClient : public QObject {
     QByteArray session_token_;
     QNetworkRequest make_request(const QUrl& url) const;
     QString current_business_id_;
+    QString invoice_directory_;
+    QString invoice_filename_;
+    quint64 invoice_generation_ = 0;
     void invalidate_business_items();
     QJsonDocument business_items_cache_;
     QElapsedTimer business_items_age_;

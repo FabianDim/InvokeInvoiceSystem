@@ -1,9 +1,11 @@
+#include "Infrastructure/Logging/Logging.h"
 #include "Application/Accounts/SetUserFromDB.h"
 #include <bsoncxx/document/view_or_value.hpp>
 #include <bsoncxx/builder/stream/document.hpp>
 #include <bsoncxx/builder/stream/helpers.hpp>
 
 std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const std::string& password) {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::database(), "SetUser.setUserOnLogin");
 
     auto filter = bsoncxx::builder::stream::document{} << "UserEmail" << email << bsoncxx::builder::stream::finalize;
     auto result = mongoDataManager.findOne("Users", filter.view());
@@ -47,6 +49,7 @@ std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const st
 }
 
 bool SetUser::addBusinessToUser(const std::string& userID, const std::string& businessID) {
+    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::database(), "SetUser.addBusinessToUser");
     try {
         auto filter = mongoDataManager.findOne("Users", make_document(kvp("UserID", userID)));
         auto update = make_document(kvp("$addToSet", make_document(kvp("BusinessIDs", businessID))));
@@ -56,7 +59,7 @@ bool SetUser::addBusinessToUser(const std::string& userID, const std::string& bu
         }
         mongoDataManager.getCollection("Users")->update_one(filter->view(), update.view());
     } catch (mongocxx::exception e) {
-        std::cerr << e.what() << std::endl;
+        qCWarning(::Infrastructure::Logging::database) << "event=account.business_link.failed";
     }
     return false;
 }

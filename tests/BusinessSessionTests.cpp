@@ -72,8 +72,16 @@ struct RecordingServer {
     bool invalid_items = false;
     bool fail_items = false;
     bool fail_saves = false;
+    QByteArray pdf_body = "%PDF-1.4\ntransport test fixture\n%%EOF\n";
+    QByteArray pdf_type = "application/pdf";
+    int pdf_status = 200;
+    int pdf_requests = 0;
 
     bool start() {
+        http.route("/invoices/stock-list", QHttpServerRequest::Method::Post, [this]() {
+            ++pdf_requests;
+            return QHttpServerResponse(pdf_type, pdf_body, static_cast<QHttpServerResponder::StatusCode>(pdf_status));
+        });
         http.route("/business/items", QHttpServerRequest::Method::Get,
                    [this](const QHttpServerRequest& request) {
                        const auto id = QUrlQuery(request.url()).queryItemValue("BusinessID");
@@ -116,6 +124,95 @@ struct RecordingServer {
 class BusinessSessionTests : public QObject {
     Q_OBJECT
   private slots:
+    void online_finish_downloads_pdf_and_retries_failures() {
+        RecordingServer server;
+        QVERIFY(server.start());
+        TestAccountManager account;
+        ApiClient api(server.url(), &account);
+        App::Views::MainWindow window(account);
+        Application::Controllers::AppController controller(&window, account, &api);
+        QTemporaryDir output;
+        QVERIFY(output.isValid());
+        api.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+        QSignalSpy started(&api, &ApiClient::invoice_started);
+        QSignalSpy saved(&api, &ApiClient::pdf_generated);
+        QSignalSpy failed(&api, &ApiClient::pdf_failed);
+        auto details = QJsonObject{{"ClientID", "CLI1"}, {"invoice_number", "TEST-001"},
+                                  {"file_dir", output.path()}, {"file_name", "remote invoice"}};
+        api.invoice_details(QJsonDocument(details));
+        QTRY_COMPARE(started.count(), 1);
+        QVERIFY(!server.invoices.last().contains("file_dir"));
+        QVERIFY(!server.invoices.last().contains("file_name"));
+        auto* page = window.new_invoice_stock_page();
+        auto* finish = page->findChild<QPushButton*>("invoice_finish");
+        QVERIFY(finish);
+        finish->click();
+        QVERIFY(page->findChild<QLabel*>("invoice_stock_status")->text().contains("at least one item"));
+        QCOMPARE(server.pdf_requests, 0);
+        page->stock_items = QJsonArray{QJsonObject{{"Name", "Service"}, {"Quantity", 2}, {"Price", 15.5}}};
+        finish->click();
+        QVERIFY(!finish->isEnabled());
+        QTRY_COMPARE(saved.count(), 1);
+        QVERIFY(finish->isEnabled());
+        const auto path = output.filePath("remote_invoice.pdf");
+        QCOMPARE(saved.last().first().toString(), path);
+        const auto read_pdf = [&]() {
+            QFile file(path);
+            return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray{};
+        };
+        const auto expected = server.pdf_body;
+        QCOMPARE(read_pdf(), expected);
+        QVERIFY(page->findChild<QLabel*>("invoice_stock_status")->text().contains(path));
+
+        server.pdf_type = "application/json";
+        server.pdf_status = 500;
+        server.pdf_body = R"({"error":"Could not generate the invoice PDF."})";
+        finish->click();
+        QTRY_COMPARE(failed.count(), 1);
+        QVERIFY(finish->isEnabled());
+        QCOMPARE(read_pdf(), expected); // An error must not replace the existing file.
+        QVERIFY(page->findChild<QLabel*>("invoice_stock_status")->text().contains("Could not generate"));
+
+        server.pdf_status = 200; // Older backend returns text instead of a PDF.
+        finish->click();
+        QTRY_COMPARE(failed.count(), 2);
+        QCOMPARE(read_pdf(), expected);
+        server.pdf_type = "application/pdf";
+        server.pdf_body = expected;
+        finish->click();
+        QTRY_COMPARE(saved.count(), 2);
+
+        // A local write failure is reported and leaves the form available to retry.
+        details["file_name"] = "blocked.pdf";
+        QVERIFY(QDir(output.path()).mkdir("blocked.pdf"));
+        api.invoice_details(QJsonDocument(details));
+        QTRY_COMPARE(started.count(), 2);
+        page->stock_items = QJsonArray{QJsonObject{{"Name", "Service"}, {"Quantity", 2}, {"Price", 15.5}}};
+        finish->click();
+        QTRY_COMPARE(failed.count(), 3);
+        QVERIFY(finish->isEnabled());
+        QVERIFY(failed.last().first().toString().contains("Could not save PDF"));
+
+        details["file_name"] = "../escape";
+        api.invoice_details(QJsonDocument(details));
+        QTRY_COMPARE(started.count(), 3);
+        const auto requests = server.pdf_requests;
+        api.stock_list(QJsonDocument(page->stock_items));
+        QCOMPARE(failed.count(), 4);
+        QCOMPARE(server.pdf_requests, requests);
+
+        // Switching business while a download is pending must not save the old invoice.
+        details["file_name"] = "stale";
+        api.invoice_details(QJsonDocument(details));
+        QTRY_COMPARE(started.count(), 4);
+        api.stock_list(QJsonDocument(page->stock_items));
+        api.business_selected(QJsonObject{{"BusinessID", "BUSB"}});
+        QTRY_COMPARE(server.pdf_requests, requests + 1);
+        QTest::qWait(100);
+        QVERIFY(!QFileInfo::exists(output.filePath("stale.pdf")));
+        QCOMPARE(saved.count(), 2);
+    }
+
     void auth_sessions_isolate_users_and_expire() {
         Infrastructure::Http::AuthSessions sessions;
         const auto now = QDateTime::currentDateTimeUtc();
