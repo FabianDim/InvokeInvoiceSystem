@@ -9,10 +9,10 @@ bool ClientStockItem::updateClientDB(const float& price, const float& profMargin
             std::cerr << "Business is not INITIALISED in updateClientDB" << std::endl;
             return false;
         }
-        auto result = dbManager.findOne("Clients", make_document(kvp("ClientID", ClientManager::getCurClient()->getClientID())));
+        auto result = dbManager.findById("Clients", ClientManager::getCurClient()->getClientID());
         auto element = result.value()["ClientStockIDs"];
         auto doc_to_push = bsoncxx::builder::stream::document{}
-            << "StockID" << getCurrentStockItem()->getStockID()
+            << "StockID" << bsoncxx::oid(getCurrentStockItem()->getStockID())
             << "ClientPrice" << price
             << "UpdatedProfitMargin" << profMargin
             << bsoncxx::builder::stream::finalize;

@@ -130,7 +130,7 @@ void InvoiceDetailsInput::create_page_layout() {
     connect(client_select_, &QComboBox::currentIndexChanged, this, &InvoiceDetailsInput::update_client_selection);
     connect(refresh_clients_, &QPushButton::clicked, this, [this]() { load_clients(true); });
     connect(next_button_, &QPushButton::clicked, this, [this]() {
-        const auto client_id = client_select_->currentData().toJsonObject().value("ClientID").toString();
+        const auto client_id = client_select_->currentData().toJsonObject().value("_id").toString();
         if (client_id.isEmpty())
             return;
         const auto text = [this](const QString& key) {
@@ -152,7 +152,7 @@ void InvoiceDetailsInput::create_page_layout() {
 
 void InvoiceDetailsInput::business_selected(const QJsonObject& business) {
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "InvoiceDetailsInput.business_selected");
-    const auto id = business.value("BusinessID").toString();
+    const auto id = business.value("_id").toString();
     if (id != business_id_ || id.isEmpty()) {
         business_id_ = id;
         client_select_->clear();
@@ -182,7 +182,7 @@ void InvoiceDetailsInput::populate_clients(const QJsonDocument& items) {
     const auto data = items.object();
     if (business_id_.isEmpty() || data.value("BusinessID").toString() != business_id_)
         return;
-    const auto previous_id = client_select_->currentData().toJsonObject().value("ClientID").toString();
+    const auto previous_id = client_select_->currentData().toJsonObject().value("_id").toString();
     {
         const QSignalBlocker blocker(client_select_);
         client_select_->clear();
@@ -190,14 +190,14 @@ void InvoiceDetailsInput::populate_clients(const QJsonDocument& items) {
         QVector<QJsonObject> clients;
         for (const auto& value : data.value("clients").toArray()) {
             const auto client = value.toObject();
-            if (!client.value("ClientID").toString().isEmpty())
+            if (!client.value("_id").toString().isEmpty())
                 clients.append(client);
         }
         std::sort(clients.begin(), clients.end(), [](const QJsonObject& a, const QJsonObject& b) {
             return a.value("Name").toString().localeAwareCompare(b.value("Name").toString()) < 0;
         });
         for (const auto& client : clients) {
-            const auto id = client.value("ClientID").toString();
+            const auto id = client.value("_id").toString();
             client_select_->addItem(client.value("Name").toString(id) + " (" + id + ")", client);
             if (id == previous_id)
                 client_select_->setCurrentIndex(client_select_->count() - 1);
@@ -220,7 +220,7 @@ void InvoiceDetailsInput::update_client_selection() {
             details.append(client.value(key).toString());
     }
     client_details_->setText(details.join("\n"));
-    next_button_->setEnabled(!client.value("ClientID").toString().isEmpty());
+    next_button_->setEnabled(!client.value("_id").toString().isEmpty());
 }
 
 void InvoiceDetailsInput::set_client_error(const QString& message) {

@@ -2,7 +2,7 @@
 #include "bsoncxx/exception/exception.hpp"
 std::shared_ptr<Invoice> SetInvoice::setInvoice(const std::string invoiceID) {
     MongoDBDataManager dbManager;
-    auto result = dbManager.findOne("Invoices", make_document(kvp("InvoiceID", invoiceID)));
+    auto result = dbManager.findById("Invoices", invoiceID);
 
     try {
         if (result) {
@@ -10,9 +10,9 @@ std::shared_ptr<Invoice> SetInvoice::setInvoice(const std::string invoiceID) {
             auto invoice = std::make_shared<Invoice>();
 
             // Extract and convert fields
-            std::string invoiceIDStr{ view["InvoiceID"].get_string().value };
+            std::string invoiceIDStr{ view["_id"].get_oid().value.to_string() };
             std::string clientInvoice{ view["ClientInvoiceID"].get_string().value };
-            std::string clientID{ view["ClientID"].get_string().value };
+            std::string clientID{ view["ClientID"].get_oid().value.to_string() };
             std::string invoiceDate{ view["InvoiceDate"].get_string().value };
             std::string dueDate{ view["DueDate"].get_string().value };
             bool isPaid = view["IsPaid"].get_bool().value;
@@ -47,7 +47,7 @@ std::shared_ptr<Invoice> SetInvoice::setInvoice(const std::string invoiceID) {
             for (const auto& elem : stockArray) {
                 auto stockObj = elem.get_document().value;
 
-                std::string stockID{ stockObj["StockID"].get_string().value };
+                std::string stockID{ stockObj["StockID"].get_oid().value.to_string() };
                 int quantity = stockObj["Quantity"].get_int32().value;
 
                 auto stockItem = SetStockItem::setStockItem(stockID);

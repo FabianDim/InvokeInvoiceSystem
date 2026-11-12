@@ -104,7 +104,6 @@ bool StockDetails::confirmInfo() {
     if (toLower(input) == "done") {
         currentStep = StockStep::DONE;
         currentStock.keyWords.append(toLower(currentStock.name));
-        currentStock.keyWords.append(toLower(makeStockID()));
 
         //function to remove all punctuation from a string for keyword purposes.
         return true;
@@ -151,23 +150,6 @@ void StockDetails::collectStockInfo() {
     }
 }
 
-std::string StockDetails::makeStockID() {
-    auto idDoc = dbManager.findOne("counters", make_document(kvp("_id", make_document(kvp("db", "InvokeInvoiceSystem"), kvp("coll", "Stock")))));
-    if (idDoc && idDoc->view()["stock_value"].type() == bsoncxx::type::k_int64) {
-        thisStockID = static_cast<int>(idDoc->view()["stock_value"].get_int64().value + 1);
-    }
-    else {
-        std::cerr << "Error generating Stock ID\n";
-        return "";
-    }
-    std::string prefix = "STK";
-    if (std::to_string(thisStockID).size() < 8) {
-        int zerosNeeded = 8 - std::to_string(thisStockID).size();
-        prefix += std::string(zerosNeeded, '0') + std::to_string(thisStockID);
-    }
-    return prefix;
-}
-
 bsoncxx::document::value StockDetails::createStockDoc() {
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
@@ -176,8 +158,7 @@ bsoncxx::document::value StockDetails::createStockDoc() {
     BusinessManager bizManager;
     std::string userID = accountManager.getAccount()->getMongoUserID();
     return document{}
-        << "StockID" << makeStockID()
-        << "BusinessID" << bizManager.getBusiness()->getBizID()
+        << "BusinessID" << bsoncxx::oid(bizManager.getBusiness()->getBizID())
         << "Name" << currentStock.name 
         << "Quantity" << currentStock.quantity
         << "StdPrice" << currentStock.price
@@ -189,7 +170,9 @@ bsoncxx::document::value StockDetails::createStockDoc() {
 
 void StockDetails::insertStockDoc(bsoncxx::document::value doc) {
     try {
-        dbManager.insertDocument("Stock", doc);
+        inserted_id_.clear();
+        if (!dbManager.insertDocument("Stock", doc.view(), &inserted_id_))
+            throw std::runtime_error("Could not save stock");
         return;
     }
     catch (const mongocxx::exception& e) {
@@ -201,8 +184,8 @@ void StockDetails::insertStockDoc(bsoncxx::document::value doc) {
 bool StockDetails::insertStockIDToBiz() {
     try {
         auto business = BusinessManager::getBusiness();
-        auto filter = dbManager.findOne("Business", make_document(kvp("BusinessID", business->getBizID())));
-        auto update = make_document(kvp("$addToSet", make_document(kvp("StockIDs", makeStockID()))));
+        auto filter = dbManager.findOne("Business", make_document(kvp("_id", bsoncxx::oid(business->getBizID()))));
+        auto update = make_document(kvp("$addToSet", make_document(kvp("StockIDs", bsoncxx::oid(inserted_id_)))));
         auto result = dbManager.getCollection("Business")->find_one_and_update(filter->view(), update.view());
 
         return !result;

@@ -71,12 +71,12 @@ public:
 
     // Setup
     void collectInvoiceInfo();
-    std::string makeInvoiceID();
+
     bsoncxx::document::value createInvoiceDoc();
     void insertInvoiceDoc(bsoncxx::document::value doc);
 
 private:
-    int thisInvoiceID = 0;
+
     InvoiceStep currentStep = InvoiceStep::ENTER_INVOICE_ID;
     InvoiceInput userInvoice;
 

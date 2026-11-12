@@ -19,7 +19,7 @@ void InvoiceServices::clear_session() {
 }
 
 bool InvoiceServices::has_invoice_details() const {
-    return invoice_.getBusiness() && invoice_.getClient() && !invoice_.get_file_name().empty();
+    return invoice_.getBusiness() && invoice_.getClient();
 }
 /**
  * @brief this shit does nothing shlawg.
@@ -39,8 +39,8 @@ void InvoiceServices::add_business_to_invoice(const QJsonDocument& doc) {
     invoice_.clear_invoice();
     auto biz = std::shared_ptr<BusinessRepository>(new BusinessRepository());
     QJsonObject obj = doc.object();
-    if (!obj["BusinessID"].isUndefined())
-        biz->setBizID(obj["BusinessID"].toString().toStdString());
+    if (!obj["_id"].isUndefined())
+        biz->setBizID(obj["_id"].toString().toStdString());
     if (!obj["ABN"].isUndefined())
         biz->setAbn(obj["ABN"].toString().toStdString());
     if (!obj["ACN"].isUndefined())
@@ -61,7 +61,7 @@ void InvoiceServices::add_client_to_invoice(const QJsonDocument& doc) {
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::pdf(), "InvoiceServices.add_client_to_invoice");
     const auto data = doc.object();
     auto client = std::make_shared<Client>();
-    client->setClientID(data.value("ClientID").toString().toStdString());
+    client->setClientID(data.value("_id").toString().toStdString());
     client->setName(data.value("Name").toString().toStdString());
     client->setAddress(data.value("Address").toString().toStdString());
     client->setEmail(data.value("Email").toString().toStdString());
@@ -102,7 +102,7 @@ QByteArray InvoiceServices::generate_pdf(const QJsonDocument& stock) const {
             std::floor(quantity) != quantity || !std::isfinite(price) || price < 0 || price > 1e9)
             throw std::invalid_argument("Each item needs a name, a positive whole quantity and a valid price.");
         auto item = std::make_shared<StockItem>();
-        item->setStockID(item_data.value("StockID").toString().toStdString());
+        item->setStockID(item_data.value("_id").toString().toStdString());
         item->set_description(name.toStdString());
         item->setStdPrice(price);
         invoice->addStockItem(item, static_cast<int>(quantity));

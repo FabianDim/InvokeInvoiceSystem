@@ -19,6 +19,7 @@ class FrontendAccountSession final : public Invoke::Domain::Accounts::IAccountMa
     void logOut() override;
     bool is_logged_in() const override;
     std::shared_ptr<::User> getAccount() override;
+    void set_authenticated_user(std::shared_ptr<::User> user) override;
 
   private:
     std::shared_ptr<::User> user_;

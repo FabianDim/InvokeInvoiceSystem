@@ -20,7 +20,7 @@ std::unordered_map<std::string, std::string> ClientManager::fetchBizClients() {
         }
 
         auto result =
-            dbManager.findOne("Business", make_document(kvp("BusinessID", BusinessManager::getBusiness()->getBizID())));
+            dbManager.findOne("Business", make_document(kvp("_id", bsoncxx::oid(BusinessManager::getBusiness()->getBizID()))));
         auto element = result.value()["ClientIDs"];
         if (!element || result.value()["ClientIDs"].get_array().value.empty()) {
             std::cout << "You have no clients. Make a client to get started." << std::endl;
@@ -36,15 +36,15 @@ std::unordered_map<std::string, std::string> ClientManager::fetchBizClients() {
         for (const auto& elem : bsonArray) {
             // error with converting doc to char or something is often about using kvp
             auto filter = dbManager.findOne(
-                "Clients", make_document(kvp("ClientID", static_cast<std::string>(elem.get_string().value))));
+                "Clients", make_document(kvp("_id", elem.get_oid().value)));
             if (!filter) {
                 std::cout << "Can't find clientID" << std::endl;
                 return {};
             }
             auto cliName = filter->view()["ClientName"].get_string().value;
-            clients[static_cast<std::string>(elem.get_string().value)] = std::string(cliName);
+            clients[elem.get_oid().value.to_string()] = std::string(cliName);
 
-            clients[static_cast<std::string>(elem.get_string().value)] = std::string(cliName);
+            clients[elem.get_oid().value.to_string()] = std::string(cliName);
         }
         return clients;
     } catch (const mongocxx::exception& e) {

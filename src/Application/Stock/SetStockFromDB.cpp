@@ -4,24 +4,22 @@
 
 std::shared_ptr<StockItem> SetStockItem::setStockItem(const std::string& stockID) {
     MongoDBDataManager dbManager;
-    auto result = dbManager.findOne("Stock", make_document(kvp("StockID", stockID)));
-    // auto stockDoc = dbManager.findOne("Business", make_document(kvp("BusinessID",
-    // BusinessManager::getBusiness()->getBizID())));
+    auto result = dbManager.findById("Stock", stockID);
     try {
         if (result) {
             auto view = result->view();
             auto stockItem = std::make_shared<StockItem>(StockItem());
 
             // skip businessID and UserID array
-            auto stockIDView = view["StockID"];
+            auto stockIDView = view["_id"];
             auto businessIDView = view["BusinessID"];
             auto nameView = view["Name"];
             auto quantityView = view["Quantity"];
             auto stdPriceView = view["StdPrice"];
             auto profitMarginView = view["ProfitMargin"];
 
-            std::string stockID{stockIDView.get_string().value};
-            std::string businessID{businessIDView.get_string().value};
+            std::string stockID{stockIDView.get_oid().value.to_string()};
+            std::string businessID{businessIDView.get_oid().value.to_string()};
             std::string name{nameView.get_string().value};
             int quantity{quantityView.get_int32().value};
             double price{stdPriceView.get_double().value};

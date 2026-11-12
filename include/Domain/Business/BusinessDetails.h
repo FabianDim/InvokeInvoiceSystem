@@ -62,7 +62,7 @@ public:
 	bool addUserExistingBusiness(std::string businessID);
 	void collectBusinessInfo();
 	void updateAccountRequirement(std::string email);
-	std::string makeBusinessID();
+
 	bsoncxx::document::value createBusinessDoc();
 	bool createBusinessArrayUsers();
 	void insertBusinessDoc(bsoncxx::document::value doc);
@@ -70,7 +70,7 @@ public:
 	std::shared_ptr<User> thisUser;
 
 private:
-	int thisBusID;
+
 	business userBusiness;
 	MongoDBDataManager& dbManager;
 	AccountManager& accountManager;

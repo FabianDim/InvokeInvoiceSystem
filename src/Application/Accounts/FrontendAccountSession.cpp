@@ -60,4 +60,8 @@ std::shared_ptr<User> FrontendAccountSession::getAccount() {
     return user_;
 }
 
+void FrontendAccountSession::set_authenticated_user(std::shared_ptr<User> user) {
+    user_ = std::move(user);
+}
+
 } // namespace Application::Accounts

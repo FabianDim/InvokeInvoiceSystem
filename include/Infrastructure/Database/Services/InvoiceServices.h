@@ -13,6 +13,8 @@ class InvoiceServices {
     InvoiceServices(MongoDBDataManager& db_manager);
     ~InvoiceServices() = default;
 
+    void clear_session();
+    bool has_invoice_details() const;
     bool save_invoice(QJsonDocument& doc);
     void add_business_to_invoice(const QJsonDocument& doc);
     void add_client_to_invoice(const QJsonDocument& doc);

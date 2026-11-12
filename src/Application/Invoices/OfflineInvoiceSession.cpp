@@ -3,7 +3,6 @@
 #include "Infrastructure/Pdf/InvoicePdfGenerator.h"
 #include <QDir>
 #include <QFileInfo>
-#include <QUuid>
 #include <QRegularExpression>
 #include <cmath>
 #include <stdexcept>
@@ -37,19 +36,19 @@ QString OfflineInvoiceSession::save(const QString& resource, QJsonObject data, c
     if (resource != "business" && !businesses.contains(business_id))
         throw std::runtime_error("Create and select an offline business first.");
 
-    const auto id = "DEMO-" + QUuid::createUuid().toString(QUuid::WithoutBraces).left(8).toUpper();
+    const auto id = "DEMO-" + QString::number(++next_id_);
     if (resource == "business") {
-        data["BusinessID"] = id;
+        data["_id"] = id;
         data["BusinessName"] = data.value("Business name");
         data["Phone"] = data.value("Business phone");
         businesses[id] = data;
     } else {
         data["BusinessID"] = business_id;
         if (resource == "client") {
-            data["ClientID"] = id;
+            data["_id"] = id;
             clients.append(data);
         } else {
-            data["StockID"] = id;
+            data["_id"] = id;
             data["Quantity"] = number(data.value("Quantity"), true);
             data["Price"] = number(data.value("Price"));
             data["Margin"] = number(data.value("Margin"), true);
@@ -85,7 +84,7 @@ void OfflineInvoiceSession::begin_invoice(QJsonObject details, const QString& bu
     if (!businesses.contains(business_id))
         throw std::runtime_error("Create and select an offline business first.");
     for (const auto& value : for_business(clients, business_id)) {
-        if (value.toObject().value("ClientID") == details.value("ClientID"))
+        if (value.toObject().value("_id") == details.value("ClientID"))
             invoice_client_ = value.toObject();
     }
     if (invoice_client_.isEmpty())
@@ -113,7 +112,7 @@ QString OfflineInvoiceSession::generate_pdf(const QJsonArray& stock) const {
     auto invoice = std::make_shared<Invoice>();
     // Explicitly exclude any signed-in account from the demo's business model.
     auto business = std::make_shared<BusinessRepository>(nullptr);
-    business->setBizID(invoice_business_.value("BusinessID").toString().toStdString());
+    business->setBizID(invoice_business_.value("_id").toString().toStdString());
     business->setBizName(invoice_business_.value("BusinessName").toString().toStdString());
     business->setAbn(invoice_business_.value("ABN").toString().toStdString());
     business->setAcn(invoice_business_.value("ACN").toString().toStdString());
@@ -123,7 +122,7 @@ QString OfflineInvoiceSession::generate_pdf(const QJsonArray& stock) const {
     business->set_business_logo_data(invoice_business_.value("LogoData").toString().toStdString());
     invoice->setBusiness(business);
     auto client = std::make_shared<Client>();
-    client->setClientID(invoice_client_.value("ClientID").toString().toStdString());
+    client->setClientID(invoice_client_.value("_id").toString().toStdString());
     client->setName(invoice_client_.value("Name").toString().toStdString());
     client->setAddress(invoice_client_.value("Address").toString().toStdString());
     client->setEmail(invoice_client_.value("Email").toString().toStdString());

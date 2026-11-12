@@ -19,6 +19,7 @@ class OfflineInvoiceSession {
     QString generate_pdf(const QJsonArray& stock) const;
 
   private:
+    quint64 next_id_ = 0;
     QJsonObject invoice_details_;
     QJsonObject invoice_business_;
     QJsonObject invoice_client_;

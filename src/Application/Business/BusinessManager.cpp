@@ -1,3 +1,4 @@
+#include "Application/Accounts/AccountManager.h"
 #include "Application/Business/BusinessManager.h"
 
 std::shared_ptr<BusinessRepository> BusinessManager::currentBusiness = nullptr;
@@ -64,7 +65,7 @@ std::map<std::string, std::string> BusinessManager::retrieveUsersBusinessIDs() {
 			std::cerr << "CurrentUser is not INITIALISED" << std::endl;
 			return {};
 		}
-		auto result = dbManager.findOne("Users", make_document(kvp("UserID", AccountManager::currentUser->getMongoUserID())));
+		auto result = dbManager.findOne("Users", make_document(kvp("_id", bsoncxx::oid(AccountManager::currentUser->getMongoUserID()))));
 		if (!result) {
 			std::cerr << "Array not found!" << std::endl;
 			return {};
@@ -72,8 +73,8 @@ std::map<std::string, std::string> BusinessManager::retrieveUsersBusinessIDs() {
 		auto doc = result->view();
 		auto arr = doc["BusinessIDs"].get_array().value;
 		for (auto& elem : arr) {
-			std::string business{ elem.get_string().value };
-			auto res = dbManager.findOne("Business", make_document(kvp("BusinessID", business)));
+			std::string business{ elem.get_oid().value.to_string() };
+			auto res = dbManager.findOne("Business", make_document(kvp("_id", bsoncxx::oid(business))));
 			if (res) {
 				auto doc = res->view();
 				std::string businessName{ std::string(doc["BusinessName"].get_string().value) };
@@ -91,7 +92,7 @@ std::map<std::string, std::string> BusinessManager::retrieveUsersBusinessIDs() {
 }
 
 bool BusinessManager::validateUserBusiness(const std::string businessID) {
-	auto result = dbManager.findOne("Users", make_document(kvp("UserID", AccountManager::currentUser->getMongoUserID()), kvp("BusinessIDs", businessID)));
+	auto result = dbManager.findOne("Users", make_document(kvp("_id", bsoncxx::oid(AccountManager::currentUser->getMongoUserID())), kvp("BusinessIDs", bsoncxx::oid(businessID))));
 	if (result) {
 		return true;
 	}

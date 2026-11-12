@@ -1,6 +1,7 @@
 #pragma once
 #include "Infrastructure/Logging/Logging.h"
 #include "pch.h"
+#include "Infrastructure/Database/Mongo/ObjectId.h"
 #include <mongocxx/client.hpp>
 #include <mongocxx/instance.hpp>
 #include <mongocxx/uri.hpp>
@@ -45,7 +46,7 @@ class MongoDBDataManager {
 
     MongoDBDataManager() = default;
 
-    bool insertDocument(const std::string& collectionName, const bsoncxx::document::view& docView);
+    bool insertDocument(const std::string& collectionName, const bsoncxx::document::view& docView, std::string* inserted_id = nullptr);
     bsoncxx::document::value buildNewUser(const std::shared_ptr<User>& newUser);
     void updateElement(const std::string& collectionName,
                        const std::string& docparameter,
@@ -54,6 +55,7 @@ class MongoDBDataManager {
                        const bool updateValue);
     std::optional<bsoncxx::document::value> findOne(const std::string& collectionName,
                                                     const bsoncxx::document::view_or_value& filter);
+    std::optional<bsoncxx::document::value> findById(const std::string& collection, const std::string& id);
     std::optional<mongocxx::collection> getCollection(const std::string& collectionName);
 
     bool valid_password(const std::string& password, const std::string& email);

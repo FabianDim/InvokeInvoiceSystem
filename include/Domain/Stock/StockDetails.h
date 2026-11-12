@@ -31,7 +31,8 @@ private:
     MongoDBDataManager dbManager;
     AccountManager& accountManager;
     StockStep currentStep = StockStep::ENTER_NAME;
-    int thisStockID = 0;
+
+    std::string inserted_id_;
 
     std::string toLower(std::string text);
 
@@ -42,7 +43,7 @@ private:
     bool keyWordsInput();
     bool unitInput();
     bool confirmInfo();
-    std::string makeStockID();
+
 
     bsoncxx::document::value createStockDoc();
     void insertStockDoc(bsoncxx::document::value doc);

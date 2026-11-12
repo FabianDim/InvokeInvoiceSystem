@@ -195,22 +195,6 @@ void ClientDetails::collectClientInfo() {
     }
 }
 
-std::string ClientDetails::makeClientID() {
-    auto idDoc = dbManager.findOne("counters", make_document(kvp("_id", make_document(kvp("db", "InvokeInvoiceSystem"), kvp("coll", "Clients")))));
-    if (idDoc && idDoc->view()["client_value"].type() == bsoncxx::type::k_int64) {
-        thisClientID = static_cast<int>(idDoc->view()["client_value"].get_int64().value + 1);
-    }
-    else {
-        std::cerr << "Error generating Client ID\n";
-    }
-    std::string prefix = "CLI";
-    if (std::to_string(thisClientID).size() < 8) {
-        int zerosNeeded = 8 - std::to_string(thisClientID).size();
-        prefix += std::string(zerosNeeded, '0') + std::to_string(thisClientID);
-    }
-    return prefix;
-}
-
 bsoncxx::document::value ClientDetails::createClientDoc() {
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
@@ -221,9 +205,8 @@ bsoncxx::document::value ClientDetails::createClientDoc() {
     std::string address = currentCli.addr.streetAddress + " " + currentCli.addr.postcode + ", " +
         currentCli.addr.city + ", " + currentCli.addr.stateOrProvince + ", " + currentCli.addr.country;
     return document{}
-        << "ClientID" << makeClientID()
-        << "BusinessID" << open_array << bizManager.getBusiness()->getBizID() << close_array
-        << "UserID" << userID
+        << "BusinessID" << bsoncxx::oid(bizManager.getBusiness()->getBizID())
+        << "UserID" << bsoncxx::oid(userID)
         << "ClientName" << currentCli.name
         << "Phone" << currentCli.phone
         << "Email" << currentCli.email
@@ -235,7 +218,9 @@ bsoncxx::document::value ClientDetails::createClientDoc() {
 void ClientDetails::insertClientDoc(bsoncxx::document::value doc) {//inserts clients doc into the client collection
     std::string email = accountManager.getAccount() ? accountManager.getAccount()->getEmail() : "";
     try {
-        dbManager.insertDocument("Clients", doc);
+        inserted_id_.clear();
+        if (!dbManager.insertDocument("Clients", doc.view(), &inserted_id_))
+            throw std::runtime_error("Could not save client");
     }
     catch (const mongocxx::exception& e) {
         std::cerr << e.what() << std::endl;
@@ -251,9 +236,9 @@ bool ClientDetails::addClientToBusiness() {
         }
 
         //std::cout << "This BusinessID:" << business->getBizID() << std::endl;
-        auto filter = dbManager.getCollection("Business")->find_one(make_document(kvp("BusinessID", business->getBizID())));//we need to find the businessID of the business we are in maybe a static business var in menu
+        auto filter = dbManager.getCollection("Business")->find_one(make_document(kvp("_id", bsoncxx::oid(business->getBizID()))));//we need to find the businessID of the business we are in maybe a static business var in menu
         //std::cout << bsoncxx::to_json(filter->view()) << std::endl;
-        auto update  = make_document(kvp("$addToSet", make_document(kvp("ClientIDs", makeClientID()))));
+        auto update  = make_document(kvp("$addToSet", make_document(kvp("ClientIDs", bsoncxx::oid(inserted_id_)))));
         if (!filter) {
             std::cerr << "BusinessID doesn't exist" << std::endl; // this is hiting for some reason
             return false;

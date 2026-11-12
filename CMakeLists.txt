@@ -56,7 +56,7 @@
     set(APP_MAIN_CPP ${CMAKE_SOURCE_DIR}/src/View/InvokeInvoiceSystem.cpp)
     set(BACKEND_MAIN_CPP ${CMAKE_SOURCE_DIR}/src/Backend/main.cpp)
     # Each executable must have exactly one entry point.
-    list(REMOVE_ITEM PROJECT_CPP ${BACKEND_MAIN_CPP})
+    list(REMOVE_ITEM PROJECT_CPP ${BACKEND_MAIN_CPP} ${CMAKE_SOURCE_DIR}/src/Backend/InvokeInvoiceBackend.cpp)
     set(TEST_SOURCES ${PROJECT_CPP})
     list(REMOVE_ITEM TEST_SOURCES ${APP_MAIN_CPP})
 
@@ -196,6 +196,7 @@
         include/View/UICode/Views/Dashboard.h
         include/View/UICode/Views/NewInvoiceStock.h
         include/Infrastructure/Http/ApiClient.h
+        src/Infrastructure/Pdf/ImageValidation.cpp
         forms/Invoice_Resources.qrc
         src/View/MainWindow.cpp
         src/View/UICode/Views/LandingPage.cpp
@@ -204,6 +205,9 @@
         src/View/UICode/Views/ManagementForm.cpp
         src/View/UICode/Views/NewInvoiceCreation.cpp
         src/View/UICode/Views/BusinessInvoiceChoice.cpp
+        src/View/UICode/Views/DefaultInvoiceSettings.cpp
+        include/View/UICode/Views/DefaultInvoiceSettings.h
+        src/Application/Accounts/FrontendAccountSession.cpp
         include/View/MainWindow.h
         include/View/UICode/Views/LandingPage.h
         include/View/UICode/Views/LoginPage.h
@@ -221,6 +225,7 @@
         $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
     )
     add_test(NAME BusinessSession COMMAND BusinessSessionTests)
+    set_tests_properties(BusinessSession PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_ASSUME_STDERR_HAS_CONSOLE=1")
     # JPEG logos need Qt's image-format plugin beside locally built executables.
     if(WIN32)
         find_package(libjpeg-turbo CONFIG REQUIRED)
@@ -235,6 +240,7 @@
             )
         endforeach()
     endif()
+foreach(app_target InvokeInvoiceSystem InvokeInvoiceBackend)
     qt_generate_deploy_app_script(TARGET ${app_target} OUTPUT_SCRIPT deploy_script NO_UNSUPPORTED_PLATFORM_ERROR)
-    install(SCRIPT ${deploy_script} COMPONENT ${app_component})
+    install(SCRIPT ${deploy_script})
 endforeach()

@@ -1,5 +1,6 @@
 #include "Infrastructure/Logging/Logging.h"
-#include "View/InvokeInvoiceSystem.h"
+#include <QApplication>
+#include "Infrastructure/Http/FakeServer.h"
 #include <qfile.h>
 #include <QIcon>
 #include "Application/Accounts/FrontendAccountSession.h"
@@ -25,10 +26,8 @@ int main(int argc, char* argv[]) {
     } else {
         qWarning() << "Failed to load stylesheet" << f.fileName() << f.errorString();
     }
-    Invoke::Application::Auth::QSettingsSessionManager session_manager;
-
-
-    AccountManager accountManager(data_manager);
+    MongoDBDataManager data_manager;
+    Application::Accounts::FrontendAccountSession accountManager;
     const QUrl backendUrl(qEnvironmentVariable("INVOICE_API_URL",
         "https://invoice-backend-app-69d26786220b.herokuapp.com"));
     const bool localBackend = backendUrl.scheme() == "http" && backendUrl.host() == "127.0.0.1";
