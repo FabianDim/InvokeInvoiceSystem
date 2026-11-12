@@ -1,5 +1,6 @@
 #include "Infrastructure/Logging/HttpLogging.h"
 #include "Infrastructure/Http/ApiClient.h"
+#include "Domain/Accounts/User.h"
 #include <QJsonArray>
 #include <QUrlQuery>
 #include <QDir>
@@ -257,7 +258,7 @@ void Infrastructure::Http::ApiClient::get_stock_list() {
 
 void Infrastructure::Http::ApiClient::business_selected(const QJsonObject& biz) {
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::http(), "ApiClient.business_selected");
-    const auto id = biz.value("BusinessID").toString();
+    const auto id = biz.value("_id").toString();
     if (id != current_business_id_) {
         ++invoice_generation_;
         invoice_directory_.clear();
@@ -418,7 +419,7 @@ void ApiClient::post_resource(const QString& resource,
             emit resource_saved(resource);
             if (!invoice_item.isNull()) {
                 auto saved = invoice_item.object();
-                saved["StockID"] = id;
+                saved["_id"] = id;
                 emit invoice_stock_saved(QJsonDocument(saved), request_id);
             }
         } catch (const std::exception& error) {
@@ -467,7 +468,7 @@ void ApiClient::post_resource(const QString& resource,
                     emit resource_saved(resource);
                     if (!invoice_item.isNull() && business_id == current_business_id_) {
                         auto saved = invoice_item.object();
-                        saved["StockID"] = QJsonDocument::fromJson(body).object().value("id");
+                        saved["_id"] = QJsonDocument::fromJson(body).object().value("_id");
                         emit invoice_stock_saved(QJsonDocument(saved), request_id);
                     }
                 } else {
@@ -516,7 +517,7 @@ void Infrastructure::Http::ApiClient::do_login(const QString& email, const QStri
         if (reply->error() == QNetworkReply::NoError) {
             const auto token = response.value("token").toString().toLatin1();
             const auto identity = response.value("user").toObject();
-            if (!response.value("ok").toBool() || token.isEmpty() || identity.value("id").toString().isEmpty()) {
+            if (!response.value("ok").toBool() || token.isEmpty() || identity.value("_id").toString().isEmpty()) {
                 emit login_failed("The server returned an invalid sign-in response. Please update the backend.");
                 reply->deleteLater();
                 return;
@@ -524,7 +525,7 @@ void Infrastructure::Http::ApiClient::do_login(const QString& email, const QStri
             qCDebug(Infrastructure::Logging::auth) << "event=client.session.accepted";
             session_token_ = token;
             auto user = std::make_shared<User>(identity.value("email").toString().toStdString(), "");
-            user->setMongoUserID(identity.value("id").toString().toStdString());
+            user->setMongoUserID(identity.value("_id").toString().toStdString());
             if (account_manager_)
                 account_manager_->set_authenticated_user(std::move(user));
             emit login_succeeded();

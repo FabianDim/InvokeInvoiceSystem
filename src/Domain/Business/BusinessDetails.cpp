@@ -239,48 +239,18 @@ bool BusinessDetails::confirmInfo() {
 }
 
 bool BusinessDetails::validateBusiness(std::string businessID) {
-
-    businessID[0] = toupper(businessID[0]);
-    businessID[1] = toupper(businessID[1]);
-    businessID[2] = toupper(businessID[2]);
-    auto filter = dbManager.findOne("Business", make_document(kvp("BusinessID", businessID)));
-    if (!filter) {
+    const auto id = Infrastructure::Database::parse_object_id(businessID);
+    const auto user = accountManager.getAccount();
+    if (!id || !user)
         return false;
-    }
-    return true;
+    return dbManager.findOne("Business", make_document(kvp("_id", *id),
+        kvp("UserID", bsoncxx::oid(user->getMongoUserID())))).has_value();
 }
 
 bool BusinessDetails::addUserExistingBusiness(std::string businessID) {
-    if (businessID.size() <= 3) {
-        std::cout << colourRed("Business not found! Try again or type * to exit") << std::endl;
+    if (!validateBusiness(businessID))
         return false;
-    }
-    businessID[0] = toupper(businessID[0]);
-    businessID[1] = toupper(businessID[1]);
-    businessID[2] = toupper(businessID[2]);
-    try {
-        auto filter = dbManager.findOne("Business", make_document(kvp("BusinessID", businessID)));
-        if(!filter){
-            std::cout << colourRed("Business not found! Try again or type * to exit") << std::endl;
-            return false;
-        }
-        auto update = make_document(kvp("$push", make_document(kvp("UserID", accountManager.getAccount()->getMongoUserID()))));
-        auto collection = dbManager.getCollection("Business");
-        collection->update_one(filter->view(), update.view());
-        //figure out whats going on here
-        dbManager.getCollection("Users")->find_one_and_update(
-            make_document(kvp("UserID", accountManager.getAccount()->getMongoUserID())).view(),
-            make_document(kvp("$push", make_document(kvp("BusinessIDs", businessID)).view())));
-
-        updateAccountRequirement(accountManager.getAccount()->getEmail());
-        return true;
-
-    }
-    catch (const std::exception& e) {
-            std::cerr << e.what() << std::endl;
-            return false;
-        }
-    return false;
+    return SetUser(dbManager).addBusinessToUser(accountManager.getAccount()->getMongoUserID(), businessID);
 }
 
 void BusinessDetails::collectBusinessInfo() {
@@ -337,57 +307,18 @@ void BusinessDetails::updateAccountRequirement(std::string email) {
     }
 }
 
-std::string BusinessDetails::makeBusinessID() {
-    auto bID = dbManager.findOne("counters",
-        make_document(kvp("_id", make_document(
-            kvp("db", "InvokeInvoiceSystem"),
-            kvp("coll", "Business")
-        ))));
-    if (bID->view()["business_value"] && bID->view()["business_value"].type() == bsoncxx::type::k_int64) {
-        thisBusID = static_cast<int>(bID->view()["business_value"].get_int64().value + 1);
-        //std::cout << thisUserID;
-    }
-    else {
-        std::cerr << "Something went wrong." << std::endl;
-    }//make 8 digits
-    std::string prefix = "BUS";
-    if (std::to_string(thisBusID).size() < 8) {
-        int zerosNeeded = 8 - std::to_string(thisBusID).size();
-
-        prefix += std::string(zerosNeeded, '0') += std::to_string(thisBusID);
-
-    }
-    return prefix;
-}
-
 bsoncxx::document::value BusinessDetails::createBusinessDoc() {
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
     using bsoncxx::builder::stream::open_array;
     using bsoncxx::builder::stream::close_array;
-    bsoncxx::builder::basic::array UserIDs;
-    
-    //for now we will initially push just the first users ID and later be able to add user ID's.
-    UserIDs.append(accountManager.getAccount()->getMongoUserID());
-    
-    if (accountManager.needsAccountSetup(accountManager.getAccount()->getEmail())) {
-        bsoncxx::builder::basic::array businessIDs;
-        businessIDs.append(makeBusinessID());
-        dbManager.getCollection("Users")->find_one_and_update(make_document(kvp("UserID", accountManager.getAccount()->getMongoUserID())).view(),
-        make_document(kvp("$addToSet", make_document(kvp("BusinessIDs", businessIDs)).view())));
-    }
-    else {
-        SetUser setUser(dbManager);
-        setUser.addBusinessToUser(accountManager.getAccount()->getMongoUserID(), makeBusinessID());
-    }
     std::string address = userBusiness.businessAddress.streetAddress + " " +
         userBusiness.businessAddress.postcode + ", " +
         userBusiness.businessAddress.city + ", " + 
         userBusiness.businessAddress.stateOrProvince + ", "+ 
         userBusiness.businessAddress.country;
     return document{}
-    << "BusinessID" << makeBusinessID()
-    << "UserID" << UserIDs
+    << "UserID" << bsoncxx::oid(accountManager.getAccount()->getMongoUserID())
         << "ABN" << userBusiness.ABN
         << "Phone" << userBusiness.businessPhone
         << "BusinessName" << userBusiness.businessName
@@ -408,7 +339,10 @@ void BusinessDetails::insertBusinessDoc(bsoncxx::document::value doc) {
         std::cout << "I am meant to output an email in insert: " << email;
     }
     try {   
-        dbManager.insertDocument("Business", doc);
+        std::string id;
+        if (!dbManager.insertDocument("Business", doc.view(), &id))
+            throw std::runtime_error("Could not save business");
+        SetUser(dbManager).addBusinessToUser(accountManager.getAccount()->getMongoUserID(), id);
         updateAccountRequirement(email);
     }
     catch (mongocxx::exception e) {

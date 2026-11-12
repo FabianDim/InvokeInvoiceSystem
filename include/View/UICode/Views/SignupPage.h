@@ -23,7 +23,8 @@ class SignupPage : public QWidget {
   private:
     void create_page_layout();
     void submit_signup();
-
+    qint16 max_password_size = 30;
+    qint16 max_email_size = 50;
     QLineEdit* first_name_input_;
     QLineEdit* last_name_input_;
     QLineEdit* email_input_;

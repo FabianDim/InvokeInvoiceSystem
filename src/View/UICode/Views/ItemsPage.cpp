@@ -67,7 +67,7 @@ void ItemsPage::create_page_layout() {
 
 void ItemsPage::business_selected(const QJsonObject& business) {
     ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::ui(), "ItemsPage.business_selected");
-    const auto id = business.value("BusinessID").toString();
+    const auto id = business.value("_id").toString();
     business_label_->setText(id.isEmpty() ? "Choose a business on the home page."
                                         : business.value("BusinessName").toString(id) + " (" + id + ")");
     if (id != business_id_ || id.isEmpty()) {
@@ -126,9 +126,9 @@ void ItemsPage::populate_items(const QJsonDocument& items) {
     const auto businesses = data.value("businesses").toArray();
     const auto clients = data.value("clients").toArray();
     const auto stock = data.value("stocks").toArray();
-    populate_table(business_table_, businesses, {"BusinessName", "BusinessID", "ABN", "ACN", "Phone", "BusinessAddress", "Website", "LogoPath"});
-    populate_table(clients_table_, clients, {"Name", "ClientID", "Phone", "Email", "Address"});
-    populate_table(stock_table_, stock, {"Name", "StockID", "Quantity", "Price", "Margin", "Unit", "Keywords"});
+    populate_table(business_table_, businesses, {"BusinessName", "_id", "ABN", "ACN", "Phone", "BusinessAddress", "Website", "LogoPath"});
+    populate_table(clients_table_, clients, {"Name", "_id", "Phone", "Email", "Address"});
+    populate_table(stock_table_, stock, {"Name", "_id", "Quantity", "Price", "Margin", "Unit", "Keywords"});
     tabs_->setTabText(0, QString("Business (%1)").arg(businesses.size()));
     tabs_->setTabText(1, QString("Clients (%1)").arg(clients.size()));
     tabs_->setTabText(2, QString("Stock (%1)").arg(stock.size()));

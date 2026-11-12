@@ -120,12 +120,12 @@ void Dashboard::set_logged_in(bool logged_in) {
 }
 
 bool Dashboard::has_business() const {
-    return !business_select_->currentData().toJsonObject().value("BusinessID").toString().isEmpty();
+    return !business_select_->currentData().toJsonObject().value("_id").toString().isEmpty();
 }
 
 void Dashboard::populate_business_list(const QJsonDocument& list) {
     ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::ui(), "Dashboard.populate_business_list");
-    const auto previous_id = business_select_->currentData().toJsonObject().value("BusinessID").toString();
+    const auto previous_id = business_select_->currentData().toJsonObject().value("_id").toString();
     {
         const QSignalBlocker blocker(business_select_);
         business_select_->clear();
@@ -133,9 +133,9 @@ void Dashboard::populate_business_list(const QJsonDocument& list) {
         const auto root = list.object();
         for (auto it = root.constBegin(); it != root.constEnd(); ++it) {
             auto business = it.value().toObject();
-            if (business.value("BusinessID").toString().isEmpty())
-                business["BusinessID"] = it.key();
-            if (!business.value("BusinessID").toString().isEmpty())
+            if (business.value("_id").toString().isEmpty())
+                business["_id"] = it.key();
+            if (!business.value("_id").toString().isEmpty())
                 businesses.append(business);
         }
         std::sort(businesses.begin(), businesses.end(), [](const QJsonObject& a, const QJsonObject& b) {
@@ -144,7 +144,7 @@ void Dashboard::populate_business_list(const QJsonDocument& list) {
         business_select_->addItem(businesses.isEmpty() ? "Create a business to get started" : "Choose a business");
         int selected_index = 0;
         for (const auto& business : businesses) {
-            const auto id = business.value("BusinessID").toString();
+            const auto id = business.value("_id").toString();
             business_select_->addItem(business.value("BusinessName").toString(id) + " (" + id + ")", business);
             if (id == previous_id)
                 selected_index = business_select_->count() - 1;

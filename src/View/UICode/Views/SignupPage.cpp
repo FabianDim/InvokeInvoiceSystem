@@ -67,6 +67,8 @@ void SignupPage::create_page_layout() {
     status_label_->setWordWrap(true);
     status_label_->setAlignment(Qt::AlignCenter);
     layout->addWidget(status_label_);
+    password_input_->setMaxLength(max_password_size);
+    email_input_->setMaxLength(max_email_size);
 
     connect(create, &QPushButton::clicked, this, &SignupPage::submit_signup);
     connect(back, &QPushButton::clicked, this, [this]() { emit navigate_to(Page::Login); });
@@ -78,6 +80,16 @@ void SignupPage::submit_signup() {
     const QString last = last_name_input_->text().trimmed();
     const QString email = email_input_->text().trimmed();
     const QString password = password_input_->text();
+    if (password.length() > max_password_size) {
+        qCWarning(Infrastructure::Logging::auth) << "event=ui.signup.rejected reason=password_length";
+        set_status(QString("Email is too long. Keep it below %1 characters.").arg(max_password_size));
+        return;
+    }
+    if (email.length() > max_email_size) {
+        qCWarning(Infrastructure::Logging::auth) << "event=ui.signup.rejected reason=email_length";
+        set_status(QString("Email is too long. Keep it below %1 characters.").arg(max_email_size));
+        return;
+    }
     if (first.isEmpty() || last.isEmpty() || email.isEmpty() || password.isEmpty()) {
         qCWarning(Infrastructure::Logging::auth) << "event=ui.signup.rejected reason=missing_fields";
         set_status("Complete all fields to create your account.");

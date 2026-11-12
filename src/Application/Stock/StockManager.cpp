@@ -24,14 +24,14 @@ std::optional<std::unordered_map<std::string, std::string>> StockManager::stockM
     try {
         // std::cout << "bizID:" << business->getBizID();
         auto filter =
-            dbManager.getCollection("Business")->find_one(make_document(kvp("BusinessID", business->getBizID())));
+            dbManager.getCollection("Business")->find_one(make_document(kvp("_id", bsoncxx::oid(business->getBizID()))));
         auto array = filter->view()["StockIDs"].get_array().value;
 
         stockMap.reserve(std::distance(array.begin(), array.end()));
 
         for (auto& stk : array) {
-            auto stkFilter = dbManager.findOne("Stock", make_document(kvp("StockID", stk.get_string().value)));
-            std::string str{stk.get_string().value};
+            auto stkFilter = dbManager.findOne("Stock", make_document(kvp("_id", stk.get_oid().value)));
+            std::string str{stk.get_oid().value.to_string()};
             stockMap[str] = std::string(stkFilter->view()["Name"].get_string().value);
         }
         stkMap = stockMap;
@@ -60,14 +60,14 @@ std::optional<std::unordered_map<std::string, std::set<std::string>>> StockManag
     std::unordered_map<std::string, std::set<std::string>> searchMap;
     try {
         auto filter =
-            dbManager.getCollection("Business")->find_one(make_document(kvp("BusinessID", business->getBizID())));
+            dbManager.getCollection("Business")->find_one(make_document(kvp("_id", bsoncxx::oid(business->getBizID()))));
         auto array = filter->view()["StockIDs"].get_array().value;
 
         searchMap.reserve(std::distance(array.begin(), array.end()));
         std::cout << std::endl;
         for (auto& stkID : array) { // for each stock item in the businesses array.
-            std::string str{stkID.get_string().value};
-            auto stkFilter = dbManager.findOne("Stock", make_document(kvp("StockID", str)));
+            std::string str{stkID.get_oid().value.to_string()};
+            auto stkFilter = dbManager.findOne("Stock", make_document(kvp("_id", bsoncxx::oid(str))));
             if (!stkFilter) {
                 std::cerr << "StockID is invalid" << std::endl;
                 return std::nullopt;

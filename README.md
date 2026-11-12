@@ -274,9 +274,116 @@ In both account and offline mode, only the business name, client name, and stock
 
 ## Development and tests
 
+### MongoDB identities and upgrading existing data
+
+All persisted users, businesses, clients, stock and archived invoice records use
+MongoDB's native `_id` ObjectId. Inserts omit `_id` and use the driver's returned
+`inserted_id`; the application no longer generates `USR`, `BUS`, `CLI`, `STK` or
+`INV` record IDs. The editable invoice number remains a separate business field.
+
+MongoDB relationships (`UserID`, `BusinessID`, `ClientID`, `StockID` and reference
+arrays) contain BSON ObjectIds. JSON records expose their primary identity as
+`"_id": "<24 hexadecimal characters>"`. Foreign-key fields in API requests and
+response envelopes keep their existing names and carry ObjectId hex strings.
+Login returns `user._id`; resource creation returns `_id`. Deploy the matching
+backend and desktop versions together. Existing sessions must sign in again.
+Business reads and child writes check the authenticated owner; knowing an
+ObjectId does not grant access.
+
+The offline demo has no MongoDB records and uses a session-local `DEMO-<number>`
+counter with the same JSON `_id` field. UUIDs used for HTTP request correlation
+are unrelated to record identity and remain in place.
+
+Before running this version against existing data, stop application writers and
+take a database backup. The migration preserves every existing `_id`, converts
+references, removes redundant primary-ID fields, and leaves the unused legacy
+`counters` collection untouched. It rejects ambiguous duplicate legacy IDs,
+missing references, conflicting ownership, and non-ObjectId primary keys rather
+than guessing which record is intended. Resolve those records before retrying.
+
+```powershell
+python -m pip install -r scripts/requirements.txt
+# Use the intended database connection, as described in the setup instructions.
+# MONGODB_URI must be explicitly set; the script has no default connection.
+python scripts/migrate_object_ids.py --database InvokeInvoiceSystem
+
+# After reviewing the dry-run counts, apply while application writers are stopped.
+python scripts/migrate_object_ids.py --database InvokeInvoiceSystem --apply
+```
+
+`--apply` revalidates and commits all changes in one transaction. It requires
+Atlas or a MongoDB replica set, including a single-node replica set for local
+use. A standalone server can run the dry run, but cannot apply this migration.
+The migration can be rerun safely; migrated records require no further changes.
+Large databases whose conversion exceeds MongoDB's transaction limits need a
+separate staged migration. A failed transaction leaves the original data intact.
+Start the updated backend only after migration completes.
+
+Run migration validation tests with:
+
+```powershell
+python -m unittest discover -s tests -p test_object_ids.py -v
+```
+
+To also test actual MongoDB inserts, BSON relationships, HTTP record identities,
+cross-account rejection, invoice PDF export and transactional migration, provide
+an isolated local MongoDB replica set and the built backend:
+
+```powershell
+$env:INVOICE_TEST_MONGODB_URI = 'mongodb://127.0.0.1:27017/?directConnection=true'
+$env:INVOICE_TEST_BACKEND = (Resolve-Path out/build/x64-release/InvokeInvoiceBackend.exe).Path
+python -m unittest discover -s tests -p test_object_ids.py -v
+```
+
+The integration tests accept only loopback MongoDB connections. They create and
+remove their own uniquely named test databases and launch their own backend
+processes; they do not use `MONGODB_URI` or the application's database. Make the
+backend runtime DLLs available in `PATH` as described above.
+
 For a build with debugging symbols, use `x64-relwithdebinfo` in both configure and build commands. Its output and dependency directories are under `out/build/x64-relwithdebinfo`; adjust the launch paths accordingly.
 
 The following commands use the Release build and the runtime environment set above.
+
+### Build and check all test runners
+
+From an x64 Developer PowerShell for Visual Studio, configure and build all six
+Qt Test executables, then verify that each runner starts and lists its tests:
+
+```powershell
+cmake --preset x64-release
+cmake --build --preset x64-release --target all-tests
+ctest --test-dir out/build/x64-release -L smoke --output-on-failure
+```
+
+The `smoke` checks use Qt Test's `-functions` option. They do not execute test
+assertions, access MongoDB, or establish that the tests pass. CTest sets Qt's
+offscreen platform, and Windows builds copy the required offscreen and JPEG
+plugins beside the runners.
+
+| CTest suite | Executable | Requirements |
+| --- | --- | --- |
+| `PDFGen` | `InvokeInvoiceSystemTests` | Local; PDFs use temporary directories. |
+| `Logging` | `LoggingTests` | Local. |
+| `BusinessSession` | `BusinessSessionTests` | Local; offscreen UI. |
+| `FrontendSession` | `FrontendSessionTests` | Local test HTTP server. |
+| `BackendServer` | `BackendServerTests` | Local HTTP server; no MongoDB. |
+| `DatabaseHealth` | `DatabaseTests` | Live MongoDB credentials for actual test execution. |
+
+Run the local test bodies, or list all registered checks:
+
+```powershell
+ctest --test-dir out/build/x64-release -L local --output-on-failure
+ctest --test-dir out/build/x64-release -N
+```
+
+Running CTest without a filter also runs the database health suite against the
+configured database.
+
+`tests/InvoiceMenuTests.cpp` contains only a Google Test fixture and a commented
+test; it has no active test cases. `tests/test_object_ids.py` depends on
+`scripts/migrate_object_ids.py`. When that script is absent, CMake reports the
+Python suite as unavailable and does not register it. When present, the suite
+is registered as `ObjectIds` and requires Python plus `scripts/requirements.txt`.
 
 ### UI, frontend and backend session tests
 
@@ -284,7 +391,7 @@ These three suites do not require MongoDB or a separately running backend. CTest
 
 - `BusinessSession` covers business selection, record browsing, client selection, reusable stock, optional record fields in both modes, and the offline demo. Offline checks drive the forms through PDF export, verify the PDF header and zero HTTP connections, check account isolation and export failures, and confirm that exiting clears the session.
 - `FrontendSession` uses a local test HTTP server to check the frontend's login state and logout requests.
-- `BackendServer` checks server startup, authentication handling, logout and the account session lifecycle.
+- `BackendServer` checks constructor-based server startup, protected routes, malformed login requests, database-unavailable responses, bearer-token lifecycle, and local PDF generation. Successful database-backed login and account isolation are covered by the optional Python integration suite.
 
 ```powershell
 cmake --build --preset x64-release --target BusinessSessionTests FrontendSessionTests BackendServerTests

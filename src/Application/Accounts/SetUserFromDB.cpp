@@ -13,7 +13,7 @@ std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const st
     if (result) {
         auto user = std::make_shared<User>(email, password);
         auto view = result->view();
-        auto id = view["UserID"];
+        auto id = view["_id"];
         auto first = view["FirstName"];
         auto last = view["LastName"];
         auto email = view["UserEmail"];
@@ -22,7 +22,7 @@ std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const st
         if (!first || first.type() != bsoncxx::type::k_string) {
             throw std::runtime_error("FirstName missing or wrong type");
         }
-        std::string userID{id.get_string().value};
+        std::string userID{id.get_oid().value.to_string()};
         std::string firstName{first.get_string().value};
         std::string lastName{last.get_string().value};
         std::string userEmail{email.get_string().value};
@@ -30,10 +30,10 @@ std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const st
         std::vector<std::string> business_ids;
         if (business_id_array && business_id_array.type() == bsoncxx::type::k_array) {
             for (const auto& business_id : business_id_array.get_array().value) {
-                if (business_id.type() != bsoncxx::type::k_string) {
-                    throw std::runtime_error("BusinessIDs contains a non-string value");
+                if (business_id.type() != bsoncxx::type::k_oid) {
+                    throw std::runtime_error("BusinessIDs contains a non-ObjectId value");
                 }
-                business_ids.emplace_back(business_id.get_string().value);
+                business_ids.emplace_back(business_id.get_oid().value.to_string());
             }
         }
         user->set_user_business(business_ids);
@@ -49,17 +49,15 @@ std::shared_ptr<User> SetUser::setUserOnLogin(const std::string& email, const st
 }
 
 bool SetUser::addBusinessToUser(const std::string& userID, const std::string& businessID) {
-    ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::database(), "SetUser.addBusinessToUser");
-    try {
-        auto filter = mongoDataManager.findOne("Users", make_document(kvp("UserID", userID)));
-        auto update = make_document(kvp("$addToSet", make_document(kvp("BusinessIDs", businessID))));
-        if (!filter || !std::make_optional(update)) {
-            std::cerr << "UserID or BusinessID doesn't Exist" << std::endl;
-            return false;
-        }
-        mongoDataManager.getCollection("Users")->update_one(filter->view(), update.view());
-    } catch (mongocxx::exception e) {
-        qCWarning(::Infrastructure::Logging::database) << "event=account.business_link.failed";
-    }
-    return false;
+    const auto user = Infrastructure::Database::parse_object_id(userID);
+    const auto business = Infrastructure::Database::parse_object_id(businessID);
+    if (!user || !business)
+        return false;
+    const auto owned = mongoDataManager.findOne("Business", make_document(kvp("_id", *business), kvp("UserID", *user)));
+    if (!owned)
+        return false;
+    const auto result = mongoDataManager.getCollection("Users")->update_one(
+        make_document(kvp("_id", *user)),
+        make_document(kvp("$addToSet", make_document(kvp("BusinessIDs", *business)))));
+    return result && result->matched_count() == 1;
 }

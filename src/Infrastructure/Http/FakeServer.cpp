@@ -45,17 +45,21 @@ void Server::create_routes_invoices() {
                                   "Invalid JSON", "text/plain", QHttpServerResponse::StatusCode::BadRequest);
                           }
                           const auto business_id = doc.object().value("BusinessID").toString();
+                          const auto client_id = doc.object().value("ClientID").toString();
+                          if (!Infrastructure::Database::parse_object_id(business_id.toStdString()) ||
+                              !Infrastructure::Database::parse_object_id(client_id.toStdString()))
+                              return QHttpServerResponse(QJsonObject{{"error", "Invalid business or client ID"}},
+                                                         QHttpServerResponse::StatusCode::BadRequest);
                           const auto businesses = db_manager_.get_account_businesses(session->user_id).object();
                           if (business_id.isEmpty() || !businesses.contains(business_id))
                               return QHttpServerResponse("application/json", "{\"error\":\"Choose a business belonging to your account\"}",
                                                          QHttpServerResponse::StatusCode::BadRequest);
-                          const auto client_id = doc.object().value("ClientID").toString();
                           QJsonObject selected_client;
                           try {
                               const auto clients = db_manager_.list_resources(
                                   "clients", session->user_id, business_id.toStdString());
                               for (const auto& value : clients.array()) {
-                                  if (value.toObject().value("ClientID").toString() == client_id && !client_id.isEmpty()) {
+                                  if (value.toObject().value("_id").toString() == client_id && !client_id.isEmpty()) {
                                       selected_client = value.toObject();
                                       break;
                                   }
@@ -244,7 +248,7 @@ void Server::create_routes_auth() {
                                            QHttpServerResponder::StatusCode::ServiceUnavailable);
             auto response = QHttpServerResponse(QJsonObject{
                 {"ok", true}, {"token", QString::fromLatin1(token)},
-                {"user", QJsonObject{{"id", QString::fromStdString(*user_id)}, {"email", email}}}});
+                {"user", QJsonObject{{"_id", QString::fromStdString(*user_id)}, {"email", email}}}});
             auto headers = response.headers();
             headers.append("Cache-Control", "no-store");
             response.setHeaders(std::move(headers));
@@ -282,11 +286,15 @@ void Server::create_routes_data() {
                 !BusinessLogo::normalise(QByteArray::fromBase64(encoded), png, message))
                 return QHttpServerResponse(QJsonObject{{"error", message}}, QHttpServerResponder::StatusCode::BadRequest);
         }
+        if (resource != "business" && !Infrastructure::Database::parse_object_id(
+                data.object().value("BusinessID").toString().toStdString()))
+            return QHttpServerResponse(QJsonObject{{"error", "Invalid business ID"}},
+                                       QHttpServerResponder::StatusCode::BadRequest);
         QString saved_id;
         if (!db_manager_.save_resource(resource.toStdString(), data.object(), session->user_id, &saved_id))
             return QHttpServerResponse("application/json", "{\"error\":\"Could not save resource\"}",
                                        QHttpServerResponder::StatusCode::InternalServerError);
-        return QHttpServerResponse(QJsonObject{{"ok", true}, {"id", saved_id}});
+        return QHttpServerResponse(QJsonObject{{"ok", true}, {"_id", saved_id}});
     };
     httpServer_.route("/data/business", QHttpServerRequest::Method::Post,
                       Infrastructure::Logging::tracedRoute("/data/business", [save](const QHttpServerRequest& request) { return save("business", request); }));

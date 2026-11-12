@@ -36,7 +36,7 @@ class LoginPage : public QWidget {
     QVBoxLayout* inner_layout_;
 
     QCheckBox* remember_me_;
-
+    
     QLineEdit* email_input_;
     QLineEdit* password_input_;
 

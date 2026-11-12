@@ -283,13 +283,11 @@ void InvoicePdfGenerator::draw_invoice_page_header(HPDF_Doc pdf, HPDF_Page page,
 
     std::string business_name;
     std::string website;
-    std::string logo_path;
     QByteArray logo_data;
     if (cur_invoice_ && cur_invoice_->getBusiness()) {
         const auto& business = cur_invoice_->getBusiness();
         business_name = business->getName().empty() ? business->getBizName() : business->getName();
         website = business->get_website_url();
-        logo_path = business->get_business_logo_path();
         logo_data = QByteArray::fromBase64(QByteArray::fromStdString(business->get_business_logo_data()));
     }
 
@@ -310,11 +308,10 @@ void InvoicePdfGenerator::draw_invoice_page_header(HPDF_Doc pdf, HPDF_Page page,
         underline_word(page, website.c_str(), 0.1f, details_x, link_y, 0.0f, 0.0f, 1.0f);
     }
 
-    if (first_page && (!logo_data.isEmpty() || (!logo_path.empty() && std::filesystem::exists(logo_path)))) {
-        HPDF_Image logo = !logo_data.isEmpty()
-                              ? HPDF_LoadPngImageFromMem(pdf, reinterpret_cast<const HPDF_BYTE*>(logo_data.constData()),
-                                                        static_cast<HPDF_UINT>(logo_data.size()))
-                              : HPDF_LoadPngImageFromFile(pdf, logo_path.c_str());
+    if (first_page && !logo_data.isEmpty()) {
+        HPDF_Image logo = HPDF_LoadPngImageFromMem(
+            pdf, reinterpret_cast<const HPDF_BYTE*>(logo_data.constData()), static_cast<HPDF_UINT>(logo_data.size()));
+
         const float img_width_max = 50.0f;
         const float img_height_max = 50.0f;
         const float x_placement = 50.0f;

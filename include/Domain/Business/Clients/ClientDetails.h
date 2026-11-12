@@ -51,7 +51,8 @@ private:
     BusinessManager& bizManager;
     AccountManager& accountManager;
     std::shared_ptr<BusinessRepository> curBusiness;
-    int thisClientID = 0;
+
+    std::string inserted_id_;
 
     // Input steps
     bool nameInput();
@@ -68,7 +69,7 @@ private:
 
     // Confirm and finalize
     bool confirmInfo();
-    std::string makeClientID();
+
 
     // MongoDB
     bsoncxx::document::value createClientDoc();
