@@ -157,6 +157,9 @@ class BackendServerTests : public QObject {
         output.close();
 
         qInfo() << "Saved PDF:" << QFileInfo(output).absoluteFilePath();
+        // libharu writes image dictionaries outside compressed content streams.
+        // This fixture has no other images, so any image is the forbidden fallback.
+        QVERIFY2(!pdf.contains("/Subtype /Image"), "A local logo was embedded despite empty LogoData.");
     }
 
     void invoice_export_reports_failure_and_clears_session() {
