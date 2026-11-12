@@ -2,23 +2,23 @@
 #include "Domain/Invoices/Invoice.h"
 #include "Infrastructure/Pdf/InvoicePdfGenerator.h"
 #include <cstdlib>
-#include <queue>
-#include <regex>
+#include <QTemporaryDir>
 #include <vector>
 namespace fs = std::filesystem;
 class TestPDFGen : public QObject {
     Q_OBJECT
   private slots:
+    void initTestCase() { QVERIFY(output_.isValid()); }
     void pdf_creation_test();
     void pdf_multiple_page_creation_test();
     void pdf_three_long_lines();
     void pdf_client_details();
 
   private:
-    std::string delete_old_pdfs(fs::path dir);
-    const std::string pdf_out_path = "G:/misc/Test_Invoices/test_invoice";
-    const std::string pdf_out_path_multi = "G:/misc/Test_Invoices/test_invoice_multi";
-    const std::string pdf_out_path_long = "G:/misc/Test_Invoices/test_invoice_long";
+    QTemporaryDir output_;
+    const std::string pdf_out_path = output_.filePath("test_invoice").toStdString();
+    const std::string pdf_out_path_multi = output_.filePath("test_invoice_multi").toStdString();
+    const std::string pdf_out_path_long = output_.filePath("test_invoice_long").toStdString();
 };
 
 void TestPDFGen::pdf_client_details() {
@@ -46,7 +46,7 @@ void TestPDFGen::pdf_client_details() {
         item->setStdPrice(12.5);
         invoice->addStockItem(item, 2);
     }
-    const auto path = QCoreApplication::applicationDirPath() + "/invoice-client-test.pdf";
+    const auto path = output_.filePath("invoice-client-test.pdf");
     invoice->set_file_name(path.toStdString());
     Infrastructure::PDF::InvoicePdfGenerator generator(invoice);
     QVERIFY(generator.peece_template());
@@ -58,7 +58,7 @@ void TestPDFGen::pdf_multiple_page_creation_test() {
     std::shared_ptr<BusinessRepository> biz = std::make_shared<BusinessRepository>();
     biz->set_website_url("https://google.com");
     biz->setName("My Business");
-    QString logoPath = QCoreApplication::applicationDirPath() + "../../../../tests/test_resources/logo.png";
+    QString logoPath = QFileInfo(QString::fromUtf8(__FILE__)).absolutePath() + "/test_resources/logo.png";
     std::cout << logoPath.toStdString() << std::endl;
     biz->set_biz_logo_url(logoPath.toStdString());
     test_invoice.setBusiness(biz);
@@ -77,10 +77,7 @@ void TestPDFGen::pdf_multiple_page_creation_test() {
         test_invoice.addStockItem(std::make_shared<StockItem>(item), 2);
     }
 
-    // every ten test delete the oldest 5 tests.
-    fs::path dir = "G:/misc/Test_Invoices";
-
-    const std::string pdf_num = delete_old_pdfs(dir);
+    const std::string pdf_num = "0";
     test_invoice.setInvoiceID("INV-1001");
     test_invoice.set_file_name(pdf_out_path_multi + pdf_num + ".pdf");
     test_invoice.setCurrentDate("2024-10-01");
@@ -100,7 +97,7 @@ void TestPDFGen::pdf_three_long_lines() {
     std::shared_ptr<BusinessRepository> biz = std::make_shared<BusinessRepository>();
     biz->set_website_url("https://google.com");
     biz->setName("My Business");
-    QString logoPath = QCoreApplication::applicationDirPath() + "../../../../tests/test_resources/logo.png";
+    QString logoPath = QFileInfo(QString::fromUtf8(__FILE__)).absolutePath() + "/test_resources/logo.png";
     std::cout << logoPath.toStdString() << std::endl;
     biz->set_biz_logo_url(logoPath.toStdString());
     test_invoice.setBusiness(biz);
@@ -122,10 +119,7 @@ void TestPDFGen::pdf_three_long_lines() {
         test_invoice.addStockItem(std::make_shared<StockItem>(item), 2);
     }
 
-    // every ten test delete the oldest 5 tests.
-    fs::path dir = "G:/misc/Test_Invoices";
-
-    const std::string pdf_num = delete_old_pdfs(dir);
+    const std::string pdf_num = "0";
     test_invoice.setInvoiceID("INV-1001");
     test_invoice.set_file_name(pdf_out_path_long + pdf_num + ".pdf");
     test_invoice.setCurrentDate("2024-10-01");
@@ -146,7 +140,7 @@ void TestPDFGen::pdf_creation_test() {
     std::shared_ptr<BusinessRepository> biz = std::make_shared<BusinessRepository>();
     biz->set_website_url("http://google.com");
     biz->setName("My Business");
-    QString logoPath = QCoreApplication::applicationDirPath() + "../../../../tests/test_resources/logo.png";
+    QString logoPath = QFileInfo(QString::fromUtf8(__FILE__)).absolutePath() + "/test_resources/logo.png";
     std::cout << logoPath.toStdString() << std::endl;
     biz->set_biz_logo_url(logoPath.toStdString());
     test_invoice.setBusiness(biz);
@@ -190,10 +184,7 @@ void TestPDFGen::pdf_creation_test() {
     test_invoice.addStockItem(std::make_shared<StockItem>(items[2]), 1);
     test_invoice.addStockItem(std::make_shared<StockItem>(items[3]), 5);
     test_invoice.addStockItem(std::make_shared<StockItem>(items[4]), 4);
-    // every ten test delete the oldest 5 tests.
-    fs::path dir = "G:/misc/Test_Invoices";
-
-    const std::string pdf_num = delete_old_pdfs(dir);
+    const std::string pdf_num = "0";
     test_invoice.setInvoiceID("INV-1001");
     test_invoice.set_file_name(pdf_out_path + pdf_num + ".pdf");
     test_invoice.setCurrentDate("2024-10-01");
@@ -210,44 +201,3 @@ void TestPDFGen::pdf_creation_test() {
 
 QTEST_MAIN(TestPDFGen)
 #include "PDFGenTests.moc"
-
-std::string TestPDFGen::delete_old_pdfs(fs::path dir) {
-    std::cout << "Deleting old PDFs from: " << dir.string() << std::endl;
-    std::deque<std::pair<int, fs::path>> dq;
-    int max = INT_MIN;
-    int new_file_number = 0;
-    if (fs::exists(dir) && fs::is_directory(dir)) {
-        std::cout << dir.string() << " exists." << std::endl;
-        for (const auto& entry : fs::directory_iterator(dir)) {
-            std::string file_name = entry.path().string();
-            if (!file_name.empty()) {
-                std::string file_num =
-                    std::regex_replace(file_name, std::regex("[^0-9]*([0-9]+).*"), std::string("$1"));
-                try {
-                    if (stoi(file_num) > max) {
-                        max = stoi(file_num);
-                    }
-                } catch (...) {
-                    max = 0;
-                    file_num = "0";
-                }
-                if (dq.size() <= 5) {
-                    dq.push_back(std::make_pair(std::stoi(file_num), entry));
-                    std::cout << "file num = " << file_num << std::endl;
-                }
-            }
-        }
-        std::cout << "most recent file number: " << max << std::endl;
-        new_file_number = max + 1;
-        if (dq.size() >= 5) {
-            std::sort(dq.begin(), dq.end());
-            while (!dq.empty()) {
-                std::cout << "deleting: " << dq.front().second << std::endl;
-                fs::remove(dq.front().second);
-                dq.pop_front();
-            }
-        }
-        return std::to_string(new_file_number > 0 ? new_file_number : 0);
-    }
-    return "0";
-}

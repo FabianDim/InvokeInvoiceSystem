@@ -344,13 +344,54 @@ For a build with debugging symbols, use `x64-relwithdebinfo` in both configure a
 
 The following commands use the Release build and the runtime environment set above.
 
+### Build and check all test runners
+
+From an x64 Developer PowerShell for Visual Studio, configure and build all six
+Qt Test executables, then verify that each runner starts and lists its tests:
+
+```powershell
+cmake --preset x64-release
+cmake --build --preset x64-release --target all-tests
+ctest --test-dir out/build/x64-release -L smoke --output-on-failure
+```
+
+The `smoke` checks use Qt Test's `-functions` option. They do not execute test
+assertions, access MongoDB, or establish that the tests pass. CTest sets Qt's
+offscreen platform, and Windows builds copy the required offscreen and JPEG
+plugins beside the runners.
+
+| CTest suite | Executable | Requirements |
+| --- | --- | --- |
+| `PDFGen` | `InvokeInvoiceSystemTests` | Local; PDFs use temporary directories. |
+| `Logging` | `LoggingTests` | Local. |
+| `BusinessSession` | `BusinessSessionTests` | Local; offscreen UI. |
+| `FrontendSession` | `FrontendSessionTests` | Local test HTTP server. |
+| `BackendServer` | `BackendServerTests` | Local HTTP server; no MongoDB. |
+| `DatabaseHealth` | `DatabaseTests` | Live MongoDB credentials for actual test execution. |
+
+Run the local test bodies, or list all registered checks:
+
+```powershell
+ctest --test-dir out/build/x64-release -L local --output-on-failure
+ctest --test-dir out/build/x64-release -N
+```
+
+Running CTest without a filter also runs the database health suite against the
+configured database.
+
+`tests/InvoiceMenuTests.cpp` contains only a Google Test fixture and a commented
+test; it has no active test cases. `tests/test_object_ids.py` depends on
+`scripts/migrate_object_ids.py`. When that script is absent, CMake reports the
+Python suite as unavailable and does not register it. When present, the suite
+is registered as `ObjectIds` and requires Python plus `scripts/requirements.txt`.
+
 ### UI, frontend and backend session tests
 
 These three suites do not require MongoDB or a separately running backend. CTest configures Qt to run them without displaying windows.
 
 - `BusinessSession` covers business selection, record browsing, client selection, reusable stock, optional record fields in both modes, and the offline demo. Offline checks drive the forms through PDF export, verify the PDF header and zero HTTP connections, check account isolation and export failures, and confirm that exiting clears the session.
 - `FrontendSession` uses a local test HTTP server to check the frontend's login state and logout requests.
-- `BackendServer` checks server startup, authentication handling, logout and the account session lifecycle.
+- `BackendServer` checks constructor-based server startup, protected routes, malformed login requests, database-unavailable responses, bearer-token lifecycle, and local PDF generation. Successful database-backed login and account isolation are covered by the optional Python integration suite.
 
 ```powershell
 cmake --build --preset x64-release --target BusinessSessionTests FrontendSessionTests BackendServerTests
