@@ -51,6 +51,10 @@ void TestPDFGen::pdf_client_details() {
     Infrastructure::PDF::InvoicePdfGenerator generator(invoice);
     QVERIFY(generator.peece_template());
     QVERIFY(QFileInfo(path).size() > 0);
+    QFile pdf(path);
+    QVERIFY(pdf.open(QIODevice::ReadOnly));
+    // Portable logo bytes still render even though filesystem paths are ignored.
+    QVERIFY(pdf.readAll().contains("/Subtype /Image"));
 }
 
 void TestPDFGen::pdf_multiple_page_creation_test() {
@@ -89,7 +93,7 @@ void TestPDFGen::pdf_multiple_page_creation_test() {
 
     pdf_gen.peece_template();
 
-    QVERIFY(fs::exists(pdf_out_path_long + pdf_num + ".pdf"));
+    QVERIFY(fs::exists(pdf_out_path_multi + pdf_num + ".pdf"));
 }
 void TestPDFGen::pdf_three_long_lines() {
     // TO DO cut off the line at 100 characters. But make the line cell longer vertically until then.

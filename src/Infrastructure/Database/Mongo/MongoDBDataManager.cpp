@@ -230,7 +230,8 @@ QJsonDocument MongoDBDataManager::list_resources(const std::string& resource, co
         const auto business_id = business["_id"].get_oid().value;
         if (resource == "businesses") {
             QJsonObject item{{"_id", QString::fromStdString(business_id.to_string())}};
-            for (const auto* field : {"BusinessName", "ABN", "ACN", "Phone", "BusinessAddress", "Website", "LogoPath", "LogoData"}) {
+            // Legacy LogoPath values must never leave the database for rendering.
+            for (const auto* field : {"BusinessName", "ABN", "ACN", "Phone", "BusinessAddress", "Website", "LogoData"}) {
                 const auto value = business[field];
                 if (value && value.type() == bsoncxx::type::k_string)
                     item[field] = QString::fromUtf8(value.get_string().value);
@@ -299,7 +300,6 @@ bool MongoDBDataManager::save_resource(const std::string& resource, QJsonObject 
                                            kvp("BusinessAddress", data.value("Address").toString().toStdString()),
                                            kvp("ACN", data.value("ACN").toString().toStdString()),
                                            kvp("Website", data.value("Website").toString().toStdString()),
-                                           kvp("LogoPath", data.value("LogoPath").toString().toStdString()),
                                            kvp("LogoData", logo.toBase64().toStdString()),
                                            kvp("ClientIDs", bsoncxx::builder::basic::array{}),
                                            kvp("StockIDs", bsoncxx::builder::basic::array{}));

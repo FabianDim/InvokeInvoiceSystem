@@ -128,7 +128,14 @@ class BackendServerTests : public QObject {
         QVERIFY(!sessions.find(second, now.addSecs(8 * 60 * 60)));
     }
 
+    void online_invoice_ignores_stored_logo_path_data() {
+        QTest::addColumn<bool>("include_logo_data");
+        QTest::newRow("empty-logo-data") << true;
+        QTest::newRow("omitted-logo-data") << false;
+    }
+
     void online_invoice_ignores_stored_logo_path() {
+        QFETCH(bool, include_logo_data);
         MongoDBDataManager database;
         Infrastructure::Services::InvoiceServices service(database);
         QTemporaryDir directory;
@@ -140,8 +147,10 @@ class BackendServerTests : public QObject {
         image.fill(Qt::red);
         QVERIFY(image.save(logoPath, "PNG"));
 
-        service.add_business_to_invoice(
-            QJsonDocument(QJsonObject{{"BusinessName", "Test business"}, {"LogoPath", logoPath}, {"LogoData", ""}}));
+        QJsonObject business{{"BusinessName", "Test business"}, {"LogoPath", logoPath}};
+        if (include_logo_data)
+            business["LogoData"] = "";
+        service.add_business_to_invoice(QJsonDocument(business));
         service.add_client_to_invoice(QJsonDocument(QJsonObject{{"Name", "Test client"}}));
 
         service.begin_invoice_details(

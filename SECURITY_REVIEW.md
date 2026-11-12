@@ -11,6 +11,20 @@ Scope: the current local source for HTTP authentication, account/resource owners
 
 ## 1. High: a business logo can read an image from the backend filesystem
 
+**Status: fixed in local source (13 November 2026); deployment unverified.**
+Business creation no longer persists client-supplied `LogoPath`. Business queries
+and both database-to-business loading paths ignore legacy stored paths. The PDF
+renderer uses only `LogoData` bytes and omits the logo when those bytes are absent.
+Existing database documents do not need path removal for this fix to take effect.
+
+**Fix validation:** rebuilt the backend, desktop app, and affected test executables
+in Release and RelWithDebInfo. The complete `BackendServer` and `PDFGen` CTest
+suites pass in both configurations. The logo regression supplies a real local PNG
+with empty and omitted `LogoData` and asserts that no image is embedded. A positive
+PDF test verifies that valid `LogoData` still embeds an image. Database write/read
+filtering was checked in source; no live database or hosted deployment was tested.
+The evidence and original validation below describe the pre-fix snapshot.
+
 **Evidence:** `src/Infrastructure/Database/Mongo/MongoDBDataManager.cpp:371` stores the request's `LogoPath`. `src/Application/Business/SetBusinessFromDB.cpp:49` restores it; `src/Infrastructure/Database/Services/InvoiceServices.cpp:53` passes it to the invoice business. `src/Infrastructure/Pdf/InvoicePdfGenerator.cpp:313–317` falls back to `HPDF_LoadPngImageFromFile` when `LogoData` is empty. The resulting PDF is returned by `src/Infrastructure/Http/FakeServer.cpp:94`.
 
 An authenticated account can create its own business with an empty/omitted `LogoData` and a `LogoPath` naming a backend-readable PNG, then export an invoice for that business. The file's image content can be embedded in the downloaded PDF. No file upload or access to another account is needed. The file must exist, be readable, and be accepted by the PNG loader: this is not evidence that arbitrary text files or environment variables can be downloaded.
