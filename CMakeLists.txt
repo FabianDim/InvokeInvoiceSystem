@@ -196,7 +196,6 @@
         include/View/UICode/Views/Dashboard.h
         include/View/UICode/Views/NewInvoiceStock.h
         include/Infrastructure/Http/ApiClient.h
-        src/Infrastructure/Pdf/ImageValidation.cpp
         forms/Invoice_Resources.qrc
         src/View/MainWindow.cpp
         src/View/UICode/Views/LandingPage.cpp
