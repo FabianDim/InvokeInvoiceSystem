@@ -130,6 +130,7 @@ void App::Views::MainWindow::set_offline(bool offline) {
 void App::Views::MainWindow::show_page(QWidget* widget) {
     qCDebug(Infrastructure::Logging::ui) << "event=ui.page.shown page=" << (widget ? widget->metaObject()->className() : "null");
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "MainWindow.show_page");
+    dashboard_page()->set_logged_in(acctMgr.is_logged_in());
     loginAct->setVisible(!offline_ && !acctMgr.is_logged_in());
     logoutAct->setVisible(!offline_ && acctMgr.is_logged_in());
     pagesStack->setCurrentWidget(widget);

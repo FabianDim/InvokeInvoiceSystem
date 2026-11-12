@@ -2,14 +2,9 @@
 #include "Domain/Invoices/InvoiceDetails.h"
 #include "bsoncxx/exception/exception.hpp"
 bool InvoiceDetails::enterInvoiceID() {
-    std::cout << "Enter custom invoice ID or type auto for auto-generation: ";
-    std::getline(std::cin >> std::ws, userInvoice.invoiceID);
-    userInvoice.invoiceID = makeInvoiceID();
-    if (toLower(userInvoice.invoiceID) == "auto") {
-        userInvoice.clientInvoiceID = userInvoice.invoiceID;
-        currentStep = InvoiceStep::ENTER_DATE;
-        return true;
-    }
+    std::cout << "Enter the invoice number shown on the PDF: ";
+    std::getline(std::cin >> std::ws, userInvoice.clientInvoiceID);
+    userInvoice.invoiceID.clear();
     currentStep = InvoiceStep::ENTER_DATE;
     return true;
 }
@@ -208,37 +203,6 @@ void InvoiceDetails::collectInvoiceInfo() {
     }
 }
 
-std::string InvoiceDetails::makeInvoiceID() {
-    try {
-        auto invID = dbManager.findOne("counters", make_document(kvp("_id", make_document(kvp("db", "InvokeInvoiceSystem"), kvp("coll", "Invoices")))));
-        if (invID && invID->view()["invoice_value"].type() == bsoncxx::type::k_int64) {
-            thisInvoiceID = static_cast<int>(invID->view()["invoice_value"].get_int64().value + 1);
-        }
-        std::string prefix = "INV";
-        std::string numStr = std::to_string(thisInvoiceID);
-        if (numStr.size() < 8) {
-            prefix += std::string(8 - numStr.size(), '0') + numStr;
-        }
-        return prefix;
-    }
-    catch (const mongocxx::exception& e) {
-        std::cerr << "MongoDB exception: " << e.what() << std::endl;
-    }
-    catch (const bsoncxx::exception& e) {
-        std::cerr << "BSON exception: " << e.what() << std::endl;
-    }
-    catch (const std::bad_alloc& e) {
-        std::cerr << "Memory allocation exception: " << e.what() << std::endl;
-    }
-    catch (const std::exception& e) {
-        std::cerr << "General exception: " << e.what() << std::endl;
-    }
-    catch (...) {
-        std::cerr << "Invoice is breaking for some reason." << std::endl;
-    }
-    return "INV00000000";
-}
-
 bsoncxx::document::value InvoiceDetails::createInvoiceDoc() {
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
@@ -246,15 +210,14 @@ bsoncxx::document::value InvoiceDetails::createInvoiceDoc() {
     bsoncxx::builder::basic::array stockArray;
     for (auto& [stockItemPtr, qty] : userInvoice.stockQuantities) {
         bsoncxx::builder::basic::document entry;
-        entry.append(kvp("StockID", stockItemPtr->getStockID()));
+        entry.append(kvp("StockID", bsoncxx::oid(stockItemPtr->getStockID())));
         entry.append(kvp("Quantity", qty));
         stockArray.append(entry);
     }
 
     return document{}
-        << "InvoiceID" << userInvoice.invoiceID
         << "ClientInvoiceID" << userInvoice.clientInvoiceID
-        << "ClientID" << userInvoice.client->getClientID()
+        << "ClientID" << bsoncxx::oid(userInvoice.client->getClientID())
         << "InvoiceDate" << userInvoice.invoiceDate
         << "DueDate" << userInvoice.dueDate
         << "IsPaid" << userInvoice.isPaid
@@ -267,7 +230,8 @@ bsoncxx::document::value InvoiceDetails::createInvoiceDoc() {
 
 void InvoiceDetails::insertInvoiceDoc(bsoncxx::document::value doc) {
     try {
-        dbManager.insertDocument("Invoices", doc);
+        if (!dbManager.insertDocument("Invoices", doc.view(), &userInvoice.invoiceID))
+            throw std::runtime_error("Could not save invoice");
     }
     catch (const mongocxx::exception& e) {
         std::cerr << e.what() << std::endl;

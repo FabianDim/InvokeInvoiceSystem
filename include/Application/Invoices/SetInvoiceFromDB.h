@@ -2,6 +2,8 @@
 #include "pch.h"
 #include "Domain/Invoices/Invoice.h"
 #include "Application/Stock/SetStockFromDB.h"
+#include "Application/Business/Clients/SetClientFromDB.h"
+#include "Infrastructure/Database/Mongo/MongoDBDataManager.h"
 
 class SetInvoice {
 	friend class InvoiceManager;

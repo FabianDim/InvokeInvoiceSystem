@@ -56,13 +56,12 @@
     set(APP_MAIN_CPP ${CMAKE_SOURCE_DIR}/src/View/InvokeInvoiceSystem.cpp)
     set(BACKEND_MAIN_CPP ${CMAKE_SOURCE_DIR}/src/Backend/main.cpp)
     # Each executable must have exactly one entry point.
-    list(REMOVE_ITEM PROJECT_CPP ${BACKEND_MAIN_CPP})
+    list(REMOVE_ITEM PROJECT_CPP ${BACKEND_MAIN_CPP} ${CMAKE_SOURCE_DIR}/src/Backend/InvokeInvoiceBackend.cpp)
     set(TEST_SOURCES ${PROJECT_CPP})
     list(REMOVE_ITEM TEST_SOURCES ${APP_MAIN_CPP})
 
     # ---------- Headless HTTP backend (Docker / Heroku) ----------
-    qt_add_executable(InvokeInvoiceBackend
-        ${BACKEND_MAIN_CPP}
+    set(BACKEND_SOURCES
         src/Application/Accounts/AccountManager.cpp
         src/Application/Accounts/SetUserFromDB.cpp
         src/Application/Business/SetBusinessFromDB.cpp
@@ -74,6 +73,7 @@
         src/Infrastructure/Http/FakeServer.cpp
         src/Infrastructure/Pdf/InvoicePdfGenerator.cpp
     )
+    qt_add_executable(InvokeInvoiceBackend ${BACKEND_MAIN_CPP} ${BACKEND_SOURCES})
     set_target_properties(InvokeInvoiceBackend PROPERTIES WIN32_EXECUTABLE OFF MACOSX_BUNDLE OFF)
     target_include_directories(InvokeInvoiceBackend PRIVATE ${CMAKE_SOURCE_DIR}/include)
     target_link_libraries(InvokeInvoiceBackend PRIVATE
@@ -128,10 +128,8 @@
 
     qt_add_executable(InvokeInvoiceSystemTests MANUAL_FINALIZATION
         tests/PDFGenTests.cpp
-        ${TEST_SOURCES}
-    )
-    target_sources(InvokeInvoiceSystemTests PRIVATE
-        ${PROJECT_HDR}
+        src/Domain/Accounts/User.cpp
+        src/Infrastructure/Pdf/InvoicePdfGenerator.cpp
     )
     target_link_libraries(InvokeInvoiceSystemTests PRIVATE
         Qt6::Test
@@ -175,12 +173,36 @@
         $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
     )
     include(CTest)
+
+    qt_add_executable(BackendServerTests tests/BackendServerTests.cpp ${BACKEND_SOURCES})
+    target_include_directories(BackendServerTests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(BackendServerTests PRIVATE
+        passlib Qt6::Test Qt6::Gui Qt6::HttpServer Qt6::Network
+        fmt::fmt unofficial::libharu::hpdf
+        $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
+        $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
+    )
+
+    qt_add_executable(FrontendSessionTests
+        tests/FrontendSessionTests.cpp
+        src/Application/Accounts/FrontendAccountSession.cpp
+        src/Application/Invoices/OfflineInvoiceSession.cpp
+        src/Domain/Accounts/User.cpp
+        src/Infrastructure/Http/ApiClient.cpp
+        include/Infrastructure/Http/ApiClient.h
+        src/Infrastructure/Pdf/InvoicePdfGenerator.cpp
+    )
+    target_include_directories(FrontendSessionTests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(FrontendSessionTests PRIVATE
+        Qt6::Test Qt6::Gui Qt6::HttpServer Qt6::Network
+        fmt::fmt unofficial::libharu::hpdf
+        $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
+        $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
+    )
     qt_add_executable(LoggingTests tests/LoggingTests.cpp)
     set_target_properties(LoggingTests PROPERTIES WIN32_EXECUTABLE OFF MACOSX_BUNDLE OFF)
     target_include_directories(LoggingTests PRIVATE ${CMAKE_SOURCE_DIR}/include)
     target_link_libraries(LoggingTests PRIVATE Qt6::Test Qt6::HttpServer Qt6::Network)
-    add_test(NAME Logging COMMAND LoggingTests)
-    set_tests_properties(Logging PROPERTIES TIMEOUT 30 LABELS "logging" ENVIRONMENT "QT_ASSUME_STDERR_HAS_CONSOLE=1")
     qt_add_executable(BusinessSessionTests
         tests/BusinessSessionTests.cpp
         src/Application/Invoices/OfflineInvoiceSession.cpp
@@ -204,6 +226,9 @@
         src/View/UICode/Views/ManagementForm.cpp
         src/View/UICode/Views/NewInvoiceCreation.cpp
         src/View/UICode/Views/BusinessInvoiceChoice.cpp
+        src/View/UICode/Views/DefaultInvoiceSettings.cpp
+        include/View/UICode/Views/DefaultInvoiceSettings.h
+        src/Application/Accounts/FrontendAccountSession.cpp
         include/View/MainWindow.h
         include/View/UICode/Views/LandingPage.h
         include/View/UICode/Views/LoginPage.h
@@ -220,11 +245,42 @@
         $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
         $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
     )
-    add_test(NAME BusinessSession COMMAND BusinessSessionTests)
+    # Build every executable with one command. Discovery starts each Qt Test runner
+    # without executing test bodies or contacting the database.
+    set(INVOICE_TEST_TARGETS InvokeInvoiceSystemTests DatabaseTests LoggingTests
+        BusinessSessionTests FrontendSessionTests BackendServerTests)
+    add_custom_target(all-tests DEPENDS ${INVOICE_TEST_TARGETS})
+    function(register_invoice_test name target label)
+        set_target_properties(${target} PROPERTIES WIN32_EXECUTABLE OFF MACOSX_BUNDLE OFF)
+        add_test(NAME ${name} COMMAND ${target})
+        add_test(NAME ${name}Discovery COMMAND ${target} -functions)
+        set_tests_properties(${name} ${name}Discovery PROPERTIES
+            ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_ASSUME_STDERR_HAS_CONSOLE=1")
+        set_tests_properties(${name} PROPERTIES TIMEOUT 180 LABELS "${label}")
+        set_tests_properties(${name}Discovery PROPERTIES TIMEOUT 30 LABELS "smoke")
+    endfunction()
+    register_invoice_test(PDFGen InvokeInvoiceSystemTests local)
+    register_invoice_test(DatabaseHealth DatabaseTests integration)
+    register_invoice_test(Logging LoggingTests local)
+    register_invoice_test(BusinessSession BusinessSessionTests local)
+    register_invoice_test(FrontendSession FrontendSessionTests local)
+    register_invoice_test(BackendServer BackendServerTests local)
+
+    # The migration script may deliberately be absent from this checkout.
+    if(EXISTS "${CMAKE_SOURCE_DIR}/scripts/migrate_object_ids.py")
+        find_package(Python3 COMPONENTS Interpreter REQUIRED)
+        add_test(NAME ObjectIds COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s tests -p test_object_ids.py -v)
+        set_tests_properties(ObjectIds PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            TIMEOUT 180 LABELS "integration;python")
+    else()
+        message(STATUS "ObjectIds tests unavailable: scripts/migrate_object_ids.py is absent")
+    endif()
+
     # JPEG logos need Qt's image-format plugin beside locally built executables.
     if(WIN32)
         find_package(libjpeg-turbo CONFIG REQUIRED)
-        foreach(invoice_target InvokeInvoiceBackend InvokeInvoiceSystem BusinessSessionTests InvokeInvoiceSystemTests)
+        foreach(invoice_target InvokeInvoiceBackend InvokeInvoiceSystem ${INVOICE_TEST_TARGETS})
             add_custom_command(TARGET ${invoice_target} POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${invoice_target}>/imageformats"
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -234,7 +290,16 @@
                 VERBATIM
             )
         endforeach()
+        foreach(test_target ${INVOICE_TEST_TARGETS})
+            add_custom_command(TARGET ${test_target} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${test_target}>/platforms"
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "$<TARGET_FILE:Qt6::QOffscreenIntegrationPlugin>" "$<TARGET_FILE_DIR:${test_target}>/platforms/"
+                VERBATIM
+            )
+        endforeach()
     endif()
+foreach(app_target InvokeInvoiceSystem InvokeInvoiceBackend)
     qt_generate_deploy_app_script(TARGET ${app_target} OUTPUT_SCRIPT deploy_script NO_UNSUPPORTED_PLATFORM_ERROR)
-    install(SCRIPT ${deploy_script} COMPONENT ${app_component})
+    install(SCRIPT ${deploy_script})
 endforeach()

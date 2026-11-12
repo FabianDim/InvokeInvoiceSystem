@@ -40,7 +40,7 @@ void NewInvoiceStock::reset_invoice() {
 
 void NewInvoiceStock::business_selected(const QJsonObject& business) {
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "NewInvoiceStock.business_selected");
-    const auto id = business.value("BusinessID").toString();
+    const auto id = business.value("_id").toString();
     if (id != business_id_ || id.isEmpty()) {
         business_id_ = id;
         reset_invoice();
@@ -224,7 +224,7 @@ QLayout* NewInvoiceStock::create_item_entry_form() {
                          {"Name", is_new ? new_name_->text().trimmed() : selected.value("Name").toString()},
                          {"Notes", notes->text()}};
         if (!is_new)
-            item["StockID"] = selected.value("StockID");
+            item["_id"] = selected.value("_id");
         if (is_new && save_stock_->isChecked()) {
             item["StockOnHand"] = stock_on_hand_->value();
             item["Margin"] = margin_->value();

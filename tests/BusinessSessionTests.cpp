@@ -1,3 +1,4 @@
+#include "Application/Accounts/FrontendAccountSession.h"
 #include <QtTest>
 #include <QHttpServer>
 #include <QTcpServer>
@@ -39,17 +40,17 @@ class TestAccountManager : public Invoke::Domain::Accounts::IAccountManager {
 
 QJsonDocument business_list() {
     return QJsonDocument(QJsonObject{
-        {"BUSA", QJsonObject{{"BusinessID", "BUSA"}, {"BusinessName", "Alpha Plumbing"}}},
-        {"BUSB", QJsonObject{{"BusinessID", "BUSB"}, {"BusinessName", "Beta Electrical"}}}});
+        {"65a000000000000000000001", QJsonObject{{"_id", "65a000000000000000000001"}, {"BusinessName", "Alpha Plumbing"}}},
+        {"65a000000000000000000002", QJsonObject{{"_id", "65a000000000000000000002"}, {"BusinessName", "Beta Electrical"}}}});
 }
 
 QJsonDocument business_items(const QString& id) {
     return QJsonDocument(QJsonObject{
         {"BusinessID", id},
         {"businesses", QJsonArray{business_list().object().value(id)}},
-        {"clients", QJsonArray{QJsonObject{{"ClientID", "CLI1"}, {"Name", "Example client"}, {"Email", "client@example.com"},
+        {"clients", QJsonArray{QJsonObject{{"_id", "65b000000000000000000001"}, {"Name", "Example client"}, {"Email", "client@example.com"},
                                           {"Address", "10 Example Street, Sydney NSW 2000"}, {"Phone", "02 1234 5678"}}}},
-        {"stocks", QJsonArray{QJsonObject{{"StockID", "STK1"}, {"Name", "Copper pipe"}, {"Quantity", 10},
+        {"stocks", QJsonArray{QJsonObject{{"_id", "65c000000000000000000001"}, {"Name", "Copper pipe"}, {"Quantity", 10},
                                          {"Price", 12.5}, {"Keywords", QJsonArray{"pipe", "copper"}}}}}});
 }
 
@@ -97,7 +98,7 @@ struct RecordingServer {
                        if (fail_saves)
                            return QHttpServerResponse(QJsonObject{{"error", "Stock could not be saved"}},
                                                       QHttpServerResponder::StatusCode::InternalServerError);
-                       return QHttpServerResponse(QJsonObject{{"ok", true}, {"id", "STKNEW"}});
+                       return QHttpServerResponse(QJsonObject{{"ok", true}, {"_id", "65c000000000000000000002"}});
                    });
         http.route("/invoices/invoice_start", QHttpServerRequest::Method::Post,
                    [this](const QHttpServerRequest& request) {
@@ -112,7 +113,7 @@ struct RecordingServer {
         http.route("/auth/login", QHttpServerRequest::Method::Post, []() {
             return QHttpServerResponse(QJsonObject{
                 {"ok", true}, {"token", "recording-session"},
-                {"user", QJsonObject{{"id", "TEST_USER"}, {"email", "test@example.invalid"}}}});
+                {"user", QJsonObject{{"_id", "65d000000000000000000003"}, {"email", "test@example.invalid"}}}});
         });
         return tcp->listen(QHostAddress::LocalHost, 0) && http.bind(tcp);
     }
@@ -133,11 +134,11 @@ class BusinessSessionTests : public QObject {
         Application::Controllers::AppController controller(&window, account, &api);
         QTemporaryDir output;
         QVERIFY(output.isValid());
-        api.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+        api.business_selected(QJsonObject{{"_id", "65a000000000000000000001"}});
         QSignalSpy started(&api, &ApiClient::invoice_started);
         QSignalSpy saved(&api, &ApiClient::pdf_generated);
         QSignalSpy failed(&api, &ApiClient::pdf_failed);
-        auto details = QJsonObject{{"ClientID", "CLI1"}, {"invoice_number", "TEST-001"},
+        auto details = QJsonObject{{"ClientID", "65b000000000000000000001"}, {"invoice_number", "TEST-001"},
                                   {"file_dir", output.path()}, {"file_name", "remote invoice"}};
         api.invoice_details(QJsonDocument(details));
         QTRY_COMPARE(started.count(), 1);
@@ -206,7 +207,7 @@ class BusinessSessionTests : public QObject {
         api.invoice_details(QJsonDocument(details));
         QTRY_COMPARE(started.count(), 4);
         api.stock_list(QJsonDocument(page->stock_items));
-        api.business_selected(QJsonObject{{"BusinessID", "BUSB"}});
+        api.business_selected(QJsonObject{{"_id", "65a000000000000000000002"}});
         QTRY_COMPARE(server.pdf_requests, requests + 1);
         QTest::qWait(100);
         QVERIFY(!QFileInfo::exists(output.filePath("stale.pdf")));
@@ -216,12 +217,12 @@ class BusinessSessionTests : public QObject {
     void auth_sessions_isolate_users_and_expire() {
         Infrastructure::Http::AuthSessions sessions;
         const auto now = QDateTime::currentDateTimeUtc();
-        const auto first = sessions.create("USER_A", now);
-        const auto second = sessions.create("USER_B", now);
+        const auto first = sessions.create("65d000000000000000000001", now);
+        const auto second = sessions.create("65d000000000000000000002", now);
         QVERIFY(!first.isEmpty());
         QVERIFY(first != second);
-        QCOMPARE(sessions.find(first, now)->user_id, std::string("USER_A"));
-        QCOMPARE(sessions.find(second, now)->user_id, std::string("USER_B"));
+        QCOMPARE(sessions.find(first, now)->user_id, std::string("65d000000000000000000001"));
+        QCOMPARE(sessions.find(second, now)->user_id, std::string("65d000000000000000000002"));
         QVERIFY(!sessions.find("invalid", now));
         sessions.revoke(first);
         QVERIFY(!sessions.find(first, now));
@@ -233,7 +234,7 @@ class BusinessSessionTests : public QObject {
         QHttpServer http;
         auto* tcp = new QTcpServer(&http);
         int status = 200;
-        QByteArray body = R"({"ok":true,"token":"test-session-token","user":{"id":"USER_A","email":"alice@example.invalid"}})";
+        QByteArray body = R"({"ok":true,"token":"test-session-token","user":{"_id":"65d000000000000000000001","email":"alice@example.invalid"}})";
         QByteArray business_auth;
         QByteArray logout_auth;
         http.route("/auth/login", QHttpServerRequest::Method::Post, [&]() {
@@ -249,14 +250,14 @@ class BusinessSessionTests : public QObject {
         });
         QVERIFY(tcp->listen(QHostAddress::LocalHost, 0));
         QVERIFY(http.bind(tcp));
-        TestAccountManager account;
+        Application::Accounts::FrontendAccountSession account;
         ApiClient api(QUrl(QString("http://127.0.0.1:%1").arg(tcp->serverPort())), &account);
         QSignalSpy success(&api, &ApiClient::login_succeeded);
         QSignalSpy failure(&api, &ApiClient::login_failed);
         api.do_login("alice@example.invalid", "test-password", false);
         QTRY_COMPARE(success.count(), 1);
         QVERIFY(account.is_logged_in());
-        QCOMPARE(account.getAccount()->getMongoUserID(), std::string("USER_A"));
+        QCOMPARE(account.getAccount()->getMongoUserID(), std::string("65d000000000000000000001"));
         QVERIFY(account.getAccount()->getPassword().empty());
         api.get_business_list();
         QTRY_COMPARE(business_auth, QByteArray("Bearer test-session-token"));
@@ -428,9 +429,9 @@ class BusinessSessionTests : public QObject {
         api.do_login("demo@example.com", "password", false);
         api.do_signup(QJsonDocument(QJsonObject{}));
         api.save_resource("account", QJsonDocument(QJsonObject{}));
-        api.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+        api.business_selected(QJsonObject{{"_id", "65a000000000000000000001"}});
         api.save_resource("client", QJsonDocument(QJsonObject{{"Name", "Cannot attach to online business"}}));
-        api.invoice_details(QJsonDocument(QJsonObject{{"ClientID", "CLI1"}}));
+        api.invoice_details(QJsonDocument(QJsonObject{{"ClientID", "65b000000000000000000001"}}));
         QCOMPARE(login.count(), 1);
         QCOMPARE(signup.count(), 1);
         QCOMPARE(failed.count(), 2);
@@ -447,7 +448,7 @@ class BusinessSessionTests : public QObject {
         const auto client = qvariant_cast<QJsonDocument>(records.last().at(0)).object().value("clients").toArray().first().toObject();
         QTemporaryDir output;
         QVERIFY(output.isValid());
-        QJsonObject details{{"ClientID", client.value("ClientID")}, {"invoice_number", "001"},
+        QJsonObject details{{"ClientID", client.value("_id")}, {"invoice_number", "001"},
             {"file_name", "../escape"}, {"file_dir", output.path()}};
         api.invoice_details(QJsonDocument(details));
         QCOMPARE(invoice_error.count(), 2);
@@ -476,7 +477,7 @@ class BusinessSessionTests : public QObject {
         QTest::qWait(100);
         QCOMPARE(connections.count(), 0);
         api.set_offline(false);
-        api.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+        api.business_selected(QJsonObject{{"_id", "65a000000000000000000001"}});
         api.save_resource("client", QJsonDocument(QJsonObject{{"Name", "Online again"}}));
         QTRY_COMPARE(server.saves.size(), 1);
     }
@@ -587,13 +588,13 @@ class BusinessSessionTests : public QObject {
         QVERIFY(selector->isEnabled());
         QVERIFY(!dashboard.has_business());
         selector->setCurrentIndex(2);
-        QCOMPARE(chosen.last().at(0).toJsonObject().value("BusinessID").toString(), "BUSB");
+        QCOMPARE(chosen.last().at(0).toJsonObject().value("_id").toString(), "65a000000000000000000002");
         QVERIFY(button(dashboard, "Create stock item")->isEnabled());
         QVERIFY(button(dashboard, "Create new client")->isEnabled());
         QVERIFY(button(dashboard, "Create new invoice")->isEnabled());
 
         dashboard.populate_business_list(business_list());
-        QCOMPARE(selector->currentData().toJsonObject().value("BusinessID").toString(), "BUSB");
+        QCOMPARE(selector->currentData().toJsonObject().value("_id").toString(), "65a000000000000000000002");
         dashboard.resize(720, 420);
         dashboard.show();
         QCoreApplication::processEvents();
@@ -663,11 +664,11 @@ class BusinessSessionTests : public QObject {
         selector->setCurrentIndex(1);
         api.save_resource("stock", payload);
         QTRY_COMPARE(saved.count(), 1);
-        QCOMPARE(server.saves.last().value("BusinessID").toString(), "BUSA");
+        QCOMPARE(server.saves.last().value("BusinessID").toString(), "65a000000000000000000001");
         selector->setCurrentIndex(2);
         api.save_resource("client", payload);
         QTRY_COMPARE(saved.count(), 2);
-        QCOMPARE(server.saves.last().value("BusinessID").toString(), "BUSB");
+        QCOMPARE(server.saves.last().value("BusinessID").toString(), "65a000000000000000000002");
         QCOMPARE(payload.object().value("BusinessID").toString(), "STALE");
 
         dashboard.populate_business_list(QJsonDocument(QJsonObject{}));
@@ -689,9 +690,9 @@ class BusinessSessionTests : public QObject {
         api.invoice_details(QJsonDocument(QJsonObject{}));
         QCOMPARE(failed.count(), 1);
         QVERIFY(server.invoices.isEmpty());
-        for (const auto& id : {QString("BUSA"), QString("BUSB")}) {
-            api.business_selected(QJsonObject{{"BusinessID", id}});
-            api.invoice_details(QJsonDocument(QJsonObject{{"BusinessID", "STALE"}, {"ClientID", "CLI1"}}));
+        for (const auto& id : {QString("65a000000000000000000001"), QString("65a000000000000000000002")}) {
+            api.business_selected(QJsonObject{{"_id", id}});
+            api.invoice_details(QJsonDocument(QJsonObject{{"BusinessID", "STALE"}, {"ClientID", "65b000000000000000000001"}}));
             QTRY_VERIFY(!server.invoices.isEmpty() && server.invoices.last().value("BusinessID").toString() == id);
             api.get_stock_list();
             QTRY_VERIFY(!server.stock_businesses.isEmpty() && server.stock_businesses.last() == id);
@@ -706,7 +707,7 @@ class BusinessSessionTests : public QObject {
         ApiClient api(server.url(), nullptr);
         QSignalSpy logged_in(&api, &ApiClient::login_succeeded);
         QSignalSpy failed(&api, &ApiClient::resource_save_failed);
-        api.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+        api.business_selected(QJsonObject{{"_id", "65a000000000000000000001"}});
         api.do_login("test@example.com", "test", false);
         QTRY_COMPARE(logged_in.count(), 1);
         api.save_resource("stock", QJsonDocument(QJsonObject{}));
@@ -758,8 +759,8 @@ class BusinessSessionTests : public QObject {
         QVERIFY(window.grab().save("invoice-client-selection.png"));
         next->click();
         QTRY_COMPARE(server.invoices.size(), 1);
-        QCOMPARE(server.invoices.first().value("ClientID").toString(), "CLI1");
-        QCOMPARE(server.invoices.first().value("BusinessID").toString(), "BUSA");
+        QCOMPARE(server.invoices.first().value("ClientID").toString(), "65b000000000000000000001");
+        QCOMPARE(server.invoices.first().value("BusinessID").toString(), "65a000000000000000000001");
         QVERIFY(!server.invoices.first().contains("website"));
         QVERIFY(!page->findChild<QLineEdit*>("website"));
         QTRY_COMPARE(window.findChild<QStackedWidget*>()->currentWidget(), window.new_invoice_stock_page());
@@ -768,11 +769,11 @@ class BusinessSessionTests : public QObject {
         QCOMPARE(clients->count(), 1);
         QVERIFY(!next->isEnabled());
         QVERIFY(page->findChild<QLabel*>("invoice_client_details")->text().isEmpty());
-        page->populate_clients(business_items("BUSA"));
+        page->populate_clients(business_items("65a000000000000000000001"));
         QCOMPARE(clients->count(), 1);
         controller.page_navigation(Page::NewInvoice);
         QTRY_COMPARE(clients->count(), 2);
-        QCOMPARE(server.items_businesses.last(), "BUSB");
+        QCOMPARE(server.items_businesses.last(), "65a000000000000000000002");
         clients->setCurrentIndex(1);
         emit window.logged_out();
         QVERIFY(!next->isEnabled());
@@ -781,17 +782,17 @@ class BusinessSessionTests : public QObject {
 
     void invoice_clients_empty_error_and_refresh_states() {
         App::Views::InvoiceDetailsInput page;
-        page.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+        page.business_selected(QJsonObject{{"_id", "65a000000000000000000001"}});
         auto* clients = page.findChild<QComboBox*>("invoice_client");
         auto* next = page.findChild<QPushButton*>("invoice_next");
         auto* refresh = page.findChild<QPushButton*>("refresh_invoice_clients");
-        auto empty = business_items("BUSA").object();
+        auto empty = business_items("65a000000000000000000001").object();
         empty["clients"] = QJsonArray{};
         page.populate_clients(QJsonDocument(empty));
         QVERIFY(!clients->isEnabled());
         QVERIFY(!next->isEnabled());
         QVERIFY(page.findChild<QLabel*>("invoice_client_status")->text().contains("No clients saved"));
-        page.populate_clients(business_items("BUSA"));
+        page.populate_clients(business_items("65a000000000000000000001"));
         clients->setCurrentIndex(1);
         QVERIFY(next->isEnabled());
         QSignalSpy requests(&page, &App::Views::InvoiceDetailsInput::clients_requested);
@@ -809,7 +810,7 @@ class BusinessSessionTests : public QObject {
         RecordingServer server;
         QVERIFY(server.start());
         ApiClient api(server.url(), nullptr);
-        api.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+        api.business_selected(QJsonObject{{"_id", "65a000000000000000000001"}});
         QSignalSpy failed(&api, &ApiClient::invoice_failed);
         api.invoice_details(QJsonDocument(QJsonObject{}));
         QCOMPARE(failed.count(), 1);
@@ -820,9 +821,9 @@ class BusinessSessionTests : public QObject {
         RecordingServer server;
         QVERIFY(server.start());
         ApiClient api(server.url(), nullptr);
-        api.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+        api.business_selected(QJsonObject{{"_id", "65a000000000000000000001"}});
         App::Views::NewInvoiceStock page;
-        page.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+        page.business_selected(QJsonObject{{"_id", "65a000000000000000000001"}});
         connect(&page, &App::Views::NewInvoiceStock::save_invoice_stock, &api, &ApiClient::save_invoice_stock);
         connect(&api, &ApiClient::invoice_stock_saved, &page, &App::Views::NewInvoiceStock::stock_saved);
         connect(&api, &ApiClient::invoice_stock_save_failed, &page, &App::Views::NewInvoiceStock::stock_save_failed);
@@ -859,9 +860,9 @@ class BusinessSessionTests : public QObject {
         QCOMPARE(server.saves.size(), 1);
         QCOMPARE(server.saves.first().value("Quantity").toInt(), 100);
         QCOMPARE(server.saves.first().value("Unit").toString(), "each");
-        QCOMPARE(server.saves.first().value("BusinessID").toString(), "BUSA");
+        QCOMPARE(server.saves.first().value("BusinessID").toString(), "65a000000000000000000001");
         QCOMPARE(page.stock_items.last().toObject().value("Quantity").toInt(), 3);
-        QCOMPARE(page.stock_items.last().toObject().value("StockID").toString(), "STKNEW");
+        QCOMPARE(page.stock_items.last().toObject().value("_id").toString(), "65c000000000000000000002");
 
         page.findChild<QComboBox*>("invoice_item_source")->setCurrentIndex(1);
         quantity->setText("1");
@@ -904,7 +905,7 @@ class BusinessSessionTests : public QObject {
         RecordingServer server;
         QVERIFY(server.start());
         ApiClient api(server.url(), nullptr);
-        api.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+        api.business_selected(QJsonObject{{"_id", "65a000000000000000000001"}});
         QSignalSpy items(&api, &ApiClient::business_items_received);
         api.get_business_items();
         QTRY_COMPARE(items.count(), 1);
@@ -966,7 +967,7 @@ class BusinessSessionTests : public QObject {
         for (const auto& field : {"ABN", "ACN", "Business phone", "Website", "Address", "LogoData"})
             QVERIFY(business_payload.value(field).toString().isEmpty());
         if (!offline)
-            api.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+            api.business_selected(QJsonObject{{"_id", "65a000000000000000000001"}});
 
         auto* client = window.client_page();
         QSignalSpy client_data(client, &App::Views::ManagementForm::submit_resource);
@@ -1018,7 +1019,7 @@ class BusinessSessionTests : public QObject {
             QVERIFY(output.isValid());
             QSignalSpy pdf(&api, &ApiClient::pdf_generated);
             api.invoice_details(QJsonDocument(QJsonObject{
-                {"ClientID", items.value("clients").toArray().first().toObject().value("ClientID")},
+                {"ClientID", items.value("clients").toArray().first().toObject().value("_id")},
                 {"invoice_number", "MINIMAL-001"}, {"file_name", "minimal"}, {"file_dir", output.path()}}));
             api.stock_list(QJsonDocument(QJsonArray{QJsonObject{{"Name", "Minimal stock"}, {"Quantity", 1}, {"Price", 12.5}}}));
             QCOMPARE(pdf.count(), 1);
@@ -1118,13 +1119,13 @@ class BusinessSessionTests : public QObject {
         page->findChild<QPushButton*>("refresh_items")->click();
         QTRY_COMPARE(server.items_businesses.size(), 2);
         QTRY_VERIFY(page->findChild<QPushButton*>("refresh_items")->isEnabled());
-        auto empty = business_items("BUSA").object();
+        auto empty = business_items("65a000000000000000000001").object();
         empty["clients"] = QJsonArray{};
         empty["stocks"] = QJsonArray{};
         page->populate_items(QJsonDocument(empty));
         QCOMPARE(stock->rowCount(), 0);
         QCOMPARE(tabs->tabText(2), "Stock (0)");
-        page->populate_items(business_items("BUSB"));
+        page->populate_items(business_items("65a000000000000000000002"));
         QCOMPARE(stock->rowCount(), 0);
         emit window.logged_out();
         QVERIFY(!browse->isEnabled());
@@ -1137,7 +1138,7 @@ class BusinessSessionTests : public QObject {
         ApiClient api(server.url(), nullptr);
         QSignalSpy received(&api, &ApiClient::business_items_received);
         QSignalSpy saved(&api, &ApiClient::resource_saved);
-        api.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+        api.business_selected(QJsonObject{{"_id", "65a000000000000000000001"}});
         api.get_business_items();
         api.get_business_items();
         QTRY_COMPARE(received.count(), 1);
@@ -1157,13 +1158,13 @@ class BusinessSessionTests : public QObject {
             QTRY_COMPARE(received.count(), previous + 1);
         }
         QCOMPARE(server.items_businesses.size(), 5);
-        api.business_selected(QJsonObject{{"BusinessID", "BUSB"}});
+        api.business_selected(QJsonObject{{"_id", "65a000000000000000000002"}});
         api.get_business_items();
         QTRY_COMPARE(received.count(), 7);
-        QCOMPARE(server.items_businesses.last(), "BUSB");
-        QCOMPARE(qvariant_cast<QJsonDocument>(received.last().at(0)).object().value("BusinessID").toString(), "BUSB");
+        QCOMPARE(server.items_businesses.last(), "65a000000000000000000002");
+        QCOMPARE(qvariant_cast<QJsonDocument>(received.last().at(0)).object().value("BusinessID").toString(), "65a000000000000000000002");
         api.clear_session();
-        api.business_selected(QJsonObject{{"BusinessID", "BUSB"}});
+        api.business_selected(QJsonObject{{"_id", "65a000000000000000000002"}});
         api.get_business_items();
         QTRY_COMPARE(received.count(), 8);
         QCOMPARE(server.items_businesses.size(), 7);
@@ -1178,7 +1179,7 @@ class BusinessSessionTests : public QObject {
         api.get_business_items();
         QCOMPARE(failed.count(), 1);
         QVERIFY(server.items_businesses.isEmpty());
-        api.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+        api.business_selected(QJsonObject{{"_id", "65a000000000000000000001"}});
         server.invalid_items = true;
         api.get_business_items();
         QTRY_COMPARE(failed.count(), 2);
@@ -1199,15 +1200,15 @@ class BusinessSessionTests : public QObject {
         ApiClient api(server.url(), nullptr);
         QSignalSpy received(&api, &ApiClient::business_items_received);
         QSignalSpy failed(&api, &ApiClient::business_items_failed);
-        api.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+        api.business_selected(QJsonObject{{"_id", "65a000000000000000000001"}});
         api.get_business_items();
-        api.business_selected(QJsonObject{{"BusinessID", "BUSB"}});
+        api.business_selected(QJsonObject{{"_id", "65a000000000000000000002"}});
         api.get_business_items();
         api.clear_session();
-        api.business_selected(QJsonObject{{"BusinessID", "BUSA"}});
+        api.business_selected(QJsonObject{{"_id", "65a000000000000000000001"}});
         api.get_business_items();
         QTRY_COMPARE(received.count(), 1);
-        QCOMPARE(qvariant_cast<QJsonDocument>(received.at(0).at(0)).object().value("BusinessID").toString(), "BUSA");
+        QCOMPARE(qvariant_cast<QJsonDocument>(received.at(0).at(0)).object().value("BusinessID").toString(), "65a000000000000000000001");
         QVERIFY(failed.isEmpty());
     }
 };

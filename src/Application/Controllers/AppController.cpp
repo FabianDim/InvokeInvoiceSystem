@@ -50,6 +50,7 @@ AppController::AppController(App::Views::MainWindow* main,
         api_->clear_session();
         main_->dashboard_page()->populate_business_list(QJsonDocument(QJsonObject{}));
         main_->new_invoice_stock_page()->reset_invoice();
+        main_->default_invoice_settings_page()->reset_form();
     });
     QObject::connect(api_,
                      &Infrastructure::Http::ApiClient::login_failed,
@@ -202,6 +203,8 @@ void AppController::resource_saved(const QString& resource) {
 void AppController::page_navigation(Page page) {
     qCDebug(Infrastructure::Logging::ui) << "event=ui.navigation.requested page=" << static_cast<int>(page) << "offline=" << api_->is_offline();
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "AppController.page_navigation");
+    if (page == Page::DefaultInvoiceSettings && (api_->is_offline() || !accountManager_.is_logged_in()))
+        return;
     if (api_->is_offline() && (page == Page::AccountSettings || page == Page::Login || page == Page::Signup)) {
         qCDebug(Infrastructure::Logging::ui) << "event=ui.navigation.blocked reason=offline_mode";
         return;

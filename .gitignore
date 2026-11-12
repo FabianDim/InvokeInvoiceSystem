@@ -1,4 +1,5 @@
 # CMake build directories
+__pycache__/
 build/
 out/
 CMakeFiles/

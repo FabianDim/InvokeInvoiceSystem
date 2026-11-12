@@ -107,14 +107,16 @@ void AccountManager::createAccount(std::string& userEmail, std::string& userPass
     }
 
     auto user = std::make_shared<User>(User(userEmail, userPassword));
-    user->setMongoUserID(makeUserID());
     user->setUserEmail(userEmail);
     user->setPassword(storedHash);
     user->setFirstName(firstName);
     user->setLastName(lastName);
 
     auto builder = dataManager.buildNewUser(user);
-    dataManager.insertDocument("Users", builder);
+    std::string id;
+    if (!dataManager.insertDocument("Users", builder.view(), &id))
+        throw std::runtime_error("Could not create account");
+    user->setMongoUserID(id);
 
     accounts[userEmail] = std::move(user);
     currentUser = accounts[userEmail];
@@ -150,27 +152,6 @@ void AccountManager::logOut() {
     }
     currentUser = nullptr;
     std::cout << "Successfully logged out.\n";
-}
-
-std::string AccountManager::makeUserID() {
-
-    auto uID = dataManager.findOne(
-        "counters", make_document(kvp("_id", make_document(kvp("db", "InvokeInvoiceSystem"), kvp("coll", "Users")))));
-
-    int thisUserID = 0;
-    if (uID->view()["user_value"] && uID->view()["user_value"].type() == bsoncxx::type::k_int64) {
-        thisUserID = static_cast<int>(uID->view()["user_value"].get_int64().value + 1);
-        // std::cout << thisUserID;
-    } else {
-        std::cerr << "Something went wrong." << std::endl;
-    } // make 8 digits
-    std::string prefix = "USR";
-    if (std::to_string(thisUserID).size() < 8) {
-        int zerosNeeded = 8 - std::to_string(thisUserID).size();
-
-        prefix += std::string(zerosNeeded, '0') += std::to_string(thisUserID);
-    }
-    return prefix;
 }
 
 void AccountManager::setTestUser(std::shared_ptr<User> user) {

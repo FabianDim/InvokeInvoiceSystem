@@ -25,7 +25,6 @@ class AccountManager : public Invoke::Domain::Accounts::IAccountManager {
     std::shared_ptr<User> getAccount();
     bool is_logged_in() const override;
     void logOut() override;
-    std::string makeUserID();
 
     void setTestUser(std::shared_ptr<User> user);
     void set_authenticated_user(std::shared_ptr<User> user) override { currentUser = std::move(user); }
