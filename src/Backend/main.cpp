@@ -11,6 +11,7 @@ int main(int argc, char* argv[]) {
     QCoreApplication app(argc, argv);
     QCoreApplication::setOrganizationName("Invoke");
     QCoreApplication::setApplicationName("InvokeInvoiceBackend");
+    QCoreApplication::setApplicationVersion(QStringLiteral(INVOKE_APP_VERSION));
     Infrastructure::Logging::initialize(false);
     qCInfo(Infrastructure::Logging::app) << "event=application.starting qt_version=" << qVersion();
     QObject::connect(&app, &QCoreApplication::aboutToQuit, []() {

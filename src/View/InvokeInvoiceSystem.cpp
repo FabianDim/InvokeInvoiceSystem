@@ -1,5 +1,6 @@
 #include "Infrastructure/Logging/Logging.h"
 #include <QApplication>
+#include <QCommandLineParser>
 #include "Infrastructure/Http/FakeServer.h"
 #include <qfile.h>
 #include <QIcon>
@@ -12,6 +13,11 @@ int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     QCoreApplication::setOrganizationName("Invoke");
     QCoreApplication::setApplicationName("InvokeInvoiceSystem");
+    QCoreApplication::setApplicationVersion(QStringLiteral(INVOKE_APP_VERSION));
+    QCommandLineParser commandLine;
+    commandLine.addHelpOption();
+    commandLine.addVersionOption();
+    commandLine.process(app);
     Infrastructure::Logging::initialize(true);
     qCInfo(Infrastructure::Logging::app) << "event=application.starting qt_version=" << qVersion();
     QObject::connect(&app, &QCoreApplication::aboutToQuit, []() {

@@ -125,7 +125,8 @@ cmake --build --preset x64-release --target InvokeInvoiceBackend
 & .\out\build\x64-release\InvokeInvoiceBackend.exe
 ```
 
-With `PORT` unset, visit `http://127.0.0.1:1234/` for the `hello world` response.
+With `PORT` unset, visit `http://127.0.0.1:1234/` for the backend version number
+(for example, `0.1.0`). The Heroku root URL returns the deployed version too.
 Account routes require the MongoDB configuration described above.
 
 With Docker configured to run Linux containers, build from the repository root:
@@ -140,6 +141,70 @@ builder has enough memory. `.dockerignore` excludes local build outputs and `.en
 files. Pass database credentials at runtime, never as Docker build arguments.
 
 ### Push the backend to Heroku
+
+#### GitHub checks and frontend releases
+
+Every push to `main` runs `.github/workflows/main-ci.yml`:
+
+1. Choose a version for the CI builds and frontend release. With the current
+   `0.1.0` base in `vcpkg.json`, workflow runs produce `0.1.1`, `0.1.2`, etc.
+   The patch number is the base patch plus GitHub's workflow run number.
+   Retries retain their version; failed or superseded runs can leave gaps.
+2. Build the Dockerfile's `tests` stage and run every registered CTest entry,
+   including PDF, database health, logging, business session, frontend session,
+   backend server and test-discovery checks. Qt runs offscreen. Database checks
+   use an authenticated, temporary MongoDB service, never the deployed database.
+3. Only after all tests pass, build the Windows x64 frontend, bundle its DLLs,
+   Qt plugins and MSVC runtime, and check the packaged executable's version
+   without developer dependency paths.
+4. Check that the backend's `runtime` Docker image builds successfully.
+5. Publish a GitHub Release tagged `v<version>` at the tested commit, with the
+   Windows ZIP and a SHA-256 checksum. Failed tests or builds prevent publication.
+
+GitHub Actions does not push to Heroku's registry or release the backend. No
+Heroku secrets or production database credentials are needed in GitHub.
+
+Test reports are uploaded as the `test-results` artifact. Dependency layers are
+cached between runs; the first build compiles Qt and can take considerably longer.
+Release workflows are serialized to prevent overlapping publications.
+
+Download the frontend from the repository's
+[Releases page](https://github.com/FabianDim/InvokeInvoiceSystem/releases).
+Extract the entire `InvokeInvoiceSystem-<version>-windows-x64.zip` and run
+`InvokeInvoiceSystem.exe`; keep its DLLs and plugin folders together.
+The executable supports `--version`, and the package includes `VERSION.txt`.
+The GitHub release job uses the built-in `GITHUB_TOKEN` with `contents: write`;
+no separate GitHub publishing token is needed. A draft is published only after
+its assets upload successfully; reruns leave an already published release intact.
+
+Local and Heroku source builds default to the version in `vcpkg.json` (`0.1.0`
+currently). The workflow's incrementing frontend version is a CI build override;
+it does not rewrite the repository version. Override a local build with
+`cmake --preset x64-release -DINVOICE_APP_VERSION="0.1.42"` or
+`docker build --build-arg APP_VERSION=0.1.42 -t invoke-invoice-backend .`.
+Keep this workflow's identity and run counter when maintaining the release
+pipeline; tag collisions with another commit fail instead of replacing a release.
+
+The Python Object ID migration suite is currently unavailable because
+`scripts/migrate_object_ids.py` is absent; CMake does not register it. Restoring
+that suite also requires its Python dependencies and a local MongoDB replica set
+for transactional integration tests. `InvoiceMenuTests.cpp` contains only a
+commented-out test, so it has no executable test cases. All six active C++ suites
+run in this workflow.
+
+#### Heroku-managed automatic deployment
+
+In the Heroku app's **Deploy** tab, connect this GitHub repository, select `main`,
+check **Wait for GitHub checks to pass before deploy**, and select **Enable
+Automatic Deploys**. Heroku then handles deployment after the checks succeed.
+The repository's `heroku.yml` tells Heroku to build `Dockerfile` for the `web`
+process; the final `runtime` stage supplies its startup command. The app must
+use the `container` stack and have its MongoDB runtime config vars configured.
+These dashboard settings must be enabled in Heroku; adding the workflow does
+not change them. See [Heroku GitHub integration](https://devcenter.heroku.com/articles/github-integration)
+and [Docker builds with heroku.yml](https://devcenter.heroku.com/articles/build-docker-images-heroku-yml).
+
+#### Manual deployment
 
 Heroku's registry requires Docker Image Manifest V2, Schema 2. With Docker's
 containerd image store, `heroku container:push` can produce an OCI manifest that

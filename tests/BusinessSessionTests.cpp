@@ -690,12 +690,18 @@ class BusinessSessionTests : public QObject {
         api.invoice_details(QJsonDocument(QJsonObject{}));
         QCOMPARE(failed.count(), 1);
         QVERIFY(server.invoices.isEmpty());
+        int completed = 0;
         for (const auto& id : {QString("65a000000000000000000001"), QString("65a000000000000000000002")}) {
             api.business_selected(QJsonObject{{"_id", id}});
             api.invoice_details(QJsonDocument(QJsonObject{{"BusinessID", "STALE"}, {"ClientID", "65b000000000000000000001"}}));
             QTRY_VERIFY(!server.invoices.isEmpty() && server.invoices.last().value("BusinessID").toString() == id);
             api.get_stock_list();
             QTRY_VERIFY(!server.stock_businesses.isEmpty() && server.stock_businesses.last() == id);
+            // Receipt by the server does not mean the client has handled the reply.
+            // Wait before switching businesses, which deliberately discards stale replies.
+            ++completed;
+            QTRY_COMPARE(started.count(), completed);
+            QTRY_COMPARE(stock.count(), completed);
         }
         QTRY_COMPARE(started.count(), 2);
         QTRY_COMPARE(stock.count(), 2);
