@@ -20,9 +20,13 @@ class InvoiceServices {
     void add_client_to_invoice(const QJsonDocument& doc);
     void begin_invoice_details(const QJsonDocument& doc);
     QByteArray generate_pdf(const QJsonDocument& stock) const;
+    QByteArray complete_pdf(const QJsonDocument& stock, const std::string& user_id);
 
   private:
     Invoice invoice_;
     MongoDBDataManager& db_manager_;
+    QString completion_id_;
+    QByteArray completed_pdf_;
+    QByteArray completed_items_;
 };
 } // namespace Infrastructure::Services

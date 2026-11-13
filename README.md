@@ -353,6 +353,52 @@ In both account and offline mode, only the business name, client name, and stock
 | `CMakeLists.txt` / `CMakePresets.json` | Build targets and Windows build presets. |
 | `vcpkg.json` / `vcpkg-configuration.json` | Dependency manifest and registry configuration. |
 
+## Saving records and business invoice settings
+
+Save on a business, client or stock form returns to the dashboard after the save
+succeeds. **Save and add new business/client/stock item** keeps the form open for
+the next record. Failed saves retain the entered details. Country fields use a
+list; stock margins are entered and shown as percentages (25 means 25%). Stored
+margin values remain fractional for compatibility (0.25).
+
+Select a business on the dashboard, then open **Business invoice settings**.
+The invoice prefix is saved on that business in MongoDB and follows it across
+sign-ins and computers. It defaults to `INV-`; save an empty prefix for numbers
+only. The default PDF folder is saved per business on this computer and survives
+app restarts. Click **Save business invoice settings** to save both defaults.
+
+Invoice numbers are assigned automatically when you continue to invoice items,
+using a persistent, atomic counter per business: `INV-000001`, `INV-000002`, etc.
+Changing the prefix does not reset the counter. Abandoned invoice drafts can leave
+gaps. The assigned number is also the default PDF filename if no name was entered.
+
+Finishing an invoice deducts its saved stock quantities and stores an invoice
+record in one MongoDB transaction. Insufficient stock or an item from another
+business rejects the whole operation without partial deductions. Re-saving the
+same completed invoice PDF does not deduct stock again. New invoice-only items
+do not affect stock. Account invoice completion requires MongoDB Atlas or a
+replica set; standalone MongoDB cannot perform these transactions. Offline demo
+invoices apply the same inventory rules to their temporary records.
+
+Business records show names and details. Right-click a row to view or copy its
+record ID.
+
+To run the HTTP/database regression tests, start an isolated local MongoDB replica
+set, install `pymongo` in your test Python environment, then run:
+
+```powershell
+$env:INVOICE_TEST_MONGODB_URI = 'mongodb://127.0.0.1:27028/?directConnection=true'
+$env:INVOICE_TEST_BACKEND = (Resolve-Path './out/build/x64-release/InvokeInvoiceBackend.exe').Path
+python -m unittest discover -s tests -p test_invoice_workflow.py -v
+```
+
+The suite creates and removes its own test databases. It verifies prefix and
+counter persistence after backend restart, blank prefixes, concurrent numbering,
+stock deductions, repeated exports, transaction rollback and business isolation.
+It can also be registered with CTest using `-DINVOICE_ENABLE_WORKFLOW_TESTS=ON`
+and a Python interpreter with `pymongo` installed; the MongoDB test URI must still
+be supplied explicitly.
+
 ## Development and tests
 
 ### MongoDB identities and upgrading existing data

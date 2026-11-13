@@ -279,6 +279,16 @@
     register_invoice_test(FrontendSession FrontendSessionTests local)
     register_invoice_test(BackendServer BackendServerTests local)
 
+    option(INVOICE_ENABLE_WORKFLOW_TESTS "Run HTTP invoice/stock tests against an explicit local MongoDB replica set" OFF)
+    if(INVOICE_ENABLE_WORKFLOW_TESTS)
+        find_package(Python3 COMPONENTS Interpreter REQUIRED)
+        add_test(NAME InvoiceWorkflow COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s tests -p test_invoice_workflow.py -v)
+        set_tests_properties(InvoiceWorkflow PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            TIMEOUT 180 LABELS "integration;python"
+            ENVIRONMENT "INVOICE_TEST_BACKEND=$<TARGET_FILE:InvokeInvoiceBackend>")
+    endif()
+
     # The migration script may deliberately be absent from this checkout.
     if(EXISTS "${CMAKE_SOURCE_DIR}/scripts/migrate_object_ids.py")
         find_package(Python3 COMPONENTS Interpreter REQUIRED)

@@ -14,6 +14,9 @@ using namespace Infrastructure::Services;
 InvoiceServices::InvoiceServices(MongoDBDataManager& db_manager) : db_manager_(db_manager) {}
 
 void InvoiceServices::clear_session() {
+    completion_id_.clear();
+    completed_pdf_.clear();
+    completed_items_.clear();
     invoice_.clear_invoice();
     invoice_.set_file_name({});
 }
@@ -70,6 +73,9 @@ void InvoiceServices::add_client_to_invoice(const QJsonDocument& doc) {
 }
 
 void Infrastructure::Services::InvoiceServices::begin_invoice_details(const QJsonDocument& doc) {
+    completion_id_ = QString::fromStdString(bsoncxx::oid{}.to_string());
+    completed_pdf_.clear();
+    completed_items_.clear();
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::pdf(), "InvoiceServices.begin_invoice_details");
     auto template_converter = [&](std::string s) -> InvoiceTemplateEnum {
         if (s == "PEECE")
@@ -80,6 +86,21 @@ void Infrastructure::Services::InvoiceServices::begin_invoice_details(const QJso
     invoice_.setDueDate(doc.object().value("date_due").toString().toStdString());
     invoice_.setCurrentDate(doc.object().value("date_created").toString().toStdString());
     invoice_.setTemplate(template_converter(doc.object().value("invoice_theme").toString().toStdString()));
+}
+
+QByteArray InvoiceServices::complete_pdf(const QJsonDocument& stock, const std::string& user_id) {
+    const auto items = stock.toJson(QJsonDocument::Compact);
+    if (!completed_pdf_.isEmpty()) {
+        if (items != completed_items_)
+            throw std::invalid_argument("This invoice is complete. Start a new invoice to change its items.");
+        return completed_pdf_;
+    }
+    const auto pdf = generate_pdf(stock);
+    db_manager_.complete_invoice(user_id, invoice_.getBusiness()->getBizID(), invoice_.getClient()->getClientID(),
+                                 completion_id_, QString::fromStdString(invoice_.getCliInvoiceID()), stock.array());
+    completed_items_ = items;
+    completed_pdf_ = pdf;
+    return completed_pdf_;
 }
 
 // Generate in a backend-owned temporary folder. A desktop path is never a server path.

@@ -15,6 +15,8 @@
 #include "Application/Controllers/AppController.h"
 #include "Utils/BusinessLogo.h"
 #include <QTemporaryDir>
+#include <QSettings>
+#include <QClipboard>
 
 using App::Views::Dashboard;
 using Infrastructure::Http::ApiClient;
@@ -83,6 +85,7 @@ struct RecordingServer {
             ++pdf_requests;
             return QHttpServerResponse(pdf_type, pdf_body, static_cast<QHttpServerResponder::StatusCode>(pdf_status));
         });
+        http.route("/business/list", QHttpServerRequest::Method::Get, []() { return QHttpServerResponse(business_list().object()); });
         http.route("/business/items", QHttpServerRequest::Method::Get,
                    [this](const QHttpServerRequest& request) {
                        const auto id = QUrlQuery(request.url()).queryItemValue("BusinessID");
@@ -93,12 +96,12 @@ struct RecordingServer {
                        return QHttpServerResponse(invalid_items ? QJsonObject{} : business_items(id).object());
                    });
         http.route("/data/<arg>", QHttpServerRequest::Method::Post,
-                   [this](const QString&, const QHttpServerRequest& request) {
+                   [this](const QString& resource, const QHttpServerRequest& request) {
                        saves.append(QJsonDocument::fromJson(request.body()).object());
                        if (fail_saves)
                            return QHttpServerResponse(QJsonObject{{"error", "Stock could not be saved"}},
                                                       QHttpServerResponder::StatusCode::InternalServerError);
-                       return QHttpServerResponse(QJsonObject{{"ok", true}, {"_id", "65c000000000000000000002"}});
+                       return QHttpServerResponse(QJsonObject{{"ok", true}, {"_id", resource == "business" ? "65a000000000000000000001" : "65c000000000000000000002"}});
                    });
         http.route("/invoices/invoice_start", QHttpServerRequest::Method::Post,
                    [this](const QHttpServerRequest& request) {
@@ -124,6 +127,7 @@ struct RecordingServer {
 
 class BusinessSessionTests : public QObject {
     Q_OBJECT
+    QTemporaryDir settings_directory_;
   private slots:
     void online_finish_downloads_pdf_and_retries_failures() {
         RecordingServer server;
@@ -285,6 +289,8 @@ class BusinessSessionTests : public QObject {
     }
 
     void initTestCase() {
+        QSettings::setDefaultFormat(QSettings::IniFormat);
+        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, settings_directory_.path());
 #ifdef Q_OS_WIN
         QFontDatabase::addApplicationFont(qEnvironmentVariable("WINDIR") + "/Fonts/segoeui.ttf");
         QFontDatabase::addApplicationFont(qEnvironmentVariable("WINDIR") + "/Fonts/segoeuib.ttf");
@@ -521,56 +527,94 @@ class BusinessSessionTests : public QObject {
         QVERIFY(!menu->actions().at(1)->isVisible());
     }
 
-    void default_invoice_settings_requires_login_and_clears_on_logout() {
-        RecordingServer server;
-        QVERIFY(server.start());
-        QSignalSpy connections(server.tcp, &QTcpServer::newConnection);
-        TestAccountManager account;
-        ApiClient api(server.url(), &account);
-        App::Views::MainWindow window(account);
-        Application::Controllers::AppController controller(&window, account, &api);
-        window.resize(800, 800);
-        window.show();
-        auto* stack = window.findChild<QStackedWidget*>();
-        auto* settings = window.default_invoice_settings_page();
-        auto* open = button(*window.dashboard_page(), "Default invoice settings");
-        QVERIFY(open);
-        QVERIFY(open->isHidden());
-        controller.page_navigation(Page::DefaultInvoiceSettings);
-        QCOMPARE(stack->currentWidget(), window.login_page());
+    void business_invoice_defaults_persist_and_apply() {
+        const QJsonObject business{{"_id", "defaults-test-business"}, {"BusinessName", "Example business"}, {"InvoicePrefix", "JOB-"}};
+        App::Views::DefaultInvoiceSettings settings;
+        settings.set_business(business);
+        settings.resize(850, 650); settings.show();
+        QVERIFY(settings.grab().save("business-invoice-settings.png"));
+        QCOMPARE(settings.invoice_prefix(), "JOB-");
+        settings.findChild<QLineEdit*>("default_invoice_file_out_path")->setText(settings_directory_.path());
+        settings.findChild<QLineEdit*>("default_invoice_prefix")->clear();
+        QSignalSpy requests(&settings, &App::Views::DefaultInvoiceSettings::save_requested);
+        settings.findChild<QPushButton*>("save_invoice_defaults")->click();
+        QCOMPARE(requests.count(), 1);
+        QCOMPARE(requests.first().first().toJsonObject().value("InvoicePrefix").toString(), "");
+        settings.save_succeeded();
+        settings.reset_form();
+        App::Views::DefaultInvoiceSettings reopened;
+        reopened.set_business(QJsonObject{{"_id", "defaults-test-business"}, {"InvoicePrefix", ""}});
+        QCOMPARE(reopened.invoice_prefix(), "");
+        QCOMPARE(reopened.file_out_path(), settings_directory_.path());
+        App::Views::InvoiceDetailsInput invoice;
+        invoice.prepare_invoice(reopened.invoice_prefix(), reopened.file_out_path());
+        QCOMPARE(invoice.findChild<QLineEdit*>("invoice_file_dir")->text(), settings_directory_.path());
+        QCOMPARE(invoice.findChild<QLineEdit*>("invoice_prefix")->text(), "");
+        QVERIFY(invoice.findChild<QLineEdit*>("invoice_number")->isReadOnly());
+        invoice.number_assigned("000001");
+        QCOMPARE(invoice.findChild<QLineEdit*>("invoice_file_name")->text(), "000001");
+        invoice.prepare_invoice("", reopened.file_out_path());
+        invoice.number_assigned("000002");
+        QCOMPARE(invoice.findChild<QLineEdit*>("invoice_file_name")->text(), "000002");
+        reopened.set_business(QJsonObject{{"_id", "different-business"}});
+        QCOMPARE(reopened.invoice_prefix(), "INV-");
+        QVERIFY(reopened.file_out_path().isEmpty());
+    }
 
-        account.logged_in = true;
-        controller.page_navigation(Page::Dashboard);
-        QVERIFY(!window.dashboard_page()->has_business());
-        QVERIFY(open->isVisible());
-        open->click();
-        QCOMPARE(stack->currentWidget(), settings);
-        settings->findChild<QLineEdit*>("default_invoice_prefix")->setText("INV-");
-        settings->findChild<QLineEdit*>("default_invoice_file_out_path")->setText("C:/Invoices");
-        QCOMPARE(settings->invoice_prefix(), QString("INV-"));
-        QCOMPARE(settings->file_out_path(), QString("C:/Invoices"));
-        QCoreApplication::processEvents();
-        QVERIFY(window.grab().save("default-invoice-settings-ui.png"));
-        settings->findChild<QPushButton*>("default_invoice_back")->click();
-        QCOMPARE(stack->currentWidget(), window.dashboard_page());
-        QCoreApplication::processEvents();
-        QVERIFY(window.grab().save("default-invoice-settings-dashboard.png"));
-        open->click();
-        QCOMPARE(settings->invoice_prefix(), QString("INV-"));
+    void forms_save_add_another_failure_and_country_percentage() {
+        App::Views::ManagementForm stock("Stock", "stock", {"Name", "Price", "Margin"});
+        stock.show();
+        auto fields = stock.findChildren<QLineEdit*>("form_input");
+        fields[0]->setText("Widget"); fields[1]->setText("10"); fields[2]->setText("25");
+        QSignalSpy submissions(&stock, &App::Views::ManagementForm::submit_resource);
+        QSignalSpy navigation(&stock, &App::Views::ManagementForm::navigate_to);
+        stock.findChild<QPushButton*>("register_button_")->click();
+        QCOMPARE(submissions.count(), 1);
+        QCOMPARE(qvariant_cast<QJsonDocument>(submissions.first().at(1)).object().value("Margin").toDouble(), 0.25);
+        QVERIFY(stock.saving());
+        QVERIFY(navigation.isEmpty());
+        stock.save_failed("Please retry");
+        QCOMPARE(fields[0]->text(), "Widget");
+        stock.findChild<QPushButton*>("save_add_new")->click();
+        stock.save_succeeded();
+        QVERIFY(navigation.isEmpty());
+        QVERIFY(fields[0]->text().isEmpty());
+        stock.hide(); stock.show();
+        for (auto* label : stock.findChildren<QLabel*>()) QVERIFY(!label->text().contains("Saved."));
+        fields[0]->setText("Widget 2"); fields[1]->setText("5");
+        stock.findChild<QPushButton*>("register_button_")->click();
+        stock.save_succeeded();
+        QCOMPARE(navigation.count(), 1);
+        App::Views::ManagementForm client("Client", "client", {"Name", "Country"});
+        auto* country = client.findChild<QComboBox*>("form_country");
+        QVERIFY(country); QVERIFY(!country->isEditable()); QVERIFY(country->count() > 150);
+        country->setCurrentIndex(country->findData("Australia"));
+        client.findChild<QLineEdit*>("form_input")->setText("Customer");
+        QSignalSpy data(&client, &App::Views::ManagementForm::submit_resource);
+        client.findChild<QPushButton*>("register_button_")->click();
+        QCOMPARE(qvariant_cast<QJsonDocument>(data.first().at(1)).object().value("Address").toString(), "Australia");
+    }
 
-        window.menuBar()->actions().at(1)->menu()->actions().at(1)->trigger();
-        QVERIFY(!account.is_logged_in());
-        QVERIFY(open->isHidden());
-        QVERIFY(settings->invoice_prefix().isEmpty());
-        QVERIFY(settings->file_out_path().isEmpty());
-        controller.page_navigation(Page::DefaultInvoiceSettings);
-        QCOMPARE(stack->currentWidget(), window.landing_page());
-        controller.start_offline();
-        QVERIFY(open->isHidden());
-        controller.page_navigation(Page::DefaultInvoiceSettings);
-        QCOMPARE(stack->currentWidget(), window.business_settings_page());
-        QTest::qWait(100);
-        QCOMPARE(connections.count(), 0);
+    void offline_numbers_stock_decrement_and_retry() {
+        Application::Invoices::OfflineInvoiceSession session;
+        const auto business = session.save("business", {{"Business name", "A"}}, {});
+        const auto client = session.save("client", {{"Name", "Customer"}}, business);
+        const auto stock = session.save("stock", {{"Name", "Widget"}, {"Quantity", 5}, {"Price", 10}}, business);
+        QTemporaryDir output;
+        QJsonObject details{{"ClientID", client}, {"file_dir", output.path()}, {"invoice_prefix", "JOB-"}};
+        session.begin_invoice(details, business);
+        QCOMPARE(session.invoice_number(), "JOB-000001");
+        const QJsonArray lines{QJsonObject{{"_id", stock}, {"Name", "Widget"}, {"Quantity", 2}, {"Price", 10}}};
+        QVERIFY(QFile::exists(session.generate_pdf(lines)));
+        QCOMPARE(session.stocks.first().toObject().value("Quantity").toInt(), 3);
+        session.generate_pdf(lines);
+        QCOMPARE(session.stocks.first().toObject().value("Quantity").toInt(), 3);
+        details["invoice_prefix"] = "";
+        session.begin_invoice(details, business);
+        QCOMPARE(session.invoice_number(), "000002");
+        const QJsonArray too_many{QJsonObject{{"_id", stock}, {"Name", "Widget"}, {"Quantity", 4}, {"Price", 10}}};
+        QVERIFY_EXCEPTION_THROWN(session.generate_pdf(too_many), std::runtime_error);
+        QCOMPARE(session.stocks.first().toObject().value("Quantity").toInt(), 3);
     }
 
     void dashboard_requires_selection_and_preserves_it_on_refresh() {
@@ -753,8 +797,8 @@ class BusinessSessionTests : public QObject {
         auto* page = window.new_invoice_page();
         auto* clients = page->findChild<QComboBox*>("invoice_client");
         auto* next = page->findChild<QPushButton*>("invoice_next");
-        QCOMPARE(clients->count(), 2);
-        QCOMPARE(server.items_businesses.size(), 1); // Reuses the business-records cache.
+        QTRY_COMPARE(clients->count(), 2);
+        QCOMPARE(server.items_businesses.size(), 2); // Refresh inventory and business settings for each new invoice.
         QVERIFY(!next->isEnabled());
         clients->setCurrentIndex(1);
         QVERIFY(next->isEnabled());
@@ -1065,6 +1109,8 @@ class BusinessSessionTests : public QObject {
         QCOMPARE(data.value("LogoPath").toString(), path);
         const auto bytes = QByteArray::fromBase64(data.value("LogoData").toString().toLatin1());
         QVERIFY(!QImage::fromData(bytes, "PNG").isNull());
+        QCOMPARE(form->findChild<QLineEdit*>("business_logo_path")->text(), path);
+        form->save_succeeded();
         QVERIFY(form->findChild<QLineEdit*>("business_logo_path")->text().isEmpty());
         const auto oversized = directory.filePath("large.png");
         QFile file(oversized);
@@ -1110,13 +1156,25 @@ class BusinessSessionTests : public QObject {
         auto* stock = page->findChild<QTableWidget*>("stock_records");
         QTRY_COMPARE(stock->rowCount(), 1);
         QCOMPARE(stock->item(0, 0)->text(), "Copper pipe");
-        QCOMPARE(stock->item(0, 2)->data(Qt::DisplayRole).toInt(), 10);
-        QCOMPARE(stock->item(0, 6)->text(), "pipe, copper");
+        QCOMPARE(stock->columnCount(), 6);
+        QCOMPARE(stock->item(0, 0)->data(Qt::UserRole).toString(), "65c000000000000000000001");
+        for (int column = 0; column < stock->columnCount(); ++column)
+            QVERIFY(!stock->item(0, column)->text().contains("65c000"));
+        QCOMPARE(stock->item(0, 1)->data(Qt::DisplayRole).toInt(), 10);
+        QCOMPARE(stock->item(0, 5)->text(), "pipe, copper");
         QCOMPARE(stock->editTriggers(), QAbstractItemView::NoEditTriggers);
         auto* tabs = page->findChild<QTabWidget*>();
         QCOMPARE(tabs->count(), 3);
         tabs->setCurrentIndex(1);
         tabs->setCurrentIndex(2);
+        QApplication::clipboard()->clear();
+        QTimer::singleShot(0, stock, [stock]() {
+            auto* menu = stock->findChild<QMenu*>();
+            if (menu) QTest::mouseClick(menu, Qt::LeftButton, Qt::NoModifier,
+                                       menu->actionGeometry(menu->actions().last()).center());
+        });
+        emit stock->customContextMenuRequested(stock->visualItemRect(stock->item(0, 0)).center());
+        QCOMPARE(QApplication::clipboard()->text(), "65c000000000000000000001");
         QCOMPARE(server.items_businesses.size(), 1);
         QVERIFY(window.grab().save("business-records-stock.png"));
         controller.page_navigation(Page::Dashboard);

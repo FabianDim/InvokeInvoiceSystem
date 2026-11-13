@@ -18,6 +18,8 @@ class InvoiceDetailsInput : public QWidget {
     ~InvoiceDetailsInput() = default;
   public slots:
     void reset_form();
+    void prepare_invoice(const QString& prefix, const QString& directory);
+    void number_assigned(const QString& number);
     void business_selected(const QJsonObject& business);
     void load_clients(bool refresh = false);
     void populate_clients(const QJsonDocument& items);

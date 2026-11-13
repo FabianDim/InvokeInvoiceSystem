@@ -16,10 +16,13 @@ class OfflineInvoiceSession {
     QJsonObject items(const QString& business_id) const;
     void clear_invoice();
     void begin_invoice(QJsonObject details, const QString& business_id);
-    QString generate_pdf(const QJsonArray& stock) const;
+    QString generate_pdf(const QJsonArray& stock);
+    QString invoice_number() const { return invoice_details_.value("invoice_number").toString(); }
 
   private:
     quint64 next_id_ = 0;
+    QJsonArray completed_items_;
+    bool completed_ = false;
     QJsonObject invoice_details_;
     QJsonObject invoice_business_;
     QJsonObject invoice_client_;
