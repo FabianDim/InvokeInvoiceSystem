@@ -61,6 +61,15 @@ cmake --build --preset x64-release --target InvokeInvoiceSystem InvokeInvoiceBac
 
 For the offline demo only, you can build just `--target InvokeInvoiceSystem`.
 
+On Windows, vcpkg deploys runtime libraries beside the desktop executable, and
+the build also runs `windeployqt` to deploy its plugins, including
+`platforms/qwindows.dll`.
+To repair missing plugins in an existing build, run
+`cmake --build --preset x64-release --target deploy-qt` (or use the
+`x64-relwithdebinfo` preset). `WindowsDesktopStartup` verifies startup with the
+Windows platform plugin rather than the offscreen test plugin. Release ZIPs use
+the separate packaging script to include the redistributable runtime as well.
+
 For account mode, launch the backend in the terminal where you configured MongoDB:
 
 ```powershell
