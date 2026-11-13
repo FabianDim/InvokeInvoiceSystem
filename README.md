@@ -135,13 +135,21 @@ With Docker configured to run Linux containers, build from the repository root:
 docker build --platform linux/amd64 -t invoke-invoice-backend .
 ```
 
-The first build compiles Qt and can take considerable time and disk space. Build
-parallelism defaults to two jobs; change it with `--build-arg BUILD_JOBS=4` if your
+The Docker build uses `triplets/x64-linux-release.cmake` for both target dependencies
+and host tools. It sets `VCPKG_BUILD_TYPE=release`, skipping Debug dependency builds;
+`CMAKE_BUILD_TYPE=Release` alone does not do this for vcpkg. See the
+[vcpkg build-type documentation](https://learn.microsoft.com/en-us/vcpkg/users/triplets#vcpkg_build_type).
+
+The first build still compiles Qt and can take considerable time and disk space.
+Dependency layers are reused by the same Docker builder when the manifests,
+triplets and preceding Dockerfile instructions are unchanged. Build parallelism
+defaults to two jobs; change it with `--build-arg BUILD_JOBS=4` if your
 builder has enough memory. `.dockerignore` excludes local build outputs and `.env`
 files. Pass database credentials at runtime, never as Docker build arguments.
 
 ### Push the backend to Heroku
 
+<<<<<<< Updated upstream
 #### GitHub checks and frontend releases
 
 Every push to `main` runs `.github/workflows/main-ci.yml`:
@@ -205,6 +213,14 @@ not change them. See [Heroku GitHub integration](https://devcenter.heroku.com/ar
 and [Docker builds with heroku.yml](https://devcenter.heroku.com/articles/build-docker-images-heroku-yml).
 
 #### Manual deployment
+=======
+If a remote build ends with `Build Timeout Expired` while compiling Qt, build on
+your local Docker builder and upload the completed image using the command below.
+Start Docker Desktop with Linux containers enabled first. This keeps compilation
+outside Heroku's remote build deadline; a cold Qt build can exceed that deadline
+even with Release-only dependencies. The timeout alone does not indicate a Qt
+compiler error. Use the same local builder on subsequent builds to reuse its cache.
+>>>>>>> Stashed changes
 
 Heroku's registry requires Docker Image Manifest V2, Schema 2. With Docker's
 containerd image store, `heroku container:push` can produce an OCI manifest that
@@ -495,6 +511,7 @@ ctest --test-dir out/build/x64-release -R '^DatabaseHealth$' --output-on-failure
 | --- | --- |
 | `cl`, `cmake` or `ninja` cannot be found | Use an x64 Developer PowerShell and check that the C++ and CMake build tools are installed. |
 | CMake cannot find the vcpkg toolchain | Set `VCPKG_ROOT` to the bootstrapped vcpkg checkout before configuring. |
+| Docker build ends with `Build Timeout Expired` while compiling Qt | Use the Release-only Docker triplet and the local Buildx upload workflow above. A cold Qt build may still exceed a remote builder's deadline. |
 | Missing DLL or Qt platform plugin errors | Set `PATH` and `QT_PLUGIN_PATH` using the dependency directory for the build you are launching. |
 | Login or signup cannot reach the database | Check that the backend and MongoDB are running, the backend's URI and credentials are correct, and database access is allowed. Restart the backend after changing environment variables. |
 | The UI opens but local API requests fail | Start `InvokeInvoiceBackend.exe` separately on the same computer. Check its terminal for errors and ensure port `1234` is not already used by another process. |
