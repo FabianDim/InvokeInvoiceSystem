@@ -6,6 +6,7 @@
 #include <QRegularExpression>
 #include <cmath>
 #include <stdexcept>
+#include <QMap>
 
 using namespace Application::Invoices;
 
@@ -73,6 +74,8 @@ QJsonObject OfflineInvoiceSession::items(const QString& business_id) const {
 
 void OfflineInvoiceSession::clear_invoice() {
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::offline(), "OfflineInvoiceSession.clear_invoice");
+    completed_ = false;
+    completed_items_ = {};
     invoice_details_ = {};
     invoice_business_ = {};
     invoice_client_ = {};
@@ -90,7 +93,14 @@ void OfflineInvoiceSession::begin_invoice(QJsonObject details, const QString& bu
     if (invoice_client_.isEmpty())
         throw std::runtime_error("Create and select a client for this offline business first.");
     const auto directory = details.value("file_dir").toString();
+    auto business_record = businesses.value(business_id).toObject();
+    const auto sequence = business_record.value("InvoiceSequence").toInteger() + 1;
+    if (details.value("invoice_number").toString().trimmed().isEmpty()) {
+        const auto prefix = details.value("invoice_prefix").toString(business_record.value("InvoicePrefix").toString("INV-"));
+        details["invoice_number"] = prefix + QString::number(sequence).rightJustified(6, '0');
+    }
     auto name = details.value("file_name").toString().trimmed();
+    if (name.isEmpty()) name = details.value("invoice_number").toString();
     if (name.isEmpty() || name.contains(QRegularExpression("[<>:\"/\\\\|?*]")) || name == "." || name == "..")
         throw std::runtime_error("Enter a file name without path separators or reserved characters.");
     if (directory.isEmpty() || !QFileInfo(directory).isDir() || !QFileInfo(directory).isWritable())
@@ -101,11 +111,40 @@ void OfflineInvoiceSession::begin_invoice(QJsonObject details, const QString& bu
     if (!name.endsWith(".pdf", Qt::CaseInsensitive))
         name += ".pdf";
     details["output_path"] = QDir(directory).filePath(name);
+    business_record["InvoiceSequence"] = sequence;
+    businesses[business_id] = business_record;
     invoice_details_ = details;
     invoice_business_ = businesses.value(business_id).toObject();
 }
 
-QString OfflineInvoiceSession::generate_pdf(const QJsonArray& stock) const {
+QString OfflineInvoiceSession::generate_pdf(const QJsonArray& stock) {
+    if (completed_ && stock != completed_items_)
+        throw std::runtime_error("This invoice is complete. Start a new invoice to change its items.");
+    auto updated_stock = stocks;
+    QMap<QString, int> quantities;
+    for (const auto& value : stock) {
+        const auto item = value.toObject();
+        const auto id = item.value("_id").toString();
+        if (id.isEmpty()) continue;
+        const auto quantity = number(item.value("Quantity"));
+        if (quantity < 1 || quantity > 1'000'000 || std::floor(quantity) != quantity || quantities.value(id) > 1'000'000 - quantity)
+            throw std::runtime_error("Invalid stock quantity.");
+        quantities[id] += static_cast<int>(quantity);
+    }
+    if (!completed_) for (auto it = quantities.constBegin(); it != quantities.constEnd(); ++it) {
+        bool found = false;
+        for (int index = 0; index < updated_stock.size(); ++index) {
+            auto record = updated_stock[index].toObject();
+            if (record.value("_id").toString() != it.key() || record.value("BusinessID") != invoice_business_.value("_id")) continue;
+            if (record.value("Quantity").toDouble() < it.value())
+                throw std::runtime_error("Insufficient stock. Refresh stock and try again.");
+            record["Quantity"] = record.value("Quantity").toDouble() - it.value();
+            updated_stock[index] = record;
+            found = true;
+            break;
+        }
+        if (!found) throw std::runtime_error("Stock item does not belong to this business.");
+    }
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::offline(), "OfflineInvoiceSession.generate_pdf");
     if (invoice_details_.isEmpty() || stock.isEmpty())
         throw std::runtime_error("Complete the invoice details and add at least one item.");
@@ -147,5 +186,8 @@ QString OfflineInvoiceSession::generate_pdf(const QJsonArray& stock) const {
     Infrastructure::PDF::InvoicePdfGenerator generator(invoice);
     if (!generator.peece_template())
         throw std::runtime_error("Could not save the PDF. Check the output folder and try again.");
+    stocks = updated_stock;
+    completed_items_ = stock;
+    completed_ = true;
     return path;
 }

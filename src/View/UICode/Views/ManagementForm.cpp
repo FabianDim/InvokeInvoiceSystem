@@ -14,6 +14,8 @@
 #include <QFile>
 #include <QUrl>
 #include <QLocale>
+#include <QComboBox>
+#include <QShowEvent>
 #include <cmath>
 
 namespace App::Views {
@@ -37,6 +39,25 @@ ManagementForm::ManagementForm(const QString& title,
     form_layout_->setSpacing(10);
     form_layout_->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     for (const auto& field : fields) {
+        if (field == "Country") {
+            country_ = new QComboBox(this);
+            country_->setObjectName("form_country");
+            country_->setProperty("role", "input");
+            country_->addItem("Choose a country (optional)", "");
+            QStringList countries;
+            for (const auto& locale : QLocale::matchingLocales(QLocale::AnyLanguage, QLocale::AnyScript, QLocale::AnyTerritory)) {
+                if (locale.territory() != QLocale::AnyTerritory)
+                    countries.append(QLocale::territoryToString(locale.territory()));
+            }
+            countries.removeDuplicates();
+            countries.sort(Qt::CaseInsensitive);
+            for (const auto& country : countries)
+                country_->addItem(country, country);
+            auto* label = UiStyle::label("Country (optional):", this);
+            label->setBuddy(country_);
+            form_layout_->addRow(label, country_);
+            continue;
+        }
         auto* input = new QLineEdit(this);
         input->setObjectName("form_input");
         input->setProperty("role", "input");
@@ -44,6 +65,8 @@ ManagementForm::ManagementForm(const QString& title,
         const bool required = field_required(field);
         input->setProperty("required", required);
         auto label_text = resource_ == "stock" && field == "Quantity" ? QString("Stock on hand") : field;
+        if (resource_ == "stock" && field == "Margin")
+            label_text = "Margin (%)";
         auto* label = new QLabel(label_text + (required ? ":" : " (optional):"), this);
         label->setBuddy(input);
         if (resource_ == "stock" && (field == "Quantity" || field == "Margin"))
@@ -94,6 +117,14 @@ ManagementForm::ManagementForm(const QString& title,
     buttons->setSpacing(12);
     buttons->addWidget(back, 1);
     buttons->addWidget(save, 1);
+    if (resource_ != "account") {
+        const auto noun = resource_ == "stock" ? "stock item" : resource_;
+        auto* another = new QPushButton("Save and add new " + noun, this);
+        another->setObjectName("save_add_new");
+        UiStyle::button(another);
+        buttons->addWidget(another, 1);
+        connect(another, &QPushButton::clicked, this, [this]() { add_another_ = true; submit_form(); });
+    }
     layout->addLayout(buttons);
 
     status_label_ = new QLabel(this);
@@ -102,7 +133,7 @@ ManagementForm::ManagementForm(const QString& title,
     status_label_->setAlignment(Qt::AlignCenter);
     layout->addWidget(status_label_);
 
-    connect(save, &QPushButton::clicked, this, &ManagementForm::submit_form);
+    connect(save, &QPushButton::clicked, this, [this]() { add_another_ = false; submit_form(); });
     connect(back, &QPushButton::clicked, this, [this]() { emit navigate_to(Page::Dashboard); });
 }
 
@@ -117,6 +148,7 @@ bool ManagementForm::field_required(const QString& field) const {
 }
 
 void ManagementForm::submit_form() {
+    if (saving_) return;
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "ManagementForm.submit_form");
     for (int index = 0; index < inputs_.size(); ++index) {
         if (field_required(field_names_[index]) && inputs_[index]->text().trimmed().isEmpty()) {
@@ -132,6 +164,7 @@ void ManagementForm::submit_form() {
         data[key] = inputs_[index]->text().trimmed();
     }
     if (resource_ == "business" || resource_ == "client") {
+        data["Country"] = country_->currentData().toString();
         QStringList address;
         for (const auto& field : {"Street address", "City", "State or province", "Country", "Postcode"}) {
             const auto part = data.value(field).toString();
@@ -154,7 +187,8 @@ void ManagementForm::submit_form() {
                     : QString("Enter a valid, non-negative %1.").arg(QString(field).toLower()));
                 return;
             }
-            data[field] = value;
+            // Stored margins are fractions; the form accepts percentages.
+            data[field] = QString(field) == "Margin" ? value / 100.0 : value;
         }
         if (data.value("Unit").toString().isEmpty())
             data["Unit"] = "each";
@@ -174,19 +208,48 @@ void ManagementForm::submit_form() {
         data["LogoData"] = QString::fromLatin1(logo_data_.toBase64());
     }
     qCDebug(Infrastructure::Logging::ui) << "event=form.validated resource=" << resource_;
+    set_saving(true);
+    set_status(resource_ == "business" ? "Saving business..." : "Saving...");
     emit submit_resource(resource_, QJsonDocument(data));
+}
+
+void ManagementForm::clear_form() {
     if (logo_path_) {
         logo_path_->clear();
         logo_data_.clear();
     }
 
-    for (int index = 0; index < inputs_.size(); ++index) {
-        inputs_[index]->clear();
-        if (!inputs_[index]->text().isEmpty()) {
-            inputs_[index]->setText("");
-        }
-    }
-    return;
+    for (auto* input : inputs_) input->clear();
+    if (country_) country_->setCurrentIndex(0);
+}
+
+void ManagementForm::set_saving(bool saving) {
+    saving_ = saving;
+    for (auto* button : findChildren<QPushButton*>()) button->setEnabled(!saving);
+    for (auto* input : inputs_) input->setEnabled(!saving);
+    if (country_) country_->setEnabled(!saving);
+}
+
+void ManagementForm::save_succeeded() {
+    if (!saving_) return;
+    set_saving(false);
+    clear_form();
+    set_status("");
+    if (resource_ != "account" && !add_another_)
+        emit navigate_to(Page::Dashboard);
+    else
+        set_status(resource_ == "account" ? "Account saved." : "Saved. You can add another " + resource_ + ".");
+}
+
+void ManagementForm::save_failed(const QString& message) {
+    if (!saving_) return;
+    set_saving(false);
+    set_status(message);
+}
+
+void ManagementForm::showEvent(QShowEvent* event) {
+    QWidget::showEvent(event);
+    if (!saving_) set_status("");
 }
 
 void ManagementForm::select_logo(const QString& path) {
@@ -218,6 +281,8 @@ void ManagementForm::set_status(const QString& message) {
 } // namespace App::Views
 
 void App::Views::ManagementForm::set_offline(bool offline) {
+    set_saving(false);
+    if (country_) country_->setCurrentIndex(0);
     for (auto* input : inputs_)
         input->clear();
     if (logo_path_)

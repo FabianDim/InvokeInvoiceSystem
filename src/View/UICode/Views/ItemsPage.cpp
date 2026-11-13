@@ -4,6 +4,10 @@
 #include <QHeaderView>
 #include <QJsonArray>
 #include <QVBoxLayout>
+#include <QMenu>
+#include <QApplication>
+#include <QClipboard>
+#include <QMessageBox>
 
 using namespace App::Views;
 
@@ -37,14 +41,31 @@ void ItemsPage::create_page_layout() {
         table->verticalHeader()->hide();
         table->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
         table->horizontalHeader()->setStretchLastSection(true);
+        table->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(table, &QTableWidget::customContextMenuRequested, this, [this, table](const QPoint& point) {
+            auto* cell = table->itemAt(point);
+            if (!cell) return;
+            const auto id = cell->data(Qt::UserRole).toString();
+            if (id.isEmpty()) return;
+            QMenu menu(table);
+            auto* view = menu.addAction("View record ID");
+            auto* copy = menu.addAction("Copy record ID");
+            auto* selected = menu.exec(table->viewport()->mapToGlobal(point));
+            if (selected == copy) QApplication::clipboard()->setText(id);
+            if (selected == view) {
+                QMessageBox dialog(QMessageBox::Information, "Record ID", id, QMessageBox::Ok, this);
+                dialog.setTextInteractionFlags(Qt::TextSelectableByMouse);
+                dialog.exec();
+            }
+        });
         tabs_->addTab(table, title);
         return table;
     };
     business_table_ = add_table("Business", "business_records",
-                                {"Name", "Business ID", "ABN", "ACN", "Phone", "Address", "Website", "Logo path"});
-    clients_table_ = add_table("Clients", "client_records", {"Name", "Client ID", "Phone", "Email", "Address"});
+                                {"Name", "ABN", "ACN", "Phone", "Address", "Website", "Logo path"});
+    clients_table_ = add_table("Clients", "client_records", {"Name", "Phone", "Email", "Address"});
     stock_table_ = add_table("Stock", "stock_records",
-                             {"Name", "Stock ID", "Quantity", "Price", "Margin", "Unit", "Keywords"});
+                             {"Name", "Quantity", "Price", "Margin", "Unit", "Keywords"});
     layout->addWidget(tabs_, 1);
 
     status_label_ = UiStyle::label("", this, "status");
@@ -69,7 +90,7 @@ void ItemsPage::business_selected(const QJsonObject& business) {
     ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::ui(), "ItemsPage.business_selected");
     const auto id = business.value("_id").toString();
     business_label_->setText(id.isEmpty() ? "Choose a business on the home page."
-                                        : business.value("BusinessName").toString(id) + " (" + id + ")");
+                                        : business.value("BusinessName").toString("Business"));
     if (id != business_id_ || id.isEmpty()) {
         business_id_ = id;
         for (auto* table : {business_table_, clients_table_, stock_table_})
@@ -108,6 +129,9 @@ void ItemsPage::populate_table(QTableWidget* table, const QJsonArray& items, con
             } else {
                 cell->setData(Qt::DisplayRole, value.toVariant());
             }
+            if (fields.at(column) == "Margin")
+                cell->setText(QString::number(value.toDouble() * 100, 'g', 8) + "%");
+            cell->setData(Qt::UserRole, record.value("_id").toString());
             cell->setToolTip(cell->text());
             table->setItem(row, column, cell);
         }
@@ -126,9 +150,9 @@ void ItemsPage::populate_items(const QJsonDocument& items) {
     const auto businesses = data.value("businesses").toArray();
     const auto clients = data.value("clients").toArray();
     const auto stock = data.value("stocks").toArray();
-    populate_table(business_table_, businesses, {"BusinessName", "_id", "ABN", "ACN", "Phone", "BusinessAddress", "Website", "LogoPath"});
-    populate_table(clients_table_, clients, {"Name", "_id", "Phone", "Email", "Address"});
-    populate_table(stock_table_, stock, {"Name", "_id", "Quantity", "Price", "Margin", "Unit", "Keywords"});
+    populate_table(business_table_, businesses, {"BusinessName", "ABN", "ACN", "Phone", "BusinessAddress", "Website", "LogoPath"});
+    populate_table(clients_table_, clients, {"Name", "Phone", "Email", "Address"});
+    populate_table(stock_table_, stock, {"Name", "Quantity", "Price", "Margin", "Unit", "Keywords"});
     tabs_->setTabText(0, QString("Business (%1)").arg(businesses.size()));
     tabs_->setTabText(1, QString("Clients (%1)").arg(clients.size()));
     tabs_->setTabText(2, QString("Stock (%1)").arg(stock.size()));

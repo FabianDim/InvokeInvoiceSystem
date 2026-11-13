@@ -9,6 +9,7 @@
 class QFormLayout;
 class QLineEdit;
 class QLabel;
+class QComboBox;
 
 namespace App::Views {
 class ManagementForm : public QWidget {
@@ -24,6 +25,12 @@ class ManagementForm : public QWidget {
     void set_status(const QString& message);
     void set_offline(bool offline);
     void select_logo(const QString& path);
+    void save_succeeded();
+    void save_failed(const QString& message);
+    bool saving() const { return saving_; }
+
+  protected:
+    void showEvent(QShowEvent* event) override;
 
   private:
     bool field_required(const QString& field) const;
@@ -35,5 +42,10 @@ class ManagementForm : public QWidget {
     QString resource_;
     QLineEdit* logo_path_ = nullptr;
     QByteArray logo_data_;
+    QComboBox* country_ = nullptr;
+    bool saving_ = false;
+    bool add_another_ = false;
+    void set_saving(bool saving);
+    void clear_form();
 };
 } // namespace App::Views

@@ -27,6 +27,7 @@ void NewInvoiceStock::reset_invoice() {
             input->clear();
     }
     create_invoice_pdf->setEnabled(true);
+    create_invoice_pdf->setText("Finish invoice");
     new_name_->clear();
     unit_->clear();
     keywords_->clear();
@@ -178,6 +179,7 @@ QLayout* NewInvoiceStock::create_item_entry_form() {
     stock_on_hand_->setObjectName("new_stock_on_hand");
     margin_ = new QDoubleSpinBox(saved_fields_);
     margin_->setRange(0, 1'000'000);
+    margin_->setSuffix("%");
     margin_->setObjectName("new_stock_margin");
     unit_ = new QLineEdit(saved_fields_);
     unit_->setObjectName("new_stock_unit");
@@ -227,7 +229,7 @@ QLayout* NewInvoiceStock::create_item_entry_form() {
             item["_id"] = selected.value("_id");
         if (is_new && save_stock_->isChecked()) {
             item["StockOnHand"] = stock_on_hand_->value();
-            item["Margin"] = margin_->value();
+            item["Margin"] = margin_->value() / 100.0;
             item["Unit"] = unit_->text().trimmed().isEmpty() ? "each" : unit_->text().trimmed();
             item["Keywords"] = keywords_->text().trimmed();
             set_saving_stock(true);
@@ -314,6 +316,8 @@ void NewInvoiceStock::pdf_generated(const QString& path) {
     saving_pdf_ = false;
     set_saving_stock(false);
     status_label_->setText("PDF saved to " + path);
+    entry_widget_->setEnabled(false);
+    create_invoice_pdf->setText("Save PDF again");
 }
 
 void NewInvoiceStock::pdf_failed(const QString& message) {

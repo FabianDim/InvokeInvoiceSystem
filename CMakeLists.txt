@@ -279,6 +279,16 @@
     register_invoice_test(FrontendSession FrontendSessionTests local)
     register_invoice_test(BackendServer BackendServerTests local)
 
+    option(INVOICE_ENABLE_WORKFLOW_TESTS "Run HTTP invoice/stock tests against an explicit local MongoDB replica set" OFF)
+    if(INVOICE_ENABLE_WORKFLOW_TESTS)
+        find_package(Python3 COMPONENTS Interpreter REQUIRED)
+        add_test(NAME InvoiceWorkflow COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s tests -p test_invoice_workflow.py -v)
+        set_tests_properties(InvoiceWorkflow PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            TIMEOUT 180 LABELS "integration;python"
+            ENVIRONMENT "INVOICE_TEST_BACKEND=$<TARGET_FILE:InvokeInvoiceBackend>")
+    endif()
+
     # The migration script may deliberately be absent from this checkout.
     if(EXISTS "${CMAKE_SOURCE_DIR}/scripts/migrate_object_ids.py")
         find_package(Python3 COMPONENTS Interpreter REQUIRED)
@@ -292,6 +302,29 @@
 
     # JPEG logos need Qt's image-format plugin beside locally built executables.
     if(WIN32)
+        # Qt's install-time deployment script does not populate the build folder.
+        # Deploy desktop plugins here too, so launching the built EXE works without
+        # a developer QT_PLUGIN_PATH (the tests only deploy qoffscreen.dll).
+        set(INVOICE_DEPLOY_QT_COMMAND Qt6::windeployqt
+            $<IF:$<CONFIG:Debug>,--debug,--release>
+            # vcpkg already deploys the linked DLLs. Leave those alone so a
+            # running local backend does not lock shared DLLs during this step.
+            --no-libraries --no-translations --no-compiler-runtime --no-patchqt
+            "$<TARGET_FILE:InvokeInvoiceSystem>")
+        add_custom_command(TARGET InvokeInvoiceSystem POST_BUILD
+            COMMAND ${INVOICE_DEPLOY_QT_COMMAND}
+            COMMENT "Deploying Qt desktop plugins"
+            VERBATIM)
+        add_custom_target(deploy-qt
+            COMMAND ${INVOICE_DEPLOY_QT_COMMAND}
+            DEPENDS InvokeInvoiceSystem
+            COMMENT "Refreshing Qt desktop deployment"
+            VERBATIM)
+        add_dependencies(all-tests InvokeInvoiceSystem)
+        add_test(NAME WindowsDesktopStartup COMMAND InvokeInvoiceSystem --version)
+        set_tests_properties(WindowsDesktopStartup PROPERTIES
+            ENVIRONMENT "QT_QPA_PLATFORM=windows;QT_PLUGIN_PATH=;QT_QPA_PLATFORM_PLUGIN_PATH=;QT_ASSUME_STDERR_HAS_CONSOLE=1"
+            TIMEOUT 30 LABELS "local;smoke")
         find_package(libjpeg-turbo CONFIG REQUIRED)
         foreach(invoice_target InvokeInvoiceBackend InvokeInvoiceSystem ${INVOICE_TEST_TARGETS})
             add_custom_command(TARGET ${invoice_target} POST_BUILD

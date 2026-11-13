@@ -77,9 +77,21 @@ void Server::create_routes_invoices() {
                           session->invoice = std::make_shared<Infrastructure::Services::InvoiceServices>(db_manager_);
                           session->invoice->add_business_to_invoice(QJsonDocument(businesses.value(business_id).toObject()));
                           session->invoice->add_client_to_invoice(QJsonDocument(selected_client));
-                          session->invoice->begin_invoice_details(doc);
+                          auto details = doc.object();
+                          try {
+                              if (details.value("invoice_number").toString().trimmed().isEmpty()) {
+                                  const auto business = businesses.value(business_id).toObject();
+                                  const auto prefix = business.value("InvoicePrefix").toString("INV-");
+                                  details["invoice_number"] = db_manager_.reserve_invoice_number(session->user_id, business_id.toStdString(), prefix);
+                              }
+                              session->invoice->begin_invoice_details(QJsonDocument(details));
+                          } catch (const std::exception&) {
+                              session->invoice.reset();
+                              return QHttpServerResponse(QJsonObject{{"error", "Could not assign an invoice number."}},
+                                                         QHttpServerResponse::StatusCode::BadRequest);
+                          }
                           qCDebug(Infrastructure::Logging::pdf) << "event=invoice.session.ready";
-                          return QHttpServerResponse("application/json", "{\"ok\":true}", QHttpServerResponse::StatusCode::Ok);
+                          return QHttpServerResponse(QJsonObject{{"ok", true}, {"invoice_number", details.value("invoice_number")}});
                       }));
     httpServer_.route("/invoices/stock-list",
                       QHttpServerRequest::Method::Post,
@@ -97,7 +109,7 @@ void Server::create_routes_invoices() {
                               return QHttpServerResponse(QJsonObject{{"error", "Expected an invoice item list."}},
                                                          QHttpServerResponse::StatusCode::BadRequest);
                           try {
-                              QHttpServerResponse response("application/pdf", session->invoice->generate_pdf(doc));
+                              QHttpServerResponse response("application/pdf", session->invoice->complete_pdf(doc, session->user_id));
                               auto headers = response.headers();
                               headers.append("Cache-Control", "no-store");
                               response.setHeaders(std::move(headers));
@@ -113,6 +125,19 @@ void Server::create_routes_invoices() {
 }
 
 void Server::create_routes_business() {
+    httpServer_.route("/business/invoice-settings", QHttpServerRequest::Method::Post,
+        Infrastructure::Logging::tracedRoute("/business/invoice-settings", [this](const QHttpServerRequest& request) -> QHttpServerResponse {
+            const auto session = session_for(request);
+            if (!session) return QHttpServerResponse(QJsonObject{{"error", "Please sign in again."}}, QHttpServerResponse::StatusCode::Unauthorized);
+            try {
+                const auto doc = QJsonDocument::fromJson(request.body());
+                if (!doc.isObject() || !db_manager_.save_invoice_settings(session->user_id, doc.object()))
+                    return QHttpServerResponse(QJsonObject{{"error", "Choose your business and a prefix of at most 40 characters."}}, QHttpServerResponse::StatusCode::BadRequest);
+                return QHttpServerResponse(QJsonObject{{"ok", true}});
+            } catch (const std::exception&) {
+                return QHttpServerResponse(QJsonObject{{"error", "Could not save business invoice settings."}}, QHttpServerResponse::StatusCode::InternalServerError);
+            }
+        }));
     httpServer_.route("/business/items", QHttpServerRequest::Method::Get,
                       Infrastructure::Logging::tracedRoute("/business/items", [this](const QHttpServerRequest& request) -> QHttpServerResponse {
         const auto session = session_for(request);

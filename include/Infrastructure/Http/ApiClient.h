@@ -20,6 +20,7 @@ class ApiClient : public QObject {
     void do_login(const QString& email, const QString& password, bool remember);
     void do_signup(const QJsonDocument& details);
     void get_business_list();
+    void save_invoice_settings(const QJsonObject& settings);
     void get_stock_list();
     void business_selected(const QJsonObject& biz);
     void invoice_details(const QJsonDocument& invoice);
@@ -29,6 +30,12 @@ class ApiClient : public QObject {
     void get_business_items(bool refresh = false);
     void clear_session();
   signals:
+    void business_created(const QString& id);
+    void business_list_loading();
+    void business_list_failed(const QString& message);
+    void invoice_settings_saved();
+    void invoice_settings_failed(const QString& message);
+    void invoice_number_assigned(const QString& number);
     void business_list_received(const QJsonDocument& list);
     void stock_list_received(const QJsonDocument& list);
     void invoice_started();
