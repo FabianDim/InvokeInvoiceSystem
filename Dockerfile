@@ -67,14 +67,21 @@ RUN "${VCPKG_ROOT}/vcpkg" install \
       --clean-after-build
 
 COPY . .
+ARG APP_VERSION=""
 # Use the installed executable explicitly so project files cannot affect lookup.
 RUN /usr/bin/cmake -S . -B build -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
+      ${APP_VERSION:+-DINVOICE_APP_VERSION=${APP_VERSION}} \
       -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake \
       -DVCPKG_TARGET_TRIPLET=x64-linux \
       -DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed \
     && /usr/bin/cmake --build build --target InvokeInvoiceBackend --parallel "${BUILD_JOBS}"
 
+FROM builder AS tests
+RUN /usr/bin/cmake --build build --target all-tests --parallel "${BUILD_JOBS}"
+CMD ["/usr/bin/ctest", "--test-dir", "/app/build", "--output-on-failure", "--no-tests=error"]
+
+FROM builder AS runtime
 # Retain build tools and installed libraries in this initial image.
 # The application itself does not need root privileges.
 RUN useradd --create-home --uid 10001 appuser \

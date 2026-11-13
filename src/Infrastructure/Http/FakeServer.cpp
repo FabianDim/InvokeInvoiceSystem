@@ -27,7 +27,9 @@ std::shared_ptr<Infrastructure::Http::AuthSessions::Session> Server::session_for
 }
 
 void Server::create_routes_basic() {
-    httpServer_.route("/", Infrastructure::Logging::tracedRoute("/", [](const QHttpServerRequest&) { return QHttpServerResponse("hello world"); }));
+    httpServer_.route("/", Infrastructure::Logging::tracedRoute("/", [](const QHttpServerRequest&) {
+        return QHttpServerResponse("text/plain; charset=utf-8", QByteArray(INVOKE_APP_VERSION));
+    }));
 }
 
 void Server::create_routes_invoices() {

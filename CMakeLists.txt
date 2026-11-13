@@ -1,6 +1,14 @@
-﻿    cmake_minimum_required(VERSION 3.10...3.24)
+﻿    cmake_minimum_required(VERSION 3.24)
 
     project(InvokeInvoiceSystem LANGUAGES CXX)
+
+    file(READ "${CMAKE_SOURCE_DIR}/vcpkg.json" INVOICE_MANIFEST)
+    string(JSON INVOICE_BASE_VERSION GET "${INVOICE_MANIFEST}" version-string)
+    set(INVOICE_APP_VERSION "${INVOICE_BASE_VERSION}" CACHE STRING "Application release version")
+    if(NOT INVOICE_APP_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+        message(FATAL_ERROR "INVOICE_APP_VERSION must be major.minor.patch")
+    endif()
+    add_compile_definitions(INVOKE_APP_VERSION="${INVOICE_APP_VERSION}")
 
     set(CMAKE_CXX_STANDARD 20)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -156,6 +164,9 @@
     install(SCRIPT ${deploy_script})
     qt_finalize_executable(InvokeInvoiceSystem
         src/View/UICode/Views/SignupPage.cpp)
+    # Static Qt builds (including Linux/vcpkg) must link the headless platform
+    # plugin explicitly for the offscreen CTest environment.
+    qt_import_plugins(InvokeInvoiceSystemTests INCLUDE Qt6::QOffscreenIntegrationPlugin)
     qt_finalize_executable(InvokeInvoiceSystemTests)
 
     # Live, read-only MongoDB health checks use the same environment as the application.
@@ -245,6 +256,8 @@
         $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
         $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
     )
+    qt_import_plugins(BusinessSessionTests INCLUDE Qt6::QOffscreenIntegrationPlugin)
+
     # Build every executable with one command. Discovery starts each Qt Test runner
     # without executing test bodies or contacting the database.
     set(INVOICE_TEST_TARGETS InvokeInvoiceSystemTests DatabaseTests LoggingTests

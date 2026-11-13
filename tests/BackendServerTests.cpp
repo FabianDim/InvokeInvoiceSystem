@@ -73,7 +73,7 @@ class BackendServerTests : public QObject {
         QVERIFY(server.is_listening());
         const auto response = request(port_, "/");
         QCOMPARE(response.status, 200);
-        QCOMPARE(response.body, QByteArray("hello world"));
+        QCOMPARE(response.body, QByteArray(INVOKE_APP_VERSION));
     }
 
     void occupied_port_reports_failure_and_new_server_can_start() {

@@ -1,0 +1,201 @@
+name: Test, build and release frontend
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Serialize release workflows so versioned frontend publications do not overlap.
+concurrency:
+  group: main-ci-release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Select release version
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Derive a stable version for this workflow run
+        id: version
+        run: |
+          python3 .github/scripts/release-version.py >> "$GITHUB_OUTPUT"
+
+  test:
+    name: All available tests
+    needs: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    services:
+      mongodb:
+        image: mongo:8.0
+        env:
+          # Disposable credentials used only by this job's database.
+          MONGO_INITDB_ROOT_USERNAME: invoice_ci
+          MONGO_INITDB_ROOT_PASSWORD: invoice_ci_password
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'quit(db.adminCommand({ping:1}).ok ? 0 : 1)'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v3
+      - name: Build all test executables
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: tests
+          build-args: APP_VERSION=${{ needs.version.outputs.version }}
+          platforms: linux/amd64
+          load: true
+          tags: invoke-invoice-tests:ci
+          cache-from: type=gha,scope=invoice
+          cache-to: type=gha,mode=max,scope=invoice
+      - name: Run every registered CTest suite
+        env:
+          MONGODB_URI: mongodb://invoice_ci:invoice_ci_password@127.0.0.1:27017/InvokeInvoiceSystemCI?authSource=admin
+          MONGODB_DATABASE: InvokeInvoiceSystemCI
+        run: |
+          mkdir -p test-results
+          docker run --rm --network host \
+            --env MONGODB_URI --env MONGODB_DATABASE \
+            --volume "$PWD/test-results:/test-results" \
+            invoke-invoice-tests:ci \
+            /usr/bin/ctest --test-dir /app/build --output-on-failure \
+              --no-tests=error --output-junit /test-results/ctest.xml
+      - name: Save test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
+          if-no-files-found: ignore
+
+  frontend:
+    name: Build Windows frontend
+    needs: [version, test]
+    runs-on: windows-2022
+    timeout-minutes: 360
+    env:
+      VCPKG_MAX_CONCURRENCY: 2
+      VCPKG_DISABLE_METRICS: 1
+      APP_VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Set dependency directories
+        shell: pwsh
+        run: |
+          "VCPKG_ROOT=$env:RUNNER_TEMP/invoice-vcpkg" >> $env:GITHUB_ENV
+          "VCPKG_DEFAULT_BINARY_CACHE=$env:RUNNER_TEMP/vcpkg-cache" >> $env:GITHUB_ENV
+      - name: Cache Windows dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/vcpkg-cache
+          key: vcpkg-windows-2022-x64-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: vcpkg-windows-2022-x64-
+      - name: Bootstrap pinned vcpkg
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
+          $baseline = (Get-Content vcpkg-configuration.json -Raw | ConvertFrom-Json).'default-registry'.baseline
+          git init $env:VCPKG_ROOT
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          git -C $env:VCPKG_ROOT remote add origin https://github.com/microsoft/vcpkg.git
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          git -C $env:VCPKG_ROOT fetch --depth 1 origin $baseline
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          git -C $env:VCPKG_ROOT checkout --detach FETCH_HEAD
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & "$env:VCPKG_ROOT/bootstrap-vcpkg.bat" -disableMetrics
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Build versioned frontend
+        shell: pwsh
+        run: |
+          cmake --preset x64-release "-DINVOICE_APP_VERSION=$env:APP_VERSION"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake --build --preset x64-release --target InvokeInvoiceSystem --parallel 2
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Package and smoke-test Windows frontend
+        shell: pwsh
+        run: ./.github/scripts/package-frontend.ps1 -Version $env:APP_VERSION
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-windows
+          path: |
+            out/release/*.zip
+            out/release/*.sha256
+          if-no-files-found: error
+
+  backend:
+    name: Check backend Docker image
+    needs: [version, test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runtime
+          build-args: APP_VERSION=${{ needs.version.outputs.version }}
+          platforms: linux/amd64
+          outputs: type=cacheonly
+          cache-from: type=gha,scope=invoice
+
+  release:
+    name: Publish frontend on GitHub
+    needs: [version, frontend, backend]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      APP_VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-windows
+          path: release-assets
+      - name: Publish versioned ZIP and checksum
+        run: |
+          tag="v$APP_VERSION"
+          if git rev-parse --verify "refs/tags/$tag" >/dev/null 2>&1; then
+            test "$(git rev-parse "$tag^{commit}")" = "$GITHUB_SHA" || {
+              echo "::error::Release tag $tag already belongs to another commit."
+              exit 1
+            }
+          fi
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --target "$GITHUB_SHA" --draft \
+              --title "InvokeInvoiceSystem $APP_VERSION" --generate-notes
+          fi
+          # Published releases are immutable on reruns; only finish an incomplete draft.
+          if [ "$(gh release view "$tag" --json isDraft --jq .isDraft)" = true ]; then
+            gh release upload "$tag" release-assets/*.zip release-assets/*.sha256 --clobber
+            gh release edit "$tag" --draft=false --latest
+          fi
