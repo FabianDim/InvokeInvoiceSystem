@@ -67,8 +67,23 @@ the build also runs `windeployqt` to deploy its plugins, including
 To repair missing plugins in an existing build, run
 `cmake --build --preset x64-release --target deploy-qt` (or use the
 `x64-relwithdebinfo` preset). `WindowsDesktopStartup` verifies startup with the
-Windows platform plugin rather than the offscreen test plugin. Release ZIPs use
-the separate packaging script to include the redistributable runtime as well.
+Windows platform plugin rather than the offscreen test plugin. Shared-build ZIPs
+use the packaging script to include the redistributable runtime as well.
+
+To build the frontend as a single executable with Qt, its plugins and the MSVC
+runtime linked statically, use the static preset:
+
+```powershell
+cmake --preset x64-static-release
+cmake --build --preset x64-static-release --target InvokeInvoiceSystem
+./.github/scripts/package-frontend.ps1 -Version 0.1.0 -BuildDirectory out/build/x64-static-release -Static
+```
+
+Use the configured `INVOICE_APP_VERSION` for `-Version` if you override it.
+The static build does not run `windeployqt` or copy plugin DLLs. Its executable
+can run on its own. Packaging writes a versioned `.exe`, its `.exe.sha256`
+checksum and a separate `-licenses.txt` file to `out/release`. Account mode still
+requires a backend connection.
 
 For account mode, launch the backend in the terminal where you configured MongoDB:
 
@@ -171,12 +186,15 @@ Every push to `main` runs `.github/workflows/main-ci.yml`:
    including PDF, database health, logging, business session, frontend session,
    backend server and test-discovery checks. Qt runs offscreen. Database checks
    use an authenticated, temporary MongoDB service, never the deployed database.
-3. Only after all tests pass, build the Windows x64 frontend, bundle its DLLs,
-   Qt plugins and MSVC runtime, and check the packaged executable's version
-   without developer dependency paths.
+3. Only after all tests pass, build the Windows x64 frontend with static Qt,
+   plugins and MSVC runtime. Reject non-system DLL imports and check the
+   executable's version with only the EXE in its folder and no developer
+   dependency paths.
 4. Check that the backend's `runtime` Docker image builds successfully.
 5. Publish a GitHub Release tagged `v<version>` at the tested commit, with the
-   Windows ZIP and a SHA-256 checksum. Failed tests or builds prevent publication.
+   standalone Windows EXE, a SHA-256 checksum and separate dependency notices.
+   GitHub provides separate source-code ZIP and tar.gz downloads for that tag.
+   Failed tests or builds prevent publication.
 
 GitHub Actions does not push to Heroku's registry or release the backend. No
 Heroku secrets or production database credentials are needed in GitHub.
@@ -187,9 +205,12 @@ Release workflows are serialized to prevent overlapping publications.
 
 Download the frontend from the repository's
 [Releases page](https://github.com/FabianDim/InvokeInvoiceSystem/releases).
-Extract the entire `InvokeInvoiceSystem-<version>-windows-x64.zip` and run
-`InvokeInvoiceSystem.exe`; keep its DLLs and plugin folders together.
-The executable supports `--version`, and the package includes `VERSION.txt`.
+Download and run `InvokeInvoiceSystem-<version>-windows-x64.exe` directly.
+No DLLs, Qt plugin folders or runtime installer need to accompany it.
+The executable supports `--version`. The `.exe.sha256` asset verifies the download;
+`-licenses.txt` contains dependency notices and is not required to run the app.
+Use the separate **Source code (zip)** or **Source code (tar.gz)** downloads to
+get the matching source, build configuration and dependency manifest.
 The GitHub release job uses the built-in `GITHUB_TOKEN` with `contents: write`;
 no separate GitHub publishing token is needed. A draft is published only after
 its assets upload successfully; reruns leave an already published release intact.

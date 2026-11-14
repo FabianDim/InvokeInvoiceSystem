@@ -132,14 +132,15 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           cmake --build --preset x64-static-release --target InvokeInvoiceSystem --parallel 2
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-      - name: Package and smoke-test Windows frontend
+      - name: Verify and stage standalone frontend EXE
         shell: pwsh
         run: ./.github/scripts/package-frontend.ps1 -Version $env:APP_VERSION -BuildDirectory out/build/x64-static-release -Static
       - uses: actions/upload-artifact@v4
         with:
           name: frontend-windows
           path: |
-            out/release/*.zip
+            out/release/*.exe
+            out/release/*-licenses.txt
             out/release/*.sha256
           if-no-files-found: error
 
@@ -181,7 +182,8 @@ jobs:
         with:
           name: frontend-windows
           path: release-assets
-      - name: Publish versioned ZIP and checksum
+      # GitHub adds separate source-code ZIP/tar.gz downloads for the release tag.
+      - name: Publish standalone EXE, notices and checksum
         run: |
           tag="v$APP_VERSION"
           if git rev-parse --verify "refs/tags/$tag" >/dev/null 2>&1; then
@@ -196,6 +198,6 @@ jobs:
           fi
           # Published releases are immutable on reruns; only finish an incomplete draft.
           if [ "$(gh release view "$tag" --json isDraft --jq .isDraft)" = true ]; then
-            gh release upload "$tag" release-assets/*.zip release-assets/*.sha256 --clobber
+            gh release upload "$tag" release-assets/*.exe release-assets/*-licenses.txt release-assets/*.sha256 --clobber
             gh release edit "$tag" --draft=false --latest
           fi

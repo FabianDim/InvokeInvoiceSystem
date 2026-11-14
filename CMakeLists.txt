@@ -8,6 +8,7 @@
     if(NOT INVOICE_APP_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
         message(FATAL_ERROR "INVOICE_APP_VERSION must be major.minor.patch")
     endif()
+    string(REPLACE "." "," INVOICE_FILE_VERSION_COMMAS "${INVOICE_APP_VERSION},0")
     add_compile_definitions(INVOKE_APP_VERSION="${INVOICE_APP_VERSION}")
 
     set(CMAKE_CXX_STANDARD 20)
@@ -108,6 +109,16 @@
     set(CMAKE_AUTORCC ON)
     set_target_properties(InvokeInvoiceSystem PROPERTIES AUTORCC ON)
     target_sources(InvokeInvoiceSystem PRIVATE forms/Invoice_Resources.qrc)
+    if(WIN32)
+        configure_file(
+            "${CMAKE_SOURCE_DIR}/InvokeInvoiceSystem.rc.in"
+            "${CMAKE_CURRENT_BINARY_DIR}/InvokeInvoiceSystem.rc"
+            @ONLY
+        )
+        target_sources(InvokeInvoiceSystem PRIVATE
+            "${CMAKE_CURRENT_BINARY_DIR}/InvokeInvoiceSystem.rc"
+        )
+    endif()
 
     # Public include root
     target_include_directories(InvokeInvoiceSystem PUBLIC ${CMAKE_SOURCE_DIR}/include)
@@ -125,7 +136,10 @@
         Qt6::HttpServer
         Qt6::Network
     )
-    qt_import_plugins(InvokeInvoiceSystem INCLUDE Qt6::QWindowsIntegrationPlugin)
+    qt_import_plugins(InvokeInvoiceSystem INCLUDE Qt6::QJpegPlugin)
+    if(WIN32)
+        qt_import_plugins(InvokeInvoiceSystem INCLUDE Qt6::QWindowsIntegrationPlugin)
+    endif()
 
     set_target_properties(InvokeInvoiceSystem PROPERTIES
     WIN32_EXECUTABLE ON
@@ -167,7 +181,8 @@
         src/View/UICode/Views/SignupPage.cpp)
     # Static Qt builds (including Linux/vcpkg) must link the headless platform
     # plugin explicitly for the offscreen CTest environment.
-    qt_import_plugins(InvokeInvoiceSystemTests INCLUDE Qt6::QOffscreenIntegrationPlugin)
+    qt_import_plugins(InvokeInvoiceSystemTests INCLUDE
+        Qt6::QOffscreenIntegrationPlugin Qt6::QJpegPlugin)
     qt_finalize_executable(InvokeInvoiceSystemTests)
 
     # Live, read-only MongoDB health checks use the same environment as the application.
@@ -301,8 +316,24 @@
         message(STATUS "ObjectIds tests unavailable: scripts/migrate_object_ids.py is absent")
     endif()
 
-    # JPEG logos need Qt's image-format plugin beside locally built executables.
+    # Static Qt plugins must be linked into each executable that reads JPEG logos.
+    # These targets are finalized automatically at the end of this directory.
+    foreach(invoice_target InvokeInvoiceBackend DatabaseTests LoggingTests
+            BusinessSessionTests FrontendSessionTests BackendServerTests)
+        qt_import_plugins(${invoice_target} INCLUDE Qt6::QJpegPlugin)
+    endforeach()
+
     if(WIN32)
+        add_dependencies(all-tests InvokeInvoiceSystem)
+        add_test(NAME WindowsDesktopStartup COMMAND InvokeInvoiceSystem --version)
+        set_tests_properties(WindowsDesktopStartup PROPERTIES
+            ENVIRONMENT "QT_QPA_PLATFORM=windows;QT_PLUGIN_PATH=;QT_QPA_PLATFORM_PLUGIN_PATH=;QT_ASSUME_STDERR_HAS_CONSOLE=1"
+            TIMEOUT 30 LABELS "local;smoke")
+    endif()
+
+    # Only shared Qt builds need DLL/plugin deployment. Static vcpkg packages
+    # do not provide the shared libjpeg-turbo::jpeg target or runtime plugins.
+    if(WIN32 AND QT6_IS_SHARED_LIBS_BUILD)
         # Qt's install-time deployment script does not populate the build folder.
         # Deploy desktop plugins here too, so launching the built EXE works without
         # a developer QT_PLUGIN_PATH (the tests only deploy qoffscreen.dll).
@@ -321,11 +352,6 @@
             DEPENDS InvokeInvoiceSystem
             COMMENT "Refreshing Qt desktop deployment"
             VERBATIM)
-        add_dependencies(all-tests InvokeInvoiceSystem)
-        add_test(NAME WindowsDesktopStartup COMMAND InvokeInvoiceSystem --version)
-        set_tests_properties(WindowsDesktopStartup PROPERTIES
-            ENVIRONMENT "QT_QPA_PLATFORM=windows;QT_PLUGIN_PATH=;QT_QPA_PLATFORM_PLUGIN_PATH=;QT_ASSUME_STDERR_HAS_CONSOLE=1"
-            TIMEOUT 30 LABELS "local;smoke")
         find_package(libjpeg-turbo CONFIG REQUIRED)
         foreach(invoice_target InvokeInvoiceBackend InvokeInvoiceSystem ${INVOICE_TEST_TARGETS})
             add_custom_command(TARGET ${invoice_target} POST_BUILD
