@@ -1,16 +1,18 @@
 name: Test, build and release frontend
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
 
 permissions:
   contents: read
 
-# Serialize release workflows so versioned frontend publications do not overlap.
+# Keep releases serialized while each PR validates independently.
 concurrency:
-  group: main-ci-release
-  cancel-in-progress: false
+  group: main-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   version:
@@ -165,6 +167,7 @@ jobs:
 
   release:
     name: Publish frontend on GitHub
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [version, frontend, backend]
     runs-on: ubuntu-24.04
     permissions:

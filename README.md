@@ -176,12 +176,14 @@ files. Pass database credentials at runtime, never as Docker build arguments.
 <<<<<<< Updated upstream
 #### GitHub checks and frontend releases
 
-Every push to `main` runs `.github/workflows/main-ci.yml`:
+Pull requests targeting `main` and pushes to `main` run
+`.github/workflows/main-ci.yml`. PRs run the required **All available tests**
+check and validate both builds; only a push to `main` publishes a release:
 
 1. Choose a version for the CI builds and frontend release. With the current
    `0.1.0` base in `vcpkg.json`, workflow runs produce `0.1.1`, `0.1.2`, etc.
    The patch number is the base patch plus GitHub's workflow run number.
-   Retries retain their version; failed or superseded runs can leave gaps.
+   Retries retain their version; PR checks, failed or superseded runs can leave gaps.
 2. Build the Dockerfile's `tests` stage and run every registered CTest entry,
    including PDF, database health, logging, business session, frontend session,
    backend server and test-discovery checks. Qt runs offscreen. Database checks
@@ -201,7 +203,8 @@ Heroku secrets or production database credentials are needed in GitHub.
 
 Test reports are uploaded as the `test-results` artifact. Dependency layers are
 cached between runs; the first build compiles Qt and can take considerably longer.
-Release workflows are serialized to prevent overlapping publications.
+Release workflows are serialized to prevent overlapping publications. PR checks
+run independently, and a new PR commit cancels that PR's outdated run.
 
 Download the frontend from the repository's
 [Releases page](https://github.com/FabianDim/InvokeInvoiceSystem/releases).
