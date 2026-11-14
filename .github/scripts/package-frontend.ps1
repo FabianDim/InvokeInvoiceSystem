@@ -37,13 +37,13 @@ if ($Static) {
     $windowsDlls = @(
         'advapi32.dll', 'authz.dll', 'bcrypt.dll', 'bcryptprimitives.dll',
         'cfgmgr32.dll', 'comctl32.dll', 'comdlg32.dll', 'crypt32.dll',
-        'd2d1.dll', 'd3d9.dll', 'd3d11.dll', 'd3dcompiler_47.dll', 'dcomp.dll',
+        'd2d1.dll', 'd3d9.dll', 'd3d11.dll', 'd3d12.dll', 'd3dcompiler_47.dll', 'dcomp.dll',
         'dnsapi.dll', 'dwmapi.dll', 'dwrite.dll', 'dxgi.dll', 'dxva2.dll',
         'gdi32.dll', 'hid.dll', 'imm32.dll', 'iphlpapi.dll', 'kernel32.dll',
-        'mpr.dll', 'msimg32.dll', 'mswsock.dll', 'netapi32.dll', 'normaliz.dll',
+        'mpr.dll', 'msimg32.dll', 'mswsock.dll', 'ncrypt.dll', 'netapi32.dll', 'normaliz.dll',
         'ntdll.dll', 'ole32.dll', 'oleacc.dll', 'oleaut32.dll', 'opengl32.dll',
         'powrprof.dll', 'propsys.dll', 'psapi.dll', 'rpcrt4.dll', 'secur32.dll',
-        'setupapi.dll', 'shcore.dll', 'shell32.dll', 'shlwapi.dll', 'user32.dll',
+        'setupapi.dll', 'shcore.dll', 'shell32.dll', 'shlwapi.dll', 'uiautomationcore.dll', 'user32.dll',
         'userenv.dll', 'usp10.dll', 'uxtheme.dll', 'version.dll', 'winhttp.dll',
         'wininet.dll', 'winmm.dll', 'winspool.drv', 'wintrust.dll', 'wldap32.dll',
         'ws2_32.dll', 'wtsapi32.dll'

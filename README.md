@@ -126,6 +126,22 @@ and are held in memory on the single backend dyno, so restarting it requires
 signing in again. The desktop keeps tokens only in memory; automatic sign-in
 across application launches is not implemented.
 
+Login and signup use fixed-window rate limits in each server instance, including
+the embedded local server. Login allows 20 requests per 60 seconds per peer IP
+and 5 per 60 seconds per email (trimmed and case-folded for the quota only).
+Signup allows 5 requests per 300 seconds per peer IP. Attempts count even when
+authentication fails; malformed requests consume the peer quota. Windows start
+with the first request and blocked requests do not extend them. HTTP 429 includes
+a rounded-up `Retry-After` delay in seconds. If the limiter's 4,096-key capacity is
+full, requests requiring a new key fail closed with HTTP 503 until space expires.
+Keys use hashes of email addresses and never contain passwords or tokens.
+
+Counters reset on server restart and are not shared between server instances.
+Peer IP means the direct TCP peer: `Forwarded` and `X-Forwarded-For` are ignored.
+Clients behind a reverse proxy therefore share that proxy's peer quota. Deployments
+requiring individual client quotas behind proxies need an explicit trusted-proxy
+policy; multiple server instances need a shared limiter for a deployment-wide quota.
+
 When `PORT` is set (as it is on Heroku), the HTTP server listens on `0.0.0.0:$PORT` instead. The value must be an integer from 1 to 65535; an invalid or empty value logs an error and prevents the listener from starting. To restore the local default in PowerShell, run `Remove-Item Env:PORT -ErrorAction SilentlyContinue`.
 
 ### Build the backend Docker image

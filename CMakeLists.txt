@@ -230,6 +230,10 @@
     set_target_properties(LoggingTests PROPERTIES WIN32_EXECUTABLE OFF MACOSX_BUNDLE OFF)
     target_include_directories(LoggingTests PRIVATE ${CMAKE_SOURCE_DIR}/include)
     target_link_libraries(LoggingTests PRIVATE Qt6::Test Qt6::HttpServer Qt6::Network)
+    find_package(Threads REQUIRED)
+    qt_add_executable(LocalRateLimiterTests tests/LocalRateLimiterTests.cpp)
+    target_include_directories(LocalRateLimiterTests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(LocalRateLimiterTests PRIVATE Qt6::Test Threads::Threads)
     qt_add_executable(BusinessSessionTests
         tests/BusinessSessionTests.cpp
         src/Application/Invoices/OfflineInvoiceSession.cpp
@@ -277,7 +281,7 @@
     # Build every executable with one command. Discovery starts each Qt Test runner
     # without executing test bodies or contacting the database.
     set(INVOICE_TEST_TARGETS InvokeInvoiceSystemTests DatabaseTests LoggingTests
-        BusinessSessionTests FrontendSessionTests BackendServerTests)
+        BusinessSessionTests FrontendSessionTests BackendServerTests LocalRateLimiterTests)
     add_custom_target(all-tests DEPENDS ${INVOICE_TEST_TARGETS})
     function(register_invoice_test name target label)
         set_target_properties(${target} PROPERTIES WIN32_EXECUTABLE OFF MACOSX_BUNDLE OFF)
@@ -294,6 +298,7 @@
     register_invoice_test(BusinessSession BusinessSessionTests local)
     register_invoice_test(FrontendSession FrontendSessionTests local)
     register_invoice_test(BackendServer BackendServerTests local)
+    register_invoice_test(LocalRateLimiter LocalRateLimiterTests local)
 
     option(INVOICE_ENABLE_WORKFLOW_TESTS "Run HTTP invoice/stock tests against an explicit local MongoDB replica set" OFF)
     if(INVOICE_ENABLE_WORKFLOW_TESTS)

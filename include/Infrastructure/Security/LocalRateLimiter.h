@@ -1,21 +1,28 @@
 #pragma once
-
-#include "Infrastructure/Security/RateLimiter.h"
 #include <QHash>
 #include <chrono>
+#include <functional>
 #include <mutex>
-
+#include <utility>
+#include "RateLimiter.h"
 namespace Infrastructure::Security {
 
-// Bounded, process-local protection for the embedded desktop server. The
-// standalone backend explicitly injects Redis; it never falls back to this.
+// Bounded fixed windows, isolated to this instance. Share one instance between
+// callers that should share quotas; restarting the server resets its counters.
 class LocalRateLimiter final : public RateLimiter {
   public:
+    using Clock = std::chrono::steady_clock;
+    using Now = std::function<Clock::time_point()>;
+
+    // The optional clock must be monotonic. It is sampled under the mutex so
+    // concurrent checks cannot observe timestamps in a different order.
+    explicit LocalRateLimiter(Now now = Clock::now) : now_(now ? std::move(now) : Now(Clock::now)) {}
+
     RateLimitResult check(const QString& key, int limit, int window_seconds) override {
         if (key.isEmpty() || key.size() > 256 || limit < 1 || window_seconds < 1)
             return {};
         const std::lock_guard lock(mutex_);
-        const auto now = std::chrono::steady_clock::now();
+        const auto now = now_();
         for (auto it = counters_.begin(); it != counters_.end();) {
             if (it->expires <= now)
                 it = counters_.erase(it);
@@ -43,7 +50,8 @@ class LocalRateLimiter final : public RateLimiter {
         std::chrono::steady_clock::time_point expires;
     };
     std::mutex mutex_;
+    Now now_;
     QHash<QString, Counter> counters_;
 };
 
-}
+} // namespace Infrastructure::Security
