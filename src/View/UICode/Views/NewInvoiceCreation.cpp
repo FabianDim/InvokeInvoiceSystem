@@ -60,7 +60,8 @@ void InvoiceDetailsInput::create_page_layout() {
     form->addWidget(client_status_, 2, 1);
     const std::vector<FormField> fields = {
         {"invoice_theme", "Invoice theme", FormField::Type::ComboBox, {}},
-        {"invoice_number", "Invoice number INV-", FormField::Type::LineEdit, {.placeholder = "e.g. 000123"}},
+        {"invoice_prefix", "Business invoice prefix", FormField::Type::LineEdit, {.placeholder = "Blank for numbers only"}},
+        {"invoice_number", "Invoice number", FormField::Type::LineEdit, {.placeholder = "Assigned automatically when you continue"}},
         {"invoice_file_name", "File name", FormField::Type::LineEdit, {.placeholder = "Name"}},
         {"invoice_file_dir", "Save PDF to", FormField::Type::DirBrowse, {}},
         {"date_created", "Date created", FormField::Type::DateEdit, {.defaultToday = true}},
@@ -74,6 +75,7 @@ void InvoiceDetailsInput::create_page_layout() {
         if (field.type == FormField::Type::LineEdit) {
             auto* edit = new QLineEdit(content);
             edit->setPlaceholderText(field.opt.placeholder);
+            if (field.key == "invoice_number" || field.key == "invoice_prefix") edit->setReadOnly(true);
             input = edit;
         } else if (field.type == FormField::Type::ComboBox) {
             auto* combo = new QComboBox(content);
@@ -141,7 +143,8 @@ void InvoiceDetailsInput::create_page_layout() {
         };
         const auto theme = qobject_cast<QComboBox*>(base_invoice_form_fields_.value("invoice_theme"))->currentText();
         emit set_invoice_details(QJsonDocument(QJsonObject{{"ClientID", client_id},
-                                                           {"invoice_number", text("invoice_number")},
+                                                           {"invoice_number", ""},
+                                                           {"invoice_prefix", text("invoice_prefix")},
                                                            {"invoice_theme", theme},
                                                            {"file_name", text("invoice_file_name")},
                                                            {"file_dir", text("invoice_file_dir")},
@@ -198,7 +201,7 @@ void InvoiceDetailsInput::populate_clients(const QJsonDocument& items) {
         });
         for (const auto& client : clients) {
             const auto id = client.value("_id").toString();
-            client_select_->addItem(client.value("Name").toString(id) + " (" + id + ")", client);
+            client_select_->addItem(client.value("Name").toString("Client"), client);
             if (id == previous_id)
                 client_select_->setCurrentIndex(client_select_->count() - 1);
         }
@@ -242,4 +245,16 @@ void InvoiceDetailsInput::reset_form() {
             date->setDate(QDate::currentDate());
     }
     business_selected(QJsonObject{});
+}
+
+void InvoiceDetailsInput::prepare_invoice(const QString& prefix, const QString& directory) {
+    findChild<QLineEdit*>("invoice_prefix")->setText(prefix);
+    findChild<QLineEdit*>("invoice_number")->clear();
+    findChild<QLineEdit*>("invoice_file_name")->clear();
+    findChild<QLineEdit*>("invoice_file_dir")->setText(directory);
+}
+void InvoiceDetailsInput::number_assigned(const QString& number) {
+    findChild<QLineEdit*>("invoice_number")->setText(number);
+    if (findChild<QLineEdit*>("invoice_file_name")->text().trimmed().isEmpty())
+        findChild<QLineEdit*>("invoice_file_name")->setText(number);
 }

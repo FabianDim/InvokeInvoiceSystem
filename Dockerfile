@@ -61,8 +61,13 @@ WORKDIR /app
 # Local Docker builds can reuse this layer when only application code changes.
 # Heroku may rebuild it; compiling Qt from source takes time and disk space.
 COPY vcpkg.json vcpkg-configuration.json ./
+COPY triplets/ ./triplets/
+# CMAKE_BUILD_TYPE only controls the application. Use a release-only triplet
+# for both dependencies and host tools so vcpkg does not also compile Debug Qt.
 RUN "${VCPKG_ROOT}/vcpkg" install \
-      --triplet x64-linux \
+      --triplet x64-linux-release \
+      --host-triplet x64-linux-release \
+      --overlay-triplets=/app/triplets \
       --x-install-root=/opt/vcpkg_installed \
       --clean-after-build
 
@@ -73,7 +78,9 @@ RUN /usr/bin/cmake -S . -B build -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
       ${APP_VERSION:+-DINVOICE_APP_VERSION=${APP_VERSION}} \
       -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake \
-      -DVCPKG_TARGET_TRIPLET=x64-linux \
+      -DVCPKG_TARGET_TRIPLET=x64-linux-release \
+      -DVCPKG_HOST_TRIPLET=x64-linux-release \
+      -DVCPKG_OVERLAY_TRIPLETS=/app/triplets \
       -DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed \
     && /usr/bin/cmake --build build --target InvokeInvoiceBackend --parallel "${BUILD_JOBS}"
 

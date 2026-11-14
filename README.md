@@ -61,6 +61,30 @@ cmake --build --preset x64-release --target InvokeInvoiceSystem InvokeInvoiceBac
 
 For the offline demo only, you can build just `--target InvokeInvoiceSystem`.
 
+On Windows, vcpkg deploys runtime libraries beside the desktop executable, and
+the build also runs `windeployqt` to deploy its plugins, including
+`platforms/qwindows.dll`.
+To repair missing plugins in an existing build, run
+`cmake --build --preset x64-release --target deploy-qt` (or use the
+`x64-relwithdebinfo` preset). `WindowsDesktopStartup` verifies startup with the
+Windows platform plugin rather than the offscreen test plugin. Shared-build ZIPs
+use the packaging script to include the redistributable runtime as well.
+
+To build the frontend as a single executable with Qt, its plugins and the MSVC
+runtime linked statically, use the static preset:
+
+```powershell
+cmake --preset x64-static-release
+cmake --build --preset x64-static-release --target InvokeInvoiceSystem
+./.github/scripts/package-frontend.ps1 -Version 0.1.0 -BuildDirectory out/build/x64-static-release -Static
+```
+
+Use the configured `INVOICE_APP_VERSION` for `-Version` if you override it.
+The static build does not run `windeployqt` or copy plugin DLLs. Its executable
+can run on its own. Packaging writes a versioned `.exe`, its `.exe.sha256`
+checksum and a separate `-licenses.txt` file to `out/release`. Account mode still
+requires a backend connection.
+
 For account mode, launch the backend in the terminal where you configured MongoDB:
 
 ```powershell
@@ -135,13 +159,21 @@ With Docker configured to run Linux containers, build from the repository root:
 docker build --platform linux/amd64 -t invoke-invoice-backend .
 ```
 
-The first build compiles Qt and can take considerable time and disk space. Build
-parallelism defaults to two jobs; change it with `--build-arg BUILD_JOBS=4` if your
+The Docker build uses `triplets/x64-linux-release.cmake` for both target dependencies
+and host tools. It sets `VCPKG_BUILD_TYPE=release`, skipping Debug dependency builds;
+`CMAKE_BUILD_TYPE=Release` alone does not do this for vcpkg. See the
+[vcpkg build-type documentation](https://learn.microsoft.com/en-us/vcpkg/users/triplets#vcpkg_build_type).
+
+The first build still compiles Qt and can take considerable time and disk space.
+Dependency layers are reused by the same Docker builder when the manifests,
+triplets and preceding Dockerfile instructions are unchanged. Build parallelism
+defaults to two jobs; change it with `--build-arg BUILD_JOBS=4` if your
 builder has enough memory. `.dockerignore` excludes local build outputs and `.env`
 files. Pass database credentials at runtime, never as Docker build arguments.
 
 ### Push the backend to Heroku
 
+<<<<<<< Updated upstream
 #### GitHub checks and frontend releases
 
 Every push to `main` runs `.github/workflows/main-ci.yml`:
@@ -154,12 +186,15 @@ Every push to `main` runs `.github/workflows/main-ci.yml`:
    including PDF, database health, logging, business session, frontend session,
    backend server and test-discovery checks. Qt runs offscreen. Database checks
    use an authenticated, temporary MongoDB service, never the deployed database.
-3. Only after all tests pass, build the Windows x64 frontend, bundle its DLLs,
-   Qt plugins and MSVC runtime, and check the packaged executable's version
-   without developer dependency paths.
+3. Only after all tests pass, build the Windows x64 frontend with static Qt,
+   plugins and MSVC runtime. Reject non-system DLL imports and check the
+   executable's version with only the EXE in its folder and no developer
+   dependency paths.
 4. Check that the backend's `runtime` Docker image builds successfully.
 5. Publish a GitHub Release tagged `v<version>` at the tested commit, with the
-   Windows ZIP and a SHA-256 checksum. Failed tests or builds prevent publication.
+   standalone Windows EXE, a SHA-256 checksum and separate dependency notices.
+   GitHub provides separate source-code ZIP and tar.gz downloads for that tag.
+   Failed tests or builds prevent publication.
 
 GitHub Actions does not push to Heroku's registry or release the backend. No
 Heroku secrets or production database credentials are needed in GitHub.
@@ -170,9 +205,12 @@ Release workflows are serialized to prevent overlapping publications.
 
 Download the frontend from the repository's
 [Releases page](https://github.com/FabianDim/InvokeInvoiceSystem/releases).
-Extract the entire `InvokeInvoiceSystem-<version>-windows-x64.zip` and run
-`InvokeInvoiceSystem.exe`; keep its DLLs and plugin folders together.
-The executable supports `--version`, and the package includes `VERSION.txt`.
+Download and run `InvokeInvoiceSystem-<version>-windows-x64.exe` directly.
+No DLLs, Qt plugin folders or runtime installer need to accompany it.
+The executable supports `--version`. The `.exe.sha256` asset verifies the download;
+`-licenses.txt` contains dependency notices and is not required to run the app.
+Use the separate **Source code (zip)** or **Source code (tar.gz)** downloads to
+get the matching source, build configuration and dependency manifest.
 The GitHub release job uses the built-in `GITHUB_TOKEN` with `contents: write`;
 no separate GitHub publishing token is needed. A draft is published only after
 its assets upload successfully; reruns leave an already published release intact.
@@ -205,6 +243,14 @@ not change them. See [Heroku GitHub integration](https://devcenter.heroku.com/ar
 and [Docker builds with heroku.yml](https://devcenter.heroku.com/articles/build-docker-images-heroku-yml).
 
 #### Manual deployment
+=======
+If a remote build ends with `Build Timeout Expired` while compiling Qt, build on
+your local Docker builder and upload the completed image using the command below.
+Start Docker Desktop with Linux containers enabled first. This keeps compilation
+outside Heroku's remote build deadline; a cold Qt build can exceed that deadline
+even with Release-only dependencies. The timeout alone does not indicate a Qt
+compiler error. Use the same local builder on subsequent builds to reuse its cache.
+>>>>>>> Stashed changes
 
 Heroku's registry requires Docker Image Manifest V2, Schema 2. With Docker's
 containerd image store, `heroku container:push` can produce an OCI manifest that
@@ -336,6 +382,52 @@ In both account and offline mode, only the business name, client name, and stock
 | `tests/` | Qt-based automated tests. |
 | `CMakeLists.txt` / `CMakePresets.json` | Build targets and Windows build presets. |
 | `vcpkg.json` / `vcpkg-configuration.json` | Dependency manifest and registry configuration. |
+
+## Saving records and business invoice settings
+
+Save on a business, client or stock form returns to the dashboard after the save
+succeeds. **Save and add new business/client/stock item** keeps the form open for
+the next record. Failed saves retain the entered details. Country fields use a
+list; stock margins are entered and shown as percentages (25 means 25%). Stored
+margin values remain fractional for compatibility (0.25).
+
+Select a business on the dashboard, then open **Business invoice settings**.
+The invoice prefix is saved on that business in MongoDB and follows it across
+sign-ins and computers. It defaults to `INV-`; save an empty prefix for numbers
+only. The default PDF folder is saved per business on this computer and survives
+app restarts. Click **Save business invoice settings** to save both defaults.
+
+Invoice numbers are assigned automatically when you continue to invoice items,
+using a persistent, atomic counter per business: `INV-000001`, `INV-000002`, etc.
+Changing the prefix does not reset the counter. Abandoned invoice drafts can leave
+gaps. The assigned number is also the default PDF filename if no name was entered.
+
+Finishing an invoice deducts its saved stock quantities and stores an invoice
+record in one MongoDB transaction. Insufficient stock or an item from another
+business rejects the whole operation without partial deductions. Re-saving the
+same completed invoice PDF does not deduct stock again. New invoice-only items
+do not affect stock. Account invoice completion requires MongoDB Atlas or a
+replica set; standalone MongoDB cannot perform these transactions. Offline demo
+invoices apply the same inventory rules to their temporary records.
+
+Business records show names and details. Right-click a row to view or copy its
+record ID.
+
+To run the HTTP/database regression tests, start an isolated local MongoDB replica
+set, install `pymongo` in your test Python environment, then run:
+
+```powershell
+$env:INVOICE_TEST_MONGODB_URI = 'mongodb://127.0.0.1:27028/?directConnection=true'
+$env:INVOICE_TEST_BACKEND = (Resolve-Path './out/build/x64-release/InvokeInvoiceBackend.exe').Path
+python -m unittest discover -s tests -p test_invoice_workflow.py -v
+```
+
+The suite creates and removes its own test databases. It verifies prefix and
+counter persistence after backend restart, blank prefixes, concurrent numbering,
+stock deductions, repeated exports, transaction rollback and business isolation.
+It can also be registered with CTest using `-DINVOICE_ENABLE_WORKFLOW_TESTS=ON`
+and a Python interpreter with `pymongo` installed; the MongoDB test URI must still
+be supplied explicitly.
 
 ## Development and tests
 
@@ -495,6 +587,7 @@ ctest --test-dir out/build/x64-release -R '^DatabaseHealth$' --output-on-failure
 | --- | --- |
 | `cl`, `cmake` or `ninja` cannot be found | Use an x64 Developer PowerShell and check that the C++ and CMake build tools are installed. |
 | CMake cannot find the vcpkg toolchain | Set `VCPKG_ROOT` to the bootstrapped vcpkg checkout before configuring. |
+| Docker build ends with `Build Timeout Expired` while compiling Qt | Use the Release-only Docker triplet and the local Buildx upload workflow above. A cold Qt build may still exceed a remote builder's deadline. |
 | Missing DLL or Qt platform plugin errors | Set `PATH` and `QT_PLUGIN_PATH` using the dependency directory for the build you are launching. |
 | Login or signup cannot reach the database | Check that the backend and MongoDB are running, the backend's URI and credentials are correct, and database access is allowed. Restart the backend after changing environment variables. |
 | The UI opens but local API requests fail | Start `InvokeInvoiceBackend.exe` separately on the same computer. Check its terminal for errors and ensure port `1234` is not already used by another process. |

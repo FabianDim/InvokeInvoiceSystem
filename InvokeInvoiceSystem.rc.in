@@ -1,0 +1,29 @@
+#include <windows.h>
+
+1 VERSIONINFO
+FILEVERSION @INVOICE_FILE_VERSION_COMMAS@
+PRODUCTVERSION @INVOICE_FILE_VERSION_COMMAS@
+FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+FILEFLAGS 0
+FILEOS VOS__WINDOWS32
+FILETYPE VFT_APP
+FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "Fabian Di Mento\0"
+            VALUE "FileDescription", "Invoke Invoice System\0"
+            VALUE "FileVersion", "@INVOICE_APP_VERSION@\0"
+            VALUE "InternalName", "InvokeInvoiceSystem.exe\0"
+            VALUE "OriginalFilename", "InvokeInvoiceSystem.exe\0"
+            VALUE "ProductName", "Invoke Invoice System\0"
+            VALUE "ProductVersion", "@INVOICE_APP_VERSION@\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END

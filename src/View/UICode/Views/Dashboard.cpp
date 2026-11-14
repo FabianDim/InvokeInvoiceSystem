@@ -59,7 +59,7 @@ void App::Views::Dashboard::create_page_layout() {
     business_button = new QPushButton("Configure business", content);
     stock_button = new QPushButton("Create stock item", content);
     account_button = new QPushButton("Account settings", content);
-    default_invoice_settings_button = new QPushButton("Default invoice settings", content);
+    default_invoice_settings_button = new QPushButton("Business invoice settings", content);
     default_invoice_settings_button->setObjectName("default_invoice_settings_button");
     default_invoice_settings_button->hide();
     items_button = new QPushButton("Browse business records", content);
@@ -80,6 +80,9 @@ void App::Views::Dashboard::create_page_layout() {
     layout->addWidget(items_button, 5, 0);
     layout->addWidget(account_button, 5, 1);
     layout->addWidget(default_invoice_settings_button, 6, 0, 1, 2);
+    loading_label_ = UiStyle::label("", content, "status");
+    loading_label_->setObjectName("business_loading_status");
+    layout->addWidget(loading_label_, 7, 0, 1, 2);
 
     button_group_->addButton(invoice_button);
     button_group_->addButton(client_button);
@@ -104,7 +107,7 @@ void Dashboard::button_connections() {
 
 void Dashboard::set_offline(bool offline) {
     offline_ = offline;
-    default_invoice_settings_button->setVisible(logged_in_ && !offline_);
+    default_invoice_settings_button->setVisible(has_business());
     account_button->setVisible(!offline);
     business_button->setText(offline ? "Create demo business" : "Configure business");
     items_button->setText(offline ? "Browse demo records" : "Browse business records");
@@ -116,7 +119,7 @@ void Dashboard::set_offline(bool offline) {
 
 void Dashboard::set_logged_in(bool logged_in) {
     logged_in_ = logged_in;
-    default_invoice_settings_button->setVisible(logged_in_ && !offline_);
+    default_invoice_settings_button->setVisible(has_business());
 }
 
 bool Dashboard::has_business() const {
@@ -125,7 +128,8 @@ bool Dashboard::has_business() const {
 
 void Dashboard::populate_business_list(const QJsonDocument& list) {
     ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::ui(), "Dashboard.populate_business_list");
-    const auto previous_id = business_select_->currentData().toJsonObject().value("_id").toString();
+    const auto previous_id = pending_business_id_.isEmpty() ? business_select_->currentData().toJsonObject().value("_id").toString() : pending_business_id_;
+    pending_business_id_.clear();
     {
         const QSignalBlocker blocker(business_select_);
         business_select_->clear();
@@ -145,24 +149,35 @@ void Dashboard::populate_business_list(const QJsonDocument& list) {
         int selected_index = 0;
         for (const auto& business : businesses) {
             const auto id = business.value("_id").toString();
-            business_select_->addItem(business.value("BusinessName").toString(id) + " (" + id + ")", business);
+            business_select_->addItem(business.value("BusinessName").toString("Business"), business);
             if (id == previous_id)
                 selected_index = business_select_->count() - 1;
         }
-        if (offline_ && businesses.size() == 1)
+        if (businesses.size() == 1)
             selected_index = 1;
         business_select_->setCurrentIndex(selected_index);
         business_select_->setEnabled(!businesses.isEmpty());
     }
+    set_loading(false);
     update_business_selection();
 }
 
 void Dashboard::update_business_selection() {
     ::Infrastructure::Logging::Operation operation(::Infrastructure::Logging::ui(), "Dashboard.update_business_selection");
     const bool selected = has_business();
+    default_invoice_settings_button->setVisible(selected);
     invoice_button->setEnabled(selected);
     client_button->setEnabled(selected);
     stock_button->setEnabled(selected);
     items_button->setEnabled(selected);
     emit business_chosen(business_select_->currentData().toJsonObject());
+}
+
+void Dashboard::set_loading(bool loading) {
+    loading_label_->setText(loading ? "Loading businesses..." : "");
+    business_select_->setEnabled(!loading && business_select_->count() > 1);
+}
+void Dashboard::set_error(const QString& message) {
+    set_loading(false);
+    loading_label_->setText("Could not load businesses: " + message);
 }

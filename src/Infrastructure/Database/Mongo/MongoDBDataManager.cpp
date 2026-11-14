@@ -9,6 +9,85 @@
 #include <QJsonArray>
 #include "Infrastructure/Security/PasswordHashing/bcrypt.h"
 #include "Utils/BusinessLogo.h"
+#include <mongocxx/client_session.hpp>
+#include <mongocxx/options/find_one_and_update.hpp>
+#include <QMap>
+#include <cmath>
+
+QString MongoDBDataManager::reserve_invoice_number(const std::string& user_id, const std::string& business_id,
+                                                   const QString& prefix) {
+    const auto owner = Infrastructure::Database::parse_object_id(user_id);
+    const auto business = Infrastructure::Database::parse_object_id(business_id);
+    if (!owner || !business || prefix.size() > 40)
+        throw std::invalid_argument("Invalid business or invoice prefix (maximum 40 characters).");
+    mongocxx::options::find_one_and_update options;
+    options.return_document(mongocxx::options::return_document::k_after);
+    const auto result = database()["Business"].find_one_and_update(
+        make_document(kvp("_id", *business), kvp("UserID", *owner)),
+        make_document(kvp("$inc", make_document(kvp("InvoiceSequence", std::int64_t{1})))), options);
+    if (!result) throw std::invalid_argument("Business is not available for this account.");
+    const auto value = result->view()["InvoiceSequence"];
+    const auto sequence = value.type() == bsoncxx::type::k_int64 ? value.get_int64().value : value.get_int32().value;
+    return prefix + QString::number(sequence).rightJustified(6, '0');
+}
+
+bool MongoDBDataManager::save_invoice_settings(const std::string& user_id, const QJsonObject& settings) {
+    const auto owner = Infrastructure::Database::parse_object_id(user_id);
+    const auto business = Infrastructure::Database::parse_object_id(settings.value("BusinessID").toString().toStdString());
+    if (!owner || !business || !settings.value("InvoicePrefix").isString() ||
+        settings.value("InvoicePrefix").toString().size() > 40) return false;
+    const auto result = database()["Business"].update_one(
+        make_document(kvp("_id", *business), kvp("UserID", *owner)),
+        make_document(kvp("$set", make_document(kvp("InvoicePrefix", settings.value("InvoicePrefix").toString().toStdString())))));
+    return result && result->matched_count() == 1;
+}
+
+void MongoDBDataManager::complete_invoice(const std::string& user_id, const std::string& business_id,
+                                         const std::string& client_id, const QString& invoice_id,
+                                         const QString& number, const QJsonArray& stock) {
+    const auto owner = Infrastructure::Database::parse_object_id(user_id);
+    const auto business = Infrastructure::Database::parse_object_id(business_id);
+    const auto client = Infrastructure::Database::parse_object_id(client_id);
+    if (!owner || !business || !client) throw std::invalid_argument("Invalid invoice ownership.");
+    QMap<QString, int> quantities;
+    for (const auto& value : stock) {
+        const auto item = value.toObject();
+        const auto id = item.value("_id").toString();
+        if (id.isEmpty()) continue; // An ad hoc line has no inventory record.
+        const auto quantity = item.value("Quantity").toDouble(-1);
+        if (!Infrastructure::Database::parse_object_id(id.toStdString()) || !std::isfinite(quantity) ||
+            quantity < 1 || quantity > 1'000'000 || std::floor(quantity) != quantity ||
+            quantities.value(id) > 1'000'000 - quantity)
+            throw std::invalid_argument("Invalid stock quantity or record ID.");
+        quantities[id] += static_cast<int>(quantity);
+    }
+    auto db = database();
+    auto session = dbHandler->client.start_session();
+    const auto identity = make_document(kvp("_id", bsoncxx::oid(invoice_id.toStdString())));
+    const auto payload = QJsonDocument(stock).toJson(QJsonDocument::Compact).toStdString();
+    session.with_transaction([&](mongocxx::client_session* transaction) {
+        if (!db["Business"].find_one(*transaction, make_document(kvp("_id", *business), kvp("UserID", *owner))) ||
+            !db["Clients"].find_one(*transaction, make_document(kvp("_id", *client), kvp("BusinessID", *business))))
+            throw std::invalid_argument("Invoice business or client is no longer available.");
+        if (const auto existing = db["Invoices"].find_one(*transaction, identity.view())) {
+            if (std::string(existing->view()["ItemsJson"].get_string().value) != payload)
+                throw std::invalid_argument("This invoice is complete. Start a new invoice to change its items.");
+            return;
+        }
+        for (auto it = quantities.constBegin(); it != quantities.constEnd(); ++it) {
+            const auto result = db["Stock"].update_one(*transaction,
+                make_document(kvp("_id", bsoncxx::oid(it.key().toStdString())), kvp("BusinessID", *business),
+                              kvp("Quantity", make_document(kvp("$gte", it.value())))),
+                make_document(kvp("$inc", make_document(kvp("Quantity", -it.value())))));
+            if (!result || result->matched_count() != 1)
+                throw std::invalid_argument("Insufficient stock, or an item does not belong to this business. Refresh stock and try again.");
+        }
+        const auto result = db["Invoices"].insert_one(*transaction, make_document(
+            kvp("_id", bsoncxx::oid(invoice_id.toStdString())), kvp("UserID", *owner), kvp("BusinessID", *business),
+            kvp("ClientID", *client), kvp("InvoiceNumber", number.toStdString()), kvp("ItemsJson", payload)));
+        if (!result) throw std::runtime_error("Could not complete invoice.");
+    });
+}
 bsoncxx::document::value MongoDBDataManager::buildNewUser(const std::shared_ptr<User>& newUser) {
     using bsoncxx::builder::stream::document;
     using bsoncxx::builder::stream::finalize;
@@ -244,7 +323,7 @@ QJsonDocument MongoDBDataManager::list_resources(const std::string& resource,
             QJsonObject item{{"_id", QString::fromStdString(business_id.to_string())}};
             // Legacy LogoPath values must never leave the database for rendering.
             for (const auto* field :
-                 {"BusinessName", "ABN", "ACN", "Phone", "BusinessAddress", "Website", "LogoData"}) {
+                 {"BusinessName", "ABN", "ACN", "Phone", "BusinessAddress", "Website", "LogoData", "InvoicePrefix"}) {
                 const auto value = business[field];
                 if (value && value.type() == bsoncxx::type::k_string)
                     item[field] = QString::fromUtf8(value.get_string().value);

@@ -1,6 +1,7 @@
 #pragma once
 #include "pch.h"
 #include <QWidget>
+#include <QLabel>
 #include <QButtonGroup>
 #include <QComboBox>
 #include <QJsonDocument>
@@ -21,9 +22,13 @@ class Dashboard : public QWidget {
     void set_logged_in(bool logged_in);
 
   public slots:
+    void select_after_loading(const QString& id) { pending_business_id_ = id; }
+    void set_loading(bool loading);
+    void set_error(const QString& message);
     void populate_business_list(const QJsonDocument& list);
 
   private:
+    QString pending_business_id_;
     bool offline_ = false;
     bool logged_in_ = false;
     void create_page_layout();
@@ -31,6 +36,7 @@ class Dashboard : public QWidget {
     void button_connections();
     void update_business_selection();
     QComboBox* business_select_;
+    QLabel* loading_label_;
     QPushButton* invoice_button;
     QPushButton* client_button;
     QPushButton* business_button;

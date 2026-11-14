@@ -45,6 +45,45 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo"
       }
+    },
+    {
+      "name": "windows-static-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "installDir": "${sourceDir}/out/install/${presetName}",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": {
+          "type": "FILEPATH",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        },
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static-custom",
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/triplets",
+        "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded",
+        "CMAKE_C_COMPILER": "cl",
+        "CMAKE_CXX_COMPILER": "cl"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "vendor": {
+        "microsoft.com/VisualStudioSettings/CMake/1.0": {
+          "hostOS": ["Windows"],
+          "vcvarsall": {
+            "arch": ["x64"]
+          }
+        }
+      }
+    },
+    {
+      "name": "x64-static-release",
+      "displayName": "Ninja MSVC x64 Static Release",
+      "inherits": "windows-static-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
     }
   ],
   "buildPresets": [
@@ -57,6 +96,11 @@
       "name": "x64-relwithdebinfo",
       "displayName": "Build x64 RelWithDebInfo",
       "configurePreset": "x64-relwithdebinfo"
+    },
+    {
+      "name": "x64-static-release",
+      "displayName": "Build x64 Static Release",
+      "configurePreset": "x64-static-release"
     }
   ]
 }
