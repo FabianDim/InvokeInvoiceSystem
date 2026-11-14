@@ -3,10 +3,43 @@
 #include "Infrastructure/Database/Mongo/MongoDBDataManager.h"
 #include <QJsonArray>
 #include <QUrlQuery>
+#include <QCryptographicHash>
 #include "Utils/BusinessLogo.h"
 
-Server::Server(MongoDBDataManager& db_manager, Invoke::Domain::Accounts::IAccountManager*)
-    : db_manager_(db_manager) {
+namespace {
+using Infrastructure::Security::RateLimitResult;
+using Infrastructure::Security::RateLimitStatus;
+
+QString peer_rate_limit_key(const QString& action, const QHttpServerRequest& request) {
+    // Forwarded headers are untrusted. Proxied clients share their proxy's quota
+    // until an explicit trusted-proxy policy is implemented.
+    const auto peer = request.remoteAddress();
+    bool is_ipv4 = false;
+    const auto ipv4 = peer.toIPv4Address(&is_ipv4);
+    const auto address = is_ipv4 ? QHostAddress(ipv4).toString() : peer.toString();
+    return action + ":peer:" + address;
+}
+
+QHttpServerResponse rate_limit_response(const RateLimitResult& result) {
+    const bool limited = result.status == RateLimitStatus::Limited;
+    QHttpServerResponse response(QJsonObject{{"error", limited
+        ? "Too many attempts. Please try again later."
+        : "Sign-in is busy. Please try again later."}},
+        limited ? QHttpServerResponder::StatusCode::TooManyRequests
+                : QHttpServerResponder::StatusCode::ServiceUnavailable);
+    auto headers = response.headers();
+    headers.append("Cache-Control", "no-store");
+    if (limited)
+        headers.append("Retry-After", QByteArray::number(result.retry_after_seconds));
+    response.setHeaders(std::move(headers));
+    return response;
+}
+} // namespace
+
+Server::Server(MongoDBDataManager& db_manager, Invoke::Domain::Accounts::IAccountManager*,
+               std::unique_ptr<Infrastructure::Security::RateLimiter> rate_limiter)
+    : db_manager_(db_manager), rate_limiter_(rate_limiter ? std::move(rate_limiter)
+          : std::make_unique<Infrastructure::Security::LocalRateLimiter>()) {
     qCInfo(Infrastructure::Logging::app) << "event=server.routes.registering";
     create_routes_basic();
     create_routes_auth();
@@ -222,6 +255,9 @@ void Server::create_routes_business() {
 }
 void Server::create_routes_auth() {
     httpServer_.route("/auth/signup", QHttpServerRequest::Method::Post, Infrastructure::Logging::tracedRoute("/auth/signup", [this](const QHttpServerRequest& request) {
+        const auto quota = rate_limiter_->check(peer_rate_limit_key("signup", request), 5, 300);
+        if (quota.status != RateLimitStatus::Allowed)
+            return rate_limit_response(quota);
         qCDebug(Infrastructure::Logging::http) << "[Server::signup] Request received";
         QJsonParseError parseError;
         const auto doc = QJsonDocument::fromJson(request.body(), &parseError);
@@ -257,6 +293,9 @@ void Server::create_routes_auth() {
                                    QHttpServerResponder::StatusCode::InternalServerError);
     }));
     httpServer_.route("/auth/login", QHttpServerRequest::Method::Post, Infrastructure::Logging::tracedRoute("/auth/login", [this](const QHttpServerRequest& request) {
+        const auto peer_quota = rate_limiter_->check(peer_rate_limit_key("login", request), 20, 60);
+        if (peer_quota.status != RateLimitStatus::Allowed)
+            return rate_limit_response(peer_quota);
         QJsonParseError parseError;
         const auto doc = QJsonDocument::fromJson(request.body(), &parseError);
         if (parseError.error != QJsonParseError::NoError || !doc.isObject())
@@ -264,6 +303,12 @@ void Server::create_routes_auth() {
                                        QHttpServerResponder::StatusCode::BadRequest);
         const auto email = doc.object().value("email").toString().trimmed();
         const auto password = doc.object().value("password").toString();
+        if (!email.isEmpty()) {
+            const auto digest = QCryptographicHash::hash(email.toCaseFolded().toUtf8(), QCryptographicHash::Sha256).toHex();
+            const auto account_quota = rate_limiter_->check("login:account:" + QString::fromLatin1(digest), 5, 60);
+            if (account_quota.status != RateLimitStatus::Allowed)
+                return rate_limit_response(account_quota);
+        }
         try {
             const auto user_id = db_manager_.authenticate_account(email.toStdString(), password.toStdString());
             if (!user_id)

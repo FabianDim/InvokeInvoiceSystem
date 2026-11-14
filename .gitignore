@@ -111,3 +111,7 @@ vcpkg/installed/
 *.dll
 *.lib
 *.exp
+
+#Documents
+SECURITY_REVIEW.md
+*.pdf

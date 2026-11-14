@@ -16,12 +16,19 @@ namespace {
 struct Response {
     int status;
     QByteArray body;
+    QByteArray retry_after;
+    QByteArray cache_control;
 };
 
-Response request(quint16 port, const QString& path, const QByteArray& body = {}, bool post = false) {
+Response request(quint16 port, const QString& path, const QByteArray& body = {}, bool post = false,
+                 const QByteArray& forwarded_for = {}) {
     QNetworkAccessManager network;
     QNetworkRequest request(QUrl(QString("http://127.0.0.1:%1%2").arg(port).arg(path)));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    if (!forwarded_for.isEmpty()) {
+        request.setRawHeader("X-Forwarded-For", forwarded_for);
+        request.setRawHeader("Forwarded", "for=" + forwarded_for);
+    }
     auto* reply = post ? network.post(request, body) : network.get(request);
     QEventLoop loop;
     QTimer timeout;
@@ -30,7 +37,8 @@ Response request(quint16 port, const QString& path, const QByteArray& body = {},
     QObject::connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
     timeout.start(3000);
     loop.exec();
-    return {reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(), reply->readAll()};
+    return {reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(), reply->readAll(),
+            reply->rawHeader("Retry-After"), reply->rawHeader("Cache-Control")};
 }
 
 const QByteArray credentials = R"({"email":"test@example.com","password":"password"})";
@@ -111,6 +119,80 @@ class BackendServerTests : public QObject {
         // An invalid URI ensures this exercises the failure path without a live DB.
         QCOMPARE(request(port_, "/auth/login", credentials, true).status, 503);
         QCOMPARE(request(port_, "/").status, 200);
+    }
+
+    void login_account_quota_normalizes_email_and_recovers_at_expiry() {
+        using namespace Infrastructure::Security;
+        auto now = LocalRateLimiter::Clock::time_point{};
+        auto limiter = std::make_unique<LocalRateLimiter>([&] { return now; });
+        MongoDBDataManager database;
+        Server server(database, nullptr, std::move(limiter));
+        QVERIFY(server.is_listening());
+        for (int i = 0; i < 5; ++i)
+            QCOMPARE(request(port_, "/auth/login", credentials, true).status, 503);
+        now += std::chrono::milliseconds(59001);
+        const auto blocked = request(port_, "/auth/login",
+            R"({"email":" TEST@EXAMPLE.COM ","password":"different"})", true);
+        QCOMPARE(blocked.status, 429);
+        QCOMPARE(blocked.retry_after, QByteArray("1"));
+        QCOMPARE(blocked.cache_control, QByteArray("no-store"));
+        // A different account still reaches authentication (the invalid DB URI).
+        QCOMPARE(request(port_, "/auth/login",
+            R"({"email":"other@example.com","password":"password"})", true).status, 503);
+        now += std::chrono::milliseconds(999);
+        QCOMPARE(request(port_, "/auth/login", credentials, true).status, 503);
+    }
+
+    void login_peer_quota_covers_malformed_requests_and_ignores_forwarded_headers() {
+        MongoDBDataManager database;
+        Server server(database, nullptr);
+        QVERIFY(server.is_listening());
+        for (int i = 0; i < 20; ++i)
+            QCOMPARE(request(port_, "/auth/login", "not-json", true,
+                "192.0.2." + QByteArray::number(i + 1)).status, 400);
+        const auto blocked = request(port_, "/auth/login", credentials, true, "198.51.100.1");
+        QCOMPARE(blocked.status, 429);
+        QVERIFY(blocked.retry_after.toInt() >= 1 && blocked.retry_after.toInt() <= 60);
+        QCOMPARE(blocked.cache_control, QByteArray("no-store"));
+        // Login and signup have separate budgets; unrelated routes still work.
+        QCOMPARE(request(port_, "/auth/signup", "not-json", true).status, 400);
+        QCOMPARE(request(port_, "/").status, 200);
+        QCOMPARE(request(port_, "/auth/logout", "{}", true).status, 200);
+    }
+
+    void signup_quota_runs_before_database_work_and_recovers_at_expiry() {
+        using namespace Infrastructure::Security;
+        auto now = LocalRateLimiter::Clock::time_point{};
+        auto limiter = std::make_unique<LocalRateLimiter>([&] { return now; });
+        MongoDBDataManager database;
+        Server server(database, nullptr, std::move(limiter));
+        QVERIFY(server.is_listening());
+        for (int i = 0; i < 5; ++i)
+            QCOMPARE(request(port_, "/auth/signup", "not-json", true).status, 400);
+        now += std::chrono::seconds(299);
+        const auto blocked = request(port_, "/auth/signup", credentials, true, "192.0.2.1");
+        QCOMPARE(blocked.status, 429);
+        QCOMPARE(blocked.retry_after, QByteArray("1"));
+        QCOMPARE(blocked.cache_control, QByteArray("no-store"));
+        now += std::chrono::seconds(1);
+        QCOMPARE(request(port_, "/auth/signup", "not-json", true).status, 400);
+        QCOMPARE(request(port_, "/auth/login", "not-json", true).status, 400);
+    }
+
+    void unavailable_limiter_fails_closed_on_both_auth_routes() {
+        using namespace Infrastructure::Security;
+        auto limiter = std::make_unique<LocalRateLimiter>();
+        for (int i = 0; i < 4096; ++i)
+            QCOMPARE(limiter->check(QString::number(i), 1, 300).status, RateLimitStatus::Allowed);
+        MongoDBDataManager database;
+        Server server(database, nullptr, std::move(limiter));
+        QVERIFY(server.is_listening());
+        for (const auto& path : {"/auth/login", "/auth/signup"}) {
+            const auto response = request(port_, path, "not-json", true);
+            QCOMPARE(response.status, 503);
+            QVERIFY(response.retry_after.isEmpty());
+            QCOMPARE(response.cache_control, QByteArray("no-store"));
+        }
     }
 
     void bearer_sessions_are_independent_and_can_be_revoked() {

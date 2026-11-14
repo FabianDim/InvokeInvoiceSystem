@@ -67,8 +67,23 @@ the build also runs `windeployqt` to deploy its plugins, including
 To repair missing plugins in an existing build, run
 `cmake --build --preset x64-release --target deploy-qt` (or use the
 `x64-relwithdebinfo` preset). `WindowsDesktopStartup` verifies startup with the
-Windows platform plugin rather than the offscreen test plugin. Release ZIPs use
-the separate packaging script to include the redistributable runtime as well.
+Windows platform plugin rather than the offscreen test plugin. Shared-build ZIPs
+use the packaging script to include the redistributable runtime as well.
+
+To build the frontend as a single executable with Qt, its plugins and the MSVC
+runtime linked statically, use the static preset:
+
+```powershell
+cmake --preset x64-static-release
+cmake --build --preset x64-static-release --target InvokeInvoiceSystem
+./.github/scripts/package-frontend.ps1 -Version 0.1.0 -BuildDirectory out/build/x64-static-release -Static
+```
+
+Use the configured `INVOICE_APP_VERSION` for `-Version` if you override it.
+The static build does not run `windeployqt` or copy plugin DLLs. Its executable
+can run on its own. Packaging writes a versioned `.exe`, its `.exe.sha256`
+checksum and a separate `-licenses.txt` file to `out/release`. Account mode still
+requires a backend connection.
 
 For account mode, launch the backend in the terminal where you configured MongoDB:
 
@@ -110,6 +125,22 @@ has its own account identity and invoice state. Sessions expire after eight hour
 and are held in memory on the single backend dyno, so restarting it requires
 signing in again. The desktop keeps tokens only in memory; automatic sign-in
 across application launches is not implemented.
+
+Login and signup use fixed-window rate limits in each server instance, including
+the embedded local server. Login allows 20 requests per 60 seconds per peer IP
+and 5 per 60 seconds per email (trimmed and case-folded for the quota only).
+Signup allows 5 requests per 300 seconds per peer IP. Attempts count even when
+authentication fails; malformed requests consume the peer quota. Windows start
+with the first request and blocked requests do not extend them. HTTP 429 includes
+a rounded-up `Retry-After` delay in seconds. If the limiter's 4,096-key capacity is
+full, requests requiring a new key fail closed with HTTP 503 until space expires.
+Keys use hashes of email addresses and never contain passwords or tokens.
+
+Counters reset on server restart and are not shared between server instances.
+Peer IP means the direct TCP peer: `Forwarded` and `X-Forwarded-For` are ignored.
+Clients behind a reverse proxy therefore share that proxy's peer quota. Deployments
+requiring individual client quotas behind proxies need an explicit trusted-proxy
+policy; multiple server instances need a shared limiter for a deployment-wide quota.
 
 When `PORT` is set (as it is on Heroku), the HTTP server listens on `0.0.0.0:$PORT` instead. The value must be an integer from 1 to 65535; an invalid or empty value logs an error and prevents the listener from starting. To restore the local default in PowerShell, run `Remove-Item Env:PORT -ErrorAction SilentlyContinue`.
 
@@ -161,35 +192,44 @@ files. Pass database credentials at runtime, never as Docker build arguments.
 <<<<<<< Updated upstream
 #### GitHub checks and frontend releases
 
-Every push to `main` runs `.github/workflows/main-ci.yml`:
+Pull requests targeting `main` and pushes to `main` run
+`.github/workflows/main-ci.yml`. PRs run the required **All available tests**
+check and validate both builds; only a push to `main` publishes a release:
 
 1. Choose a version for the CI builds and frontend release. With the current
    `0.1.0` base in `vcpkg.json`, workflow runs produce `0.1.1`, `0.1.2`, etc.
    The patch number is the base patch plus GitHub's workflow run number.
-   Retries retain their version; failed or superseded runs can leave gaps.
+   Retries retain their version; PR checks, failed or superseded runs can leave gaps.
 2. Build the Dockerfile's `tests` stage and run every registered CTest entry,
    including PDF, database health, logging, business session, frontend session,
    backend server and test-discovery checks. Qt runs offscreen. Database checks
    use an authenticated, temporary MongoDB service, never the deployed database.
-3. Only after all tests pass, build the Windows x64 frontend, bundle its DLLs,
-   Qt plugins and MSVC runtime, and check the packaged executable's version
-   without developer dependency paths.
+3. Only after all tests pass, build the Windows x64 frontend with static Qt,
+   plugins and MSVC runtime. Reject non-system DLL imports and check the
+   executable's version with only the EXE in its folder and no developer
+   dependency paths.
 4. Check that the backend's `runtime` Docker image builds successfully.
 5. Publish a GitHub Release tagged `v<version>` at the tested commit, with the
-   Windows ZIP and a SHA-256 checksum. Failed tests or builds prevent publication.
+   standalone Windows EXE, a SHA-256 checksum and separate dependency notices.
+   GitHub provides separate source-code ZIP and tar.gz downloads for that tag.
+   Failed tests or builds prevent publication.
 
 GitHub Actions does not push to Heroku's registry or release the backend. No
 Heroku secrets or production database credentials are needed in GitHub.
 
 Test reports are uploaded as the `test-results` artifact. Dependency layers are
 cached between runs; the first build compiles Qt and can take considerably longer.
-Release workflows are serialized to prevent overlapping publications.
+Release workflows are serialized to prevent overlapping publications. PR checks
+run independently, and a new PR commit cancels that PR's outdated run.
 
 Download the frontend from the repository's
 [Releases page](https://github.com/FabianDim/InvokeInvoiceSystem/releases).
-Extract the entire `InvokeInvoiceSystem-<version>-windows-x64.zip` and run
-`InvokeInvoiceSystem.exe`; keep its DLLs and plugin folders together.
-The executable supports `--version`, and the package includes `VERSION.txt`.
+Download and run `InvokeInvoiceSystem-<version>-windows-x64.exe` directly.
+No DLLs, Qt plugin folders or runtime installer need to accompany it.
+The executable supports `--version`. The `.exe.sha256` asset verifies the download;
+`-licenses.txt` contains dependency notices and is not required to run the app.
+Use the separate **Source code (zip)** or **Source code (tar.gz)** downloads to
+get the matching source, build configuration and dependency manifest.
 The GitHub release job uses the built-in `GITHUB_TOKEN` with `contents: write`;
 no separate GitHub publishing token is needed. A draft is published only after
 its assets upload successfully; reruns leave an already published release intact.
