@@ -125,7 +125,6 @@
         Qt6::HttpServer
         Qt6::Network
     )
-    qt_import_plugins(InvokeInvoiceSystem INCLUDE Qt6::QWindowsIntegrationPlugin)
 
     set_target_properties(InvokeInvoiceSystem PROPERTIES
     WIN32_EXECUTABLE ON

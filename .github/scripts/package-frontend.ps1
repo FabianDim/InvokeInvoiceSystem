@@ -4,19 +4,12 @@ param(
     [string]$Version,
     [string]$BuildDirectory = 'out/build/x64-release',
     [string]$OutputDirectory = 'out/release',
-    [string]$DependencyDirectory = '',
-    [switch]$Static
+    [string]$DependencyDirectory = ''
 )
 
 $ErrorActionPreference = 'Stop'
 $buildPath = (Resolve-Path -LiteralPath $BuildDirectory).Path
-if (-not $DependencyDirectory) {
-    if ($Static) {
-        $DependencyDirectory = Join-Path $PSScriptRoot '../../vcpkg_installed/x64-windows-static-custom'
-    } else {
-        $DependencyDirectory = Join-Path $buildPath 'vcpkg_installed/x64-windows'
-    }
-}
+if (-not $DependencyDirectory) { $DependencyDirectory = Join-Path $buildPath 'vcpkg_installed/x64-windows' }
 $dependencyPath = (Resolve-Path -LiteralPath $DependencyDirectory).Path
 New-Item -ItemType Directory -Force $OutputDirectory | Out-Null
 $outputPath = (Resolve-Path -LiteralPath $OutputDirectory).Path
@@ -27,48 +20,38 @@ if (Test-Path -LiteralPath $packagePath) {
 }
 New-Item -ItemType Directory $packagePath | Out-Null
 Copy-Item -LiteralPath (Join-Path $buildPath 'InvokeInvoiceSystem.exe') -Destination $packagePath
+# vcpkg app-local deployment supplies non-Qt libraries (MongoDB, OpenSSL, etc.).
+Get-ChildItem -LiteralPath $buildPath -Filter '*.dll' -File | Copy-Item -Destination $packagePath
+$deployQt = Join-Path $dependencyPath 'tools/Qt6/bin/windeployqt.exe'
 $executable = Join-Path $packagePath 'InvokeInvoiceSystem.exe'
-if (-not $Static) {
-    # vcpkg app-local deployment supplies non-Qt libraries (MongoDB, OpenSSL, etc.).
-    Get-ChildItem -LiteralPath $buildPath -Filter '*.dll' -File | Copy-Item -Destination $packagePath
-    $deployQt = Join-Path $dependencyPath 'tools/Qt6/bin/windeployqt.exe'
-    try {
-        # Windows PowerShell 5 treats native stderr warnings as errors when redirected.
-        # Use the tool's exit code to decide whether deployment succeeded.
-        $ErrorActionPreference = 'Continue'
-        & $deployQt --release --no-translations --compiler-runtime $executable
-        $deployExitCode = $LASTEXITCODE
-    } finally {
-        $ErrorActionPreference = 'Stop'
-    }
-    if ($deployExitCode) { throw "windeployqt failed with exit code $deployExitCode" }
-
-    # Include the app-local MSVC runtime so extracting the ZIP is sufficient.
-    if (-not $env:VCToolsRedistDir) { throw 'Run packaging from an MSVC developer shell.' }
-    $crtDirectories = @(Get-ChildItem -LiteralPath (Join-Path $env:VCToolsRedistDir 'x64') -Directory -Filter 'Microsoft.VC*.CRT')
-    if ($crtDirectories.Count -ne 1) { throw 'Could not identify the x64 MSVC runtime directory.' }
-    Get-ChildItem -LiteralPath $crtDirectories[0].FullName -Filter '*.dll' -File | Copy-Item -Destination $packagePath -Force
+try {
+    # Windows PowerShell 5 treats native stderr warnings as errors when redirected.
+    # Use the tool's exit code to decide whether deployment succeeded.
+    $ErrorActionPreference = 'Continue'
+    & $deployQt --release --no-translations --compiler-runtime $executable
+    $deployExitCode = $LASTEXITCODE
+} finally {
+    $ErrorActionPreference = 'Stop'
 }
+if ($deployExitCode) { throw "windeployqt failed with exit code $deployExitCode" }
+
+# Include the app-local MSVC runtime so extracting the ZIP is sufficient.
+if (-not $env:VCToolsRedistDir) { throw 'Run packaging from an MSVC developer shell.' }
+$crtDirectories = @(Get-ChildItem -LiteralPath (Join-Path $env:VCToolsRedistDir 'x64') -Directory -Filter 'Microsoft.VC*.CRT')
+if ($crtDirectories.Count -ne 1) { throw 'Could not identify the x64 MSVC runtime directory.' }
+Get-ChildItem -LiteralPath $crtDirectories[0].FullName -Filter '*.dll' -File | Copy-Item -Destination $packagePath -Force
 @'
 [Paths]
 Prefix=.
 Plugins=.
 '@ | Set-Content -LiteralPath (Join-Path $packagePath 'qt.conf') -Encoding ascii
 Set-Content -LiteralPath (Join-Path $packagePath 'VERSION.txt') -Value $Version -Encoding ascii
-if ($Static) {
-    $packageInstructions = @"
-InvokeInvoiceSystem $Version (Windows x64)
-Run InvokeInvoiceSystem.exe directly. This package contains the self-contained frontend executable.
-"@
-} else {
-    $packageInstructions = @"
+Set-Content -LiteralPath (Join-Path $packagePath 'README.txt') -Encoding ascii -Value @"
 InvokeInvoiceSystem $Version (Windows x64)
 Extract the entire ZIP, then run InvokeInvoiceSystem.exe from this folder.
 Keep the DLLs and plugin folders beside the executable.
 The frontend connects to the configured Heroku backend by default.
 "@
-}
-Set-Content -LiteralPath (Join-Path $packagePath 'README.txt') -Encoding ascii -Value $packageInstructions
 # Include the dependency copyright notices supplied by vcpkg.
 $licenses = Join-Path $packagePath 'licenses'
 New-Item -ItemType Directory $licenses | Out-Null

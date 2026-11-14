@@ -107,8 +107,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/vcpkg-cache
-          key: vcpkg-windows-2022-x64-static-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'triplets/x64-windows-static-custom.cmake') }}
-          restore-keys: vcpkg-windows-2022-x64-static-
+          key: vcpkg-windows-2022-x64-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: vcpkg-windows-2022-x64-
       - name: Bootstrap pinned vcpkg
         shell: pwsh
         run: |
@@ -128,13 +128,13 @@ jobs:
       - name: Build versioned frontend
         shell: pwsh
         run: |
-          cmake --preset x64-static-release "-DINVOICE_APP_VERSION=$env:APP_VERSION"
+          cmake --preset x64-release "-DINVOICE_APP_VERSION=$env:APP_VERSION"
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          cmake --build --preset x64-static-release --target InvokeInvoiceSystem --parallel 2
+          cmake --build --preset x64-release --target InvokeInvoiceSystem --parallel 2
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Package and smoke-test Windows frontend
         shell: pwsh
-        run: ./.github/scripts/package-frontend.ps1 -Version $env:APP_VERSION -BuildDirectory out/build/x64-static-release -Static
+        run: ./.github/scripts/package-frontend.ps1 -Version $env:APP_VERSION
       - uses: actions/upload-artifact@v4
         with:
           name: frontend-windows
