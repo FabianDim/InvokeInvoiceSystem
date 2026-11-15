@@ -535,6 +535,8 @@ void Infrastructure::Http::ApiClient::do_login(const QString& email, const QStri
             session_token_ = token;
             auto user = std::make_shared<User>(identity.value("email").toString().toStdString(), "");
             user->setMongoUserID(identity.value("_id").toString().toStdString());
+            user->setFirstName(identity.value("firstName").toString().toStdString());
+            user->setLastName(identity.value("lastName").toString().toStdString());
             if (account_manager_)
                 account_manager_->set_authenticated_user(std::move(user));
             emit login_succeeded();

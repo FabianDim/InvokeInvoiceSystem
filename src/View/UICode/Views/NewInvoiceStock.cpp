@@ -65,7 +65,7 @@ void NewInvoiceStock::create_page_layout() {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(16);
     auto* title = UiStyle::label("Invoice items", content, "title");
-    title->setAlignment(Qt::AlignCenter);
+    title->setAlignment(Qt::AlignLeft);
     layout->addWidget(title);
 
     auto* group = new QGroupBox("Items added", content);

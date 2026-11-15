@@ -17,6 +17,8 @@
 #include <QTemporaryDir>
 #include <QSettings>
 #include <QClipboard>
+#include <QScrollArea>
+#include <QScrollBar>
 
 using App::Views::Dashboard;
 using Infrastructure::Http::ApiClient;
@@ -129,6 +131,45 @@ class BusinessSessionTests : public QObject {
     Q_OBJECT
     QTemporaryDir settings_directory_;
   private slots:
+    void account_settings_populates_current_identity_on_each_visit() {
+        TestAccountManager account;
+        App::Views::MainWindow window(account);
+        auto* form = window.account_settings_page();
+        const auto fields = form->findChildren<QLineEdit*>("form_input");
+        QCOMPARE(fields.size(), 4);
+
+        // The window and form are constructed before sign-in completes.
+        auto first_user = std::make_shared<User>("alex@example.com", "never display this");
+        first_user->setFirstName("Alex");
+        first_user->setLastName("Taylor");
+        account.set_authenticated_user(first_user);
+        window.show_page(form);
+        QCOMPARE(fields[0]->text(), QString("Alex"));
+        QCOMPARE(fields[1]->text(), QString("Taylor"));
+        QCOMPARE(fields[2]->text(), QString("alex@example.com"));
+        QVERIFY(fields[3]->text().isEmpty());
+        QCOMPARE(fields[3]->echoMode(), QLineEdit::Password);
+
+        fields[0]->setText("Unsaved edit");
+        fields[3]->setText("Unsaved password");
+        window.show_page(window.dashboard_page());
+        first_user->setLastName("Updated");
+        window.show_page(form);
+        QCOMPARE(fields[0]->text(), QString("Alex"));
+        QCOMPARE(fields[1]->text(), QString("Updated"));
+        QVERIFY(fields[3]->text().isEmpty());
+
+        // A different or signed-out user must never see the previous profile.
+        account.set_authenticated_user(std::make_shared<User>("second@example.com", ""));
+        window.show_page(form);
+        QVERIFY(fields[0]->text().isEmpty());
+        QVERIFY(fields[1]->text().isEmpty());
+        QCOMPARE(fields[2]->text(), QString("second@example.com"));
+        account.logOut();
+        window.show_page(form);
+        for (const auto* field : fields) QVERIFY(field->text().isEmpty());
+    }
+
     void online_finish_downloads_pdf_and_retries_failures() {
         RecordingServer server;
         QVERIFY(server.start());
@@ -512,7 +553,10 @@ class BusinessSessionTests : public QObject {
         QCOMPARE(stack->currentWidget(), window.dashboard_page());
         auto* title = window.dashboard_page()->findChild<QLabel*>("titleLabel");
         QVERIFY(title);
-        QCOMPARE(title->font().pixelSize(), 32);
+        QCOMPARE(title->font().pixelSize(), 30);
+        window.dashboard_page()->findChild<QComboBox*>("business_selector")->setCurrentIndex(1);
+        QTest::qWait(30);
+        window.repaint();
         QVERIFY(window.grab().save("dashboard-packaged-style.png"));
 
         auto* menu = window.menuBar()->actions().at(1)->menu();
@@ -650,10 +694,18 @@ class BusinessSessionTests : public QObject {
         QVERIFY(!button(dashboard, "Create new invoice")->isEnabled());
     }
 
+    void controls_have_consistent_roles_and_geometry_data() {
+        QTest::addColumn<QSize>("window_size");
+        QTest::newRow("standard") << QSize(800, 800);
+        QTest::newRow("compact") << QSize(640, 640);
+        QTest::newRow("desktop") << QSize(1080, 860);
+    }
+
     void controls_have_consistent_roles_and_geometry() {
+        QFETCH(QSize, window_size);
         TestAccountManager account;
         App::Views::MainWindow window(account);
-        window.resize(800, 800);
+        window.resize(window_size);
         window.show();
         const QList<QPair<QString, QWidget*>> pages{
             {"login", window.login_page()}, {"signup", window.signup_page()},
@@ -673,10 +725,23 @@ class BusinessSessionTests : public QObject {
                 if (!button->isVisible()) continue;
                 if (button_height < 0) button_height = button->height();
                 QCOMPARE(button->height(), button_height);
+                if (auto* scroll = page->findChild<QScrollArea*>(); scroll && scroll->isAncestorOf(button)) {
+                    scroll->ensureWidgetVisible(button);
+                    QCoreApplication::processEvents();
+                    const QRect visible_bounds(button->mapTo(scroll->viewport(), QPoint()), button->size());
+                    QVERIFY2(scroll->viewport()->rect().contains(visible_bounds),
+                             qPrintable(name + ": unreachable " + button->text()));
+                }
                 const QRect bounds(button->mapTo(page, QPoint()), button->size());
                 QVERIFY2(page->rect().contains(bounds), qPrintable(name + ": clipped " + button->text()));
             }
-            QVERIFY(window.grab().save(name + "-consistent-ui.png"));
+            if (auto* scroll = page->findChild<QScrollArea*>()) {
+                scroll->verticalScrollBar()->setValue(0);
+                scroll->horizontalScrollBar()->setValue(0);
+            }
+            QTest::qWait(30);
+            window.repaint();
+            QVERIFY(window.grab().save(name + "-" + QTest::currentDataTag() + "-ui.png"));
         }
         auto* dashboard = window.dashboard_page();
         QCOMPARE(button(*dashboard, "Create new invoice")->size(), button(*dashboard, "Create new client")->size());

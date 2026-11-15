@@ -194,25 +194,32 @@ files. Pass database credentials at runtime, never as Docker build arguments.
 
 Pull requests targeting `main` and pushes to `main` run
 `.github/workflows/main-ci.yml`. PRs run the required **All available tests**
-check and validate both builds; only a push to `main` publishes a release:
+check. Pushes to `main` build and publish the release without repeating that test
+suite. Windows packaging and the backend runtime-image check run only after merge:
 
 1. Choose a version for the CI builds and frontend release. With the current
    `0.1.0` base in `vcpkg.json`, workflow runs produce `0.1.1`, `0.1.2`, etc.
    The patch number is the base patch plus GitHub's workflow run number.
    Retries retain their version; PR checks, failed or superseded runs can leave gaps.
-2. Build the Dockerfile's `tests` stage and run every registered CTest entry,
+2. On PRs, build the Dockerfile's `tests` stage and run every registered CTest entry,
    including PDF, database health, logging, business session, frontend session,
    backend server and test-discovery checks. Qt runs offscreen. Database checks
    use an authenticated, temporary MongoDB service, never the deployed database.
-3. Only after all tests pass, build the Windows x64 frontend with static Qt,
+3. On pushes to `main`, build the Windows x64 frontend with static Qt,
    plugins and MSVC runtime. Reject non-system DLL imports and check the
    executable's version with only the EXE in its folder and no developer
    dependency paths.
-4. Check that the backend's `runtime` Docker image builds successfully.
-5. Publish a GitHub Release tagged `v<version>` at the tested commit, with the
+4. In the same push workflow, check that the backend's `runtime` Docker image builds successfully.
+5. After both builds pass, publish a GitHub Release tagged `v<version>` at the main commit, with the
    standalone Windows EXE, a SHA-256 checksum and separate dependency notices.
    GitHub provides separate source-code ZIP and tar.gz downloads for that tag.
-   Failed tests or builds prevent publication.
+   Failed builds prevent publication.
+
+Protect `main` by requiring pull requests and the **All available tests** status
+check before merging, with branches required to be up to date. The release run
+relies on that pre-merge validation; a direct push or protection bypass does not
+run tests. Windows packaging failures are detected after merge. This workflow
+change does not configure the repository's branch protection settings.
 
 GitHub Actions does not push to Heroku's registry or release the backend. No
 Heroku secrets or production database credentials are needed in GitHub.

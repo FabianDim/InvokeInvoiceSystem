@@ -31,6 +31,7 @@ jobs:
 
   test:
     name: All available tests
+    if: github.event_name == 'pull_request'
     needs: version
     runs-on: ubuntu-24.04
     timeout-minutes: 180
@@ -86,7 +87,8 @@ jobs:
 
   frontend:
     name: Build Windows frontend
-    needs: [version, test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: version
     runs-on: windows-2022
     timeout-minutes: 360
     env:
@@ -148,7 +150,8 @@ jobs:
 
   backend:
     name: Check backend Docker image
-    needs: [version, test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: version
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:

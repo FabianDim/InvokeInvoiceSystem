@@ -7,7 +7,7 @@
 using namespace App::Views;
 
 LoginPage::LoginPage(QWidget* parent) : QWidget(parent) {
-    parent_widget_ = UiStyle::page_content(this);
+    parent_widget_ = UiStyle::page_content(this, 560);
     form_layout_ = new QWidget(parent_widget_);
     button_layout_ = new QWidget(form_layout_);
     remember_me_layout_ = new QWidget(form_layout_);
@@ -22,12 +22,12 @@ void LoginPage::createPageLayout() {
     auto* title = new QLabel("Welcome back", parent_widget_);
     title->setObjectName("titleLabel");
     title->setProperty("role", "title");
-    title->setAlignment(Qt::AlignCenter);
+    title->setAlignment(Qt::AlignLeft);
     auto* subtitle = new QLabel("Sign in to continue to your invoice workspace.", parent_widget_);
     subtitle->setObjectName("subtitleLabel");
     subtitle->setProperty("role", "subtitle");
     subtitle->setWordWrap(true);
-    subtitle->setAlignment(Qt::AlignCenter);
+    subtitle->setAlignment(Qt::AlignLeft);
     email_input_ = new QLineEdit(form_layout_);
     password_input_ = new QLineEdit(form_layout_);
     email_input_->setProperty("role", "input");
@@ -51,6 +51,7 @@ void LoginPage::createPageLayout() {
     form->setSpacing(10);
     form->setContentsMargins(0, 0, 0, 0);
     form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+    form->setRowWrapPolicy(QFormLayout::WrapAllRows);
 
     remember_me_ = new QCheckBox("Remember Me");
     form->addRow(UiStyle::label("Email", form_layout_), email_input_);
@@ -69,6 +70,7 @@ void LoginPage::createPageLayout() {
     remember->setContentsMargins(0, 0, 0, 0);
     remember->addWidget(remember_me_);
 
+    inner_layout_->addWidget(UiStyle::label("YOUR BUSINESS, IN GOOD ORDER", parent_widget_, "eyebrow"));
     inner_layout_->addWidget(title);
     inner_layout_->addWidget(subtitle);
     inner_layout_->addWidget(form_layout_);

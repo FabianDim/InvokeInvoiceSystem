@@ -21,14 +21,15 @@ void SignupPage::create_page_layout() {
     auto* title = new QLabel("Create your account", this);
     title->setObjectName("titleLabel");
     title->setProperty("role", "title");
-    title->setAlignment(Qt::AlignCenter);
+    title->setAlignment(Qt::AlignLeft);
+    layout->addWidget(UiStyle::label("A FRESH START", content, "eyebrow"));
     layout->addWidget(title);
 
     auto* subtitle = new QLabel("Set up your workspace and start creating invoices.", this);
     subtitle->setObjectName("subtitleLabel");
     subtitle->setProperty("role", "subtitle");
     subtitle->setWordWrap(true);
-    subtitle->setAlignment(Qt::AlignCenter);
+    subtitle->setAlignment(Qt::AlignLeft);
     layout->addWidget(subtitle);
 
     auto* form = new QFormLayout;

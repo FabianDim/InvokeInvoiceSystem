@@ -314,13 +314,28 @@ void Server::create_routes_auth() {
             if (!user_id)
                 return QHttpServerResponse(QJsonObject{{"error", "Invalid email or password"}},
                                            QHttpServerResponder::StatusCode::Unauthorized);
+            const auto account = db_manager_.findById("Users", *user_id);
+            if (!account)
+                return QHttpServerResponse(QJsonObject{{"error", "Account is no longer available"}},
+                                           QHttpServerResponder::StatusCode::Unauthorized);
+            const auto profile = account->view();
+            const auto text = [&profile](const char* field) {
+                const auto value = profile[field];
+                return value && value.type() == bsoncxx::type::k_string
+                    ? QString::fromUtf8(value.get_string().value) : QString{};
+            };
+            // Only public profile fields belong in the frontend session.
+            const QJsonObject identity{{"_id", QString::fromStdString(*user_id)},
+                                       {"email", text("UserEmail")},
+                                       {"firstName", text("FirstName")},
+                                       {"lastName", text("LastName")}};
             const auto token = sessions_.create(*user_id);
             if (token.isEmpty())
                 return QHttpServerResponse(QJsonObject{{"error", "Sign-in is busy. Please try again later."}},
                                            QHttpServerResponder::StatusCode::ServiceUnavailable);
             auto response = QHttpServerResponse(QJsonObject{
                 {"ok", true}, {"token", QString::fromLatin1(token)},
-                {"user", QJsonObject{{"_id", QString::fromStdString(*user_id)}, {"email", email}}}});
+                {"user", identity}});
             auto headers = response.headers();
             headers.append("Cache-Control", "no-store");
             response.setHeaders(std::move(headers));
