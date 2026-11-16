@@ -25,7 +25,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Derive a stable version for this workflow run
@@ -54,12 +54,14 @@ jobs:
           --health-timeout 5s
           --health-retries 12
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - uses: docker/setup-buildx-action@v3
+      - name: Check backend deployment output handling
+        run: python3 -m unittest discover -s tests -p test_backend_image_id.py -v
+      - uses: docker/setup-buildx-action@v4
       - name: Build all test executables
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: tests
@@ -83,7 +85,7 @@ jobs:
               --no-tests=error --output-junit /test-results/ctest.xml
       - name: Save test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: test-results
           path: test-results/
@@ -100,7 +102,7 @@ jobs:
       VCPKG_DISABLE_METRICS: 1
       APP_VERSION: ${{ needs.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - uses: ilammy/msvc-dev-cmd@v1
@@ -112,7 +114,7 @@ jobs:
           "VCPKG_ROOT=$env:RUNNER_TEMP/invoice-vcpkg" >> $env:GITHUB_ENV
           "VCPKG_DEFAULT_BINARY_CACHE=$env:RUNNER_TEMP/vcpkg-cache" >> $env:GITHUB_ENV
       - name: Cache Windows dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ runner.temp }}/vcpkg-cache
           key: vcpkg-windows-2022-x64-static-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'triplets/x64-windows-static-custom.cmake') }}
@@ -143,7 +145,7 @@ jobs:
       - name: Verify and stage standalone frontend EXE
         shell: pwsh
         run: ./.github/scripts/package-frontend.ps1 -Version $env:APP_VERSION -BuildDirectory out/build/x64-static-release -Static
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: frontend-windows
           path: |
@@ -159,12 +161,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     outputs:
-      image_id: ${{ fromJSON(steps.image.outputs.metadata)['containerimage.config.digest'] }}
+      image_id: ${{ steps.image_id.outputs.image_id }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - uses: docker/setup-buildx-action@v3
       - name: Check deployment credentials
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
@@ -173,15 +174,16 @@ jobs:
             echo "::error::Add the HEROKU_API_KEY repository secret before deploying."
             exit 1
           fi
+      - uses: docker/setup-buildx-action@v4
       - name: Log in to Heroku Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: registry.heroku.com
           username: _
           password: ${{ secrets.HEROKU_API_KEY }}
       - name: Build and push backend image
         id: image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: runtime
@@ -193,6 +195,14 @@ jobs:
           outputs: type=registry,name=registry.heroku.com/${{ env.HEROKU_APP_NAME }}/web,oci-mediatypes=false
           cache-from: type=gha,scope=invoice
           cache-to: type=gha,mode=max,scope=invoice
+
+      # Only parse metadata after a successful push. Failed/skipped builds leave
+      # a plain empty job output, preserving the original error during cleanup.
+      - name: Validate backend image ID
+        id: image_id
+        env:
+          BUILD_METADATA: ${{ steps.image.outputs.metadata }}
+        run: python3 .github/scripts/backend-image-id.py
 
   deploy:
     name: Release backend on Heroku
@@ -247,11 +257,11 @@ jobs:
       GH_REPO: ${{ github.repository }}
       APP_VERSION: ${{ needs.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: frontend-windows
           path: release-assets
