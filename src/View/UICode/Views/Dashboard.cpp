@@ -63,6 +63,9 @@ void App::Views::Dashboard::create_page_layout() {
     default_invoice_settings_button->hide();
     items_button = new QPushButton("Browse business records", content);
     items_button->setObjectName("browse_items_button");
+    invoices_button = new QPushButton("Browse invoices", content);
+    invoices_button->setObjectName("browse_invoices_button");
+    UiStyle::button(invoices_button, "secondary", true);
 
     invoice_button->setObjectName("primary_dashboard_button");
     client_button->setObjectName("dashboard_button");
@@ -95,7 +98,8 @@ void App::Views::Dashboard::create_page_layout() {
     add_action(stock_button, "04 / INVENTORY", "Products, quantities and pricing.", 4, 1);
     add_action(items_button, "05 / RECORDS", "Find the details you need, together.", 5, 0);
     add_action(account_button, "06 / PERSONAL", "A little housekeeping for your account.", 5, 1);
-    layout->addWidget(default_invoice_settings_button, 6, 0, 1, 2);
+    layout->addWidget(invoices_button, 6, 0);
+    layout->addWidget(default_invoice_settings_button, 6, 1);
     loading_label_ = UiStyle::label("", content, "status");
     loading_label_->setObjectName("business_loading_status");
     layout->addWidget(loading_label_, 7, 0, 1, 2);
@@ -110,6 +114,7 @@ void App::Views::Dashboard::create_page_layout() {
 }
 
 void Dashboard::button_connections() {
+    connect(invoices_button, &QPushButton::clicked, this, [this]() { emit dash_navigation(Page::Invoices); });
     connect(default_invoice_settings_button, &QPushButton::clicked, this,
             [this]() { emit dash_navigation(Page::DefaultInvoiceSettings); });
     connect(business_select_, &QComboBox::currentIndexChanged, this, &Dashboard::update_business_selection);
@@ -128,6 +133,7 @@ void Dashboard::set_offline(bool offline) {
     findChild<QFrame*>("account_action_card")->setVisible(!offline);
     business_button->setText(offline ? "Create demo business" : "Configure business");
     items_button->setText(offline ? "Browse demo records" : "Browse business records");
+    invoices_button->setText(offline ? "Browse demo invoices" : "Browse invoices");
     findChild<QLabel*>("titleLabel")->setText(offline ? "Try an offline invoice" : "Your workspace");
     findChild<QLabel*>("subtitleLabel")->setText(offline
         ? "Create a business, add a client and items, then export your PDF. Nothing is saved to your account."
@@ -187,6 +193,7 @@ void Dashboard::update_business_selection() {
     client_button->setEnabled(selected);
     stock_button->setEnabled(selected);
     items_button->setEnabled(selected);
+    invoices_button->setEnabled(selected);
     emit business_chosen(business_select_->currentData().toJsonObject());
 }
 

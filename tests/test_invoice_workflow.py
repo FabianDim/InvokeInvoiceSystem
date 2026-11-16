@@ -7,17 +7,34 @@ python -m unittest discover -s tests -p test_invoice_workflow.py -v
 """
 import json
 import os
+import pathlib
+import re
 import socket
 import subprocess
+import tempfile
 import time
 import unittest
 import urllib.error
 import urllib.request
+import zlib
 from concurrent.futures import ThreadPoolExecutor
 
 from bson import ObjectId
 from pymongo import MongoClient
 from pymongo.uri_parser import parse_uri
+
+
+def pdf_page_streams(body):
+    """Inspect libharu's compressed drawing commands without a PDF dependency."""
+    pages = []
+    for match in re.finditer(rb"stream\r?\n(.*?)\r?\nendstream", body, re.S):
+        try:
+            content = zlib.decompress(match[1])
+        except zlib.error:
+            continue
+        if b"(Tax Invoice)" in content:
+            pages.append(content)
+    return pages
 
 
 @unittest.skipUnless(os.getenv("INVOICE_TEST_MONGODB_URI") and os.getenv("INVOICE_TEST_BACKEND"),
@@ -40,12 +57,18 @@ class InvoiceWorkflowTests(unittest.TestCase):
 
     def start_backend(self, uri):
         with socket.socket() as sock:
-            sock.bind(("127.0.0.1", 0))
+            # Match the backend's wildcard listener. A loopback-only reservation
+            # can choose a port already occupied on another interface on Windows.
+            if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            sock.bind(("0.0.0.0", 0))
             port = sock.getsockname()[1]
         self.base = f"http://127.0.0.1:{port}"
         env = dict(os.environ, PORT=str(port), MONGODB_URI=uri, MONGODB_DATABASE=self.db.name)
+        self.backend_log = tempfile.TemporaryFile()
+        self.addCleanup(self.backend_log.close)
         self.backend = subprocess.Popen([os.environ["INVOICE_TEST_BACKEND"]], env=env,
-                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                        stdout=self.backend_log, stderr=subprocess.STDOUT,
                                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         for _ in range(100):
             try:
@@ -53,7 +76,8 @@ class InvoiceWorkflowTests(unittest.TestCase):
                     return
             except (OSError, urllib.error.URLError):
                 if self.backend.poll() is not None:
-                    self.fail("Backend exited before listening")
+                    self.backend_log.seek(0)
+                    self.fail("Backend exited before listening: " + self.backend_log.read().decode(errors="replace"))
                 time.sleep(.05)
         self.fail("Backend did not start")
 
@@ -73,6 +97,7 @@ class InvoiceWorkflowTests(unittest.TestCase):
         except urllib.error.HTTPError as error:
             response = error
         with response:
+            self.last_headers = response.headers
             body = response.read()
             return response.status, body if body.startswith(b"%PDF") else json.loads(body)
 
@@ -100,6 +125,132 @@ class InvoiceWorkflowTests(unittest.TestCase):
 
     def quantity(self, stock):
         return self.db.Stock.find_one({"_id": ObjectId(stock)})["Quantity"]
+
+    def test_archive_survives_restart_and_regeneration_preserves_original_details(self):
+        stock = self.save("stock", {"BusinessID": self.business, "Name": "Widget", "Price": 10, "Quantity": 8})
+        number = self.begin(date_created="2026-01-01", date_due="2026-01-15", paid=True)
+        lines = [{"_id": stock, "Name": "Widget", "Quantity": 2, "Price": 10}]
+        status, original = self.request("/invoices/stock-list", lines, self.token)
+        self.assertEqual(status, 200, original)
+        original_pages = pdf_page_streams(original)
+        self.assertEqual(len(original_pages), 1)
+        self.assertIn(b"(Due date: 15 Jan 2026)", original_pages[0])
+        self.assertIn(b"(Payment: PAID)", original_pages[0])
+        self.assertEqual(self.request("/invoices/stock-list", lines, self.token)[0], 200)
+        self.assertEqual(self.db.Invoices.count_documents({}), 1)
+        saved = self.db.Invoices.find_one()
+        self.assertTrue(saved["Paid"])
+        snapshot = json.loads(saved["SnapshotJson"])
+        self.assertEqual(snapshot["DateDue"], "2026-01-15")
+        self.assertEqual(snapshot["Client"]["Name"], "Customer")
+        self.assertEqual(snapshot["Total"], 20)
+        self.assertEqual(snapshot["Items"], lines)
+        # Regeneration must not rely on current stock or contact records.
+        self.db.Clients.delete_one({"_id": ObjectId(self.client)})
+        self.db.Business.update_one({"_id": ObjectId(self.business)}, {"$set": {"BusinessName": "Changed business"}})
+        self.stop_backend()
+        self.start_backend(os.environ["INVOICE_TEST_MONGODB_URI"])
+        self.token = self.login("owner@example.invalid")
+        status, listing = self.request(f"/invoices/list?BusinessID={self.business}", token=self.token)
+        self.assertEqual(status, 200, listing)
+        self.assertEqual(self.last_headers["Cache-Control"], "no-store")
+        row = listing["invoices"][0]
+        self.assertEqual(row["InvoiceNumber"], number)
+        self.assertEqual(row["ClientName"], "Customer")
+        self.assertTrue(row["Paid"])
+        self.assertFalse(row["LegacyCopy"])
+        self.assertNotIn("Items", row)
+        payment = {"InvoiceID": row["_id"], "BusinessID": self.business, "Paid": False}
+        self.assertEqual(self.request("/invoices/payment", payment, self.token)[0], 200)
+        self.assertFalse(self.db.Invoices.find_one()["Paid"])
+        self.assertEqual(self.db.Invoices.find_one()["SnapshotJson"], saved["SnapshotJson"])
+        path = f"/invoices/pdf?BusinessID={self.business}&InvoiceID={row['_id']}"
+        status, regenerated = self.request(path, token=self.token)
+        self.assertEqual(status, 200, regenerated)
+        self.assertTrue(regenerated.startswith(b"%PDF-"))
+        regenerated_pages = pdf_page_streams(regenerated)
+        self.assertEqual(len(regenerated_pages), 1)
+        self.assertIn(b"(Due date: 15 Jan 2026)", regenerated_pages[0])
+        self.assertIn(b"(Payment: UNPAID)", regenerated_pages[0])
+        self.assertIn(b"(Test business)", regenerated_pages[0])
+        self.assertIn(b"(Customer)", regenerated_pages[0])
+        self.assertNotIn(b"Changed business", regenerated_pages[0])
+        self.assertEqual(self.quantity(stock), 6)
+        self.assertEqual(self.db.Invoices.count_documents({}), 1)
+        # A second login cannot bypass the account-wide backend wait.
+        second_session = self.login("owner@example.invalid")
+        self.assertEqual(self.request(path, token=second_session)[0], 429)
+        wait = int(self.last_headers["Retry-After"])
+        self.assertGreaterEqual(wait, 1)
+        self.assertLessEqual(wait, 10)
+        time.sleep(wait + .05)
+        self.assertEqual(self.request(path, token=second_session)[0], 200)
+        self.assertEqual(self.quantity(stock), 6)
+        if directory := os.getenv("INVOICE_PDF_PREVIEW_DIR"):
+            destination = pathlib.Path(directory)
+            destination.mkdir(parents=True, exist_ok=True)
+            (destination / "original-paid.pdf").write_bytes(original)
+            (destination / "regenerated-unpaid.pdf").write_bytes(regenerated)
+
+    def test_archive_authorization_and_input_validation(self):
+        for invalid in ({"paid": "yes"}, {"date_due": "2026-02-30"}, {"date_created": "not a date"}):
+            data = dict(BusinessID=self.business, ClientID=self.client, **invalid)
+            self.assertEqual(self.request("/invoices/invoice_start", data, self.token)[0], 400)
+        self.begin(date_created="2026-01-01", date_due="2026-01-15")
+        self.assertEqual(self.request("/invoices/stock-list", [{"Name": "Service", "Quantity": 1, "Price": 25}], self.token)[0], 200)
+        saved = self.db.Invoices.find_one()
+        self.assertFalse(saved["Paid"])
+        path = f"/invoices/pdf?BusinessID={self.business}&InvoiceID={saved['_id']}"
+        self.assertEqual(self.request(path)[0], 401)
+        self.assertEqual(self.request(path, token=self.other)[0], 404)
+        listing = f"/invoices/list?BusinessID={self.business}"
+        self.assertEqual(self.request(listing)[0], 401)
+        self.assertEqual(self.request(listing, token=self.other)[1]["invoices"], [])
+        self.assertEqual(self.request(listing + "&offset=-1", token=self.token)[0], 400)
+        payment = {"InvoiceID": str(saved["_id"]), "BusinessID": self.business, "Paid": True}
+        self.assertEqual(self.request("/invoices/payment", payment)[0], 401)
+        self.assertEqual(self.request("/invoices/payment", payment, self.other)[0], 404)
+        self.assertEqual(self.request("/invoices/payment", dict(payment, Paid="true"), self.token)[0], 400)
+        self.assertEqual(self.request("/invoices/payment", dict(payment, BusinessID=str(ObjectId())), self.token)[0], 404)
+        self.assertFalse(self.db.Invoices.find_one()["Paid"])
+
+    def test_archive_pagination_and_legacy_records(self):
+        owner = self.db.Business.find_one({"_id": ObjectId(self.business)})["UserID"]
+        records = [{"_id": ObjectId(), "UserID": owner, "BusinessID": ObjectId(self.business),
+                    "ClientID": ObjectId(self.client), "InvoiceNumber": f"OLD-{index:03}",
+                    "ItemsJson": json.dumps([{"Name": "Legacy service", "Quantity": 1, "Price": 10}])}
+                   for index in range(51)]
+        self.db.Invoices.insert_many(records)
+        path = f"/invoices/list?BusinessID={self.business}"
+        status, first = self.request(path, token=self.token)
+        self.assertEqual(status, 200, first)
+        self.assertEqual(len(first["invoices"]), 50)
+        self.assertTrue(first["has_more"])
+        row = first["invoices"][0]
+        self.assertTrue(row["LegacyCopy"])
+        self.assertEqual(row["DateDue"], "")
+        self.assertFalse(row["Paid"])
+        self.assertEqual(self.db.Invoices.count_documents({"Paid": False}), 51)
+        _, second = self.request(path + "&offset=50", token=self.token)
+        self.assertEqual(len(second["invoices"]), 1)
+        self.assertFalse(second["has_more"])
+        self.assertNotIn(second["invoices"][0]["_id"], [item["_id"] for item in first["invoices"]])
+        status, pdf = self.request(f"/invoices/pdf?BusinessID={self.business}&InvoiceID={row['_id']}", token=self.token)
+        self.assertEqual(status, 200)
+        self.assertIn(b"(Due date: Not recorded)", pdf_page_streams(pdf)[0])
+        self.assertIn(b"Legacy copy:", pdf_page_streams(pdf)[0])
+
+    def test_pdf_due_date_and_status_on_every_page(self):
+        self.begin(date_created="2026-11-01", date_due="2026-11-30", paid=False)
+        lines = [{"Name": f"Service {index}", "Quantity": 1, "Price": 25} for index in range(60)]
+        status, pdf = self.request("/invoices/stock-list", lines, self.token)
+        self.assertEqual(status, 200)
+        pages = pdf_page_streams(pdf)
+        self.assertGreater(len(pages), 1)
+        for page in pages:
+            self.assertIn(b"(Due date: 30 Nov 2026)", page)
+            self.assertIn(b"(Issued: 01 Nov 2026)", page)
+            self.assertIn(b"(Payment: UNPAID)", page)
 
     def test_prefix_and_sequence_survive_restart_and_blank_prefix(self):
         self.assertEqual(self.begin(), "INV-000001")

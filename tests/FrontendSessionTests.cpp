@@ -66,6 +66,15 @@ struct SessionServer {
         http.route("/invoices/invoice_start", QHttpServerRequest::Method::Post, []() {
             return QHttpServerResponse(QJsonObject{{"ok", true}});
         });
+        http.route("/invoices/pdf", QHttpServerRequest::Method::Get, [this]() {
+            requests.append("archived-pdf");
+            QHttpServerResponse response(pdf_type, pdf_body, pdf_status);
+            if (pdf_status == StatusCode::TooManyRequests) {
+                auto headers = response.headers(); headers.append("Retry-After", "20");
+                response.setHeaders(std::move(headers));
+            }
+            return response;
+        });
         return tcp->listen(QHostAddress::LocalHost, 0) && http.bind(tcp);
     }
 
@@ -231,6 +240,41 @@ class FrontendSessionTests : public QObject {
         QTest::qWait(50);
         QVERIFY(connections.isEmpty());
         QVERIFY(server.requests.isEmpty());
+    }
+
+    void archived_pdf_export_enforces_wait_and_preserves_files_data() {
+        QTest::addColumn<int>("status");
+        QTest::addColumn<QByteArray>("body");
+        QTest::addColumn<bool>("success");
+        QTest::newRow("pdf") << 200 << QByteArray("%PDF-1.4\narchived invoice\n%%EOF\n") << true;
+        QTest::newRow("invalid-pdf") << 200 << QByteArray("invalid") << false;
+        QTest::newRow("server-wait") << 429 << QByteArray("{\"error\":\"Please wait\"}") << false;
+    }
+
+    void archived_pdf_export_enforces_wait_and_preserves_files() {
+        QFETCH(int, status); QFETCH(QByteArray, body); QFETCH(bool, success);
+        SessionServer server;
+        server.pdf_status = static_cast<StatusCode>(status); server.pdf_body = body;
+        QVERIFY(server.start());
+        FrontendAccountSession account;
+        ApiClient api(server.url(), &account);
+        api.business_selected({{"_id", "65a000000000000000000001"}});
+        QTemporaryDir output; QVERIFY(output.isValid());
+        const auto path = output.filePath("saved.pdf");
+        { QFile previous(path); QVERIFY(previous.open(QIODevice::WriteOnly)); previous.write("original file"); }
+        QSignalSpy exported(&api, &ApiClient::invoice_exported);
+        QSignalSpy failed(&api, &ApiClient::invoice_export_failed);
+        QSignalSpy waits(&api, &ApiClient::invoice_export_wait);
+        api.export_saved_invoice("65e000000000000000000001", path);
+        QTRY_COMPARE(exported.count() + failed.count(), 1);
+        QCOMPARE(exported.count(), success ? 1 : 0);
+        if (status == 429) QCOMPARE(waits.last().first().toInt(), 20);
+        QFile result(path); QVERIFY(result.open(QIODevice::ReadOnly));
+        QCOMPARE(result.readAll(), success ? body : QByteArray("original file"));
+        api.export_saved_invoice("65e000000000000000000002", output.filePath("another.pdf"));
+        QCOMPARE(failed.count(), success ? 1 : 2);
+        QCOMPARE(server.requests, QStringList{"archived-pdf"});
+        QVERIFY(!QFile::exists(output.filePath("another.pdf")));
     }
 
     void pdf_results_cross_the_http_boundary_data() {

@@ -91,6 +91,14 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
 
 App::Views::MainWindow::~MainWindow() = default;
 
+App::Views::InvoicesPage* App::Views::MainWindow::invoices_page() {
+    if (!invoices_page_) {
+        invoices_page_ = new InvoicesPage(this);
+        pagesStack->addWidget(invoices_page_);
+    }
+    return invoices_page_;
+}
+
 App::Views::ItemsPage* App::Views::MainWindow::items_page() {
     if (!items_page_) {
         items_page_ = new ItemsPage(this);

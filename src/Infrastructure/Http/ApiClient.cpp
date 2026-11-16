@@ -8,6 +8,7 @@
 #include <QFileInfo>
 #include <QRegularExpression>
 #include <QSaveFile>
+#include "Infrastructure/Pdf/InvoicePdfGenerator.h"
 
 using namespace Infrastructure::Http;
 
@@ -62,6 +63,9 @@ void ApiClient::set_offline(bool offline) {
 }
 
 void ApiClient::clear_session() {
+    ++invoice_list_generation_;
+    invoice_export_busy_ = false;
+    invoice_export_deadline_ = QDeadlineTimer(0);
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::http(), "ApiClient.clear_session");
     ++invoice_generation_;
     invoice_directory_.clear();
@@ -92,6 +96,101 @@ void ApiClient::clear_session() {
         Infrastructure::Logging::traceReply(reply);
         connect(reply, &QNetworkReply::finished, reply, &QObject::deleteLater);
     }
+}
+
+void ApiClient::get_invoices(int offset) {
+    const auto business = current_business_id_;
+    if (business.isEmpty()) { emit invoice_history_failed("Choose a business first."); return; }
+    if (offset < 0) { emit invoice_history_failed("Invalid invoice page."); return; }
+    if (offline_) { emit invoices_received(QJsonDocument(offline_session_.invoice_list(business, offset))); return; }
+    QUrl url = baseUrl_; url.setPath("/invoices/list");
+    url.setQuery(QUrlQuery{{"BusinessID", business}, {"offset", QString::number(offset)}});
+    const auto generation = ++invoice_list_generation_;
+    const auto session = session_generation_;
+    auto* reply = networkManager_->get(make_request(url));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, business, generation, session]() {
+        reply->deleteLater();
+        if (business != current_business_id_ || generation != invoice_list_generation_ || session != session_generation_) return;
+        const auto data = QJsonDocument::fromJson(reply->readAll());
+        if (reply->error() != QNetworkReply::NoError || !data.object().value("invoices").isArray() ||
+            data.object().value("BusinessID").toString() != business) {
+            emit invoice_history_failed(data.object().value("error").toString("Could not load invoices.")); return;
+        }
+        emit invoices_received(data);
+    });
+}
+
+void ApiClient::set_invoice_paid(const QString& id, bool paid) {
+    const auto business = current_business_id_;
+    if (offline_) {
+        try { offline_session_.set_invoice_paid(business, id, paid); emit invoice_payment_updated(id, paid); }
+        catch (const std::exception& error) { emit invoice_payment_failed(QString::fromUtf8(error.what())); }
+        return;
+    }
+    QUrl url = baseUrl_; url.setPath("/invoices/payment");
+    const auto session = session_generation_;
+    auto* reply = networkManager_->post(make_request(url), QJsonDocument(QJsonObject{
+        {"BusinessID", business}, {"InvoiceID", id}, {"Paid", paid}}).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, business, session, id, paid]() {
+        reply->deleteLater();
+        if (business != current_business_id_ || session != session_generation_) return;
+        const auto data = QJsonDocument::fromJson(reply->readAll()).object();
+        if (reply->error() != QNetworkReply::NoError || !data.value("ok").toBool()) {
+            emit invoice_payment_failed(data.value("error").toString("Could not update payment status.")); return;
+        }
+        emit invoice_payment_updated(id, paid);
+    });
+}
+
+void ApiClient::export_saved_invoice(const QString& id, const QString& path) {
+    if (invoice_export_busy_) { emit invoice_export_failed("An invoice PDF is already being generated."); return; }
+    if (!invoice_export_deadline_.hasExpired()) {
+        emit invoice_export_wait(static_cast<int>((invoice_export_deadline_.remainingTime() + 999) / 1000));
+        emit invoice_export_failed("Please wait before generating another invoice PDF."); return;
+    }
+    if (path.isEmpty() || !QFileInfo(path).dir().exists()) {
+        emit invoice_export_failed("Choose an existing output folder."); return;
+    }
+    const auto save = [this, path](const QByteArray& data) {
+        QSaveFile file(path);
+        if (!data.startsWith("%PDF-") || !file.open(QIODevice::WriteOnly) || file.write(data) != data.size() || !file.commit()) {
+            emit invoice_export_failed("Could not save the PDF. Check the output folder and try again."); return;
+        }
+        emit invoice_exported(path);
+    };
+    invoice_export_deadline_ = QDeadlineTimer(10000);
+    emit invoice_export_wait(10);
+    if (offline_) {
+        try { save(Infrastructure::PDF::InvoicePdfGenerator::render_record(offline_session_.saved_invoice(current_business_id_, id))); }
+        catch (const std::exception& error) { emit invoice_export_failed(QString::fromUtf8(error.what())); }
+        return;
+    }
+    const auto business = current_business_id_;
+    const auto session = session_generation_;
+    QUrl url = baseUrl_; url.setPath("/invoices/pdf");
+    url.setQuery(QUrlQuery{{"BusinessID", business}, {"InvoiceID", id}});
+    auto request = make_request(url);
+    request.setRawHeader("Accept", "application/pdf");
+    invoice_export_busy_ = true;
+    auto* reply = networkManager_->get(request);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, business, session, save]() {
+        reply->deleteLater();
+        invoice_export_busy_ = false;
+        if (business != current_business_id_ || session != session_generation_) return;
+        const auto data = reply->readAll();
+        if (reply->error() != QNetworkReply::NoError) {
+            if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 429) {
+                const auto wait = qBound(1, reply->rawHeader("Retry-After").toInt(), 3600);
+                invoice_export_deadline_ = QDeadlineTimer(wait * 1000);
+                emit invoice_export_wait(wait);
+            }
+            emit invoice_export_failed(QJsonDocument::fromJson(data).object().value("error").toString("Could not regenerate the invoice.")); return;
+        }
+        if (!reply->header(QNetworkRequest::ContentTypeHeader).toString().startsWith("application/pdf")) {
+            emit invoice_export_failed("The backend did not return a PDF."); return;
+        }
+        save(data);
+    });
 }
 
 void ApiClient::get_business_items(bool refresh) {

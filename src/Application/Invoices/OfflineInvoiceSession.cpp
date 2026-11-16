@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <QMap>
 #include "Domain/Stock/StockShortage.h"
+#include "Domain/Invoices/InvoiceRecord.h"
 
 using namespace Application::Invoices;
 
@@ -76,6 +77,7 @@ QJsonObject OfflineInvoiceSession::items(const QString& business_id) const {
 void OfflineInvoiceSession::clear_invoice() {
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::offline(), "OfflineInvoiceSession.clear_invoice");
     completed_ = false;
+    completed_id_.clear();
     completed_items_ = {};
     invoice_details_ = {};
     invoice_business_ = {};
@@ -83,6 +85,7 @@ void OfflineInvoiceSession::clear_invoice() {
 }
 
 void OfflineInvoiceSession::begin_invoice(QJsonObject details, const QString& business_id) {
+    Domain::Invoices::validate_details(details);
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::offline(), "OfflineInvoiceSession.begin_invoice");
     clear_invoice();
     if (!businesses.contains(business_id))
@@ -181,6 +184,8 @@ QString OfflineInvoiceSession::generate_pdf(const QJsonArray& stock, const QStri
     invoice->setCliInvoiceID(invoice_details_.value("invoice_number").toString().toStdString());
     invoice->setCurrentDate(invoice_details_.value("date_created").toString().toStdString());
     invoice->setDueDate(invoice_details_.value("date_due").toString().toStdString());
+    invoice->setIsPaid(completed_ ? saved_invoice(invoice_business_.value("_id").toString(), completed_id_).value("Paid").toBool()
+                                  : invoice_details_.value("paid").toBool());
     invoice->setTemplate(InvoiceTemplateEnum::PEECE);
     const auto path = invoice_details_.value("output_path").toString();
     invoice->set_file_name(path.toStdString());
@@ -198,7 +203,39 @@ QString OfflineInvoiceSession::generate_pdf(const QJsonArray& stock, const QStri
     if (!generator.peece_template())
         throw std::runtime_error("Could not save the PDF. Check the output folder and try again.");
     stocks = updated_stock;
+    if (!completed_) {
+        auto record = Domain::Invoices::record(*invoice, stock);
+        completed_id_ = "DEMO-INVOICE-" + QString::number(++next_id_);
+        record["_id"] = completed_id_;
+        record["BusinessID"] = invoice_business_.value("_id");
+        invoices.append(record);
+    }
     completed_items_ = stock;
     completed_ = true;
     return path;
+}
+
+QJsonObject OfflineInvoiceSession::invoice_list(const QString& business_id, int offset) const {
+    const auto records = for_business(invoices, business_id);
+    QJsonArray page;
+    for (int i = offset; i < records.size() && i < offset + 50; ++i)
+        page.append(Domain::Invoices::summary(records.at(records.size() - 1 - i).toObject()));
+    return {{"BusinessID", business_id}, {"invoices", page}, {"offset", offset}, {"has_more", offset + 50 < records.size()}};
+}
+
+QJsonObject OfflineInvoiceSession::saved_invoice(const QString& business_id, const QString& id) const {
+    for (const auto& value : for_business(invoices, business_id))
+        if (value.toObject().value("_id").toString() == id) return value.toObject();
+    throw std::invalid_argument("Invoice not found for this business.");
+}
+
+void OfflineInvoiceSession::set_invoice_paid(const QString& business_id, const QString& id, bool paid) {
+    for (int i = 0; i < invoices.size(); ++i) {
+        auto record = invoices.at(i).toObject();
+        if (record.value("_id").toString() != id || record.value("BusinessID").toString() != business_id) continue;
+        record["Paid"] = paid;
+        invoices[i] = record;
+        return;
+    }
+    throw std::invalid_argument("Invoice not found for this business.");
 }

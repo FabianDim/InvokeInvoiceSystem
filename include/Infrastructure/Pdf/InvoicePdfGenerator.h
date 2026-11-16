@@ -23,6 +23,7 @@ class InvoicePdfGenerator {
     };
 
   public:
+    static QByteArray render_record(const QJsonObject& record);
     HPDF_Doc createPDF(const char* font);
     HPDF_Page addPage(HPDF_Doc pdf);
     void addPageBefore(HPDF_Doc pdf, HPDF_Page page_1);
