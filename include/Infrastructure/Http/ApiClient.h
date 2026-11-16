@@ -25,6 +25,7 @@ class ApiClient : public QObject {
     void business_selected(const QJsonObject& biz);
     void invoice_details(const QJsonDocument& invoice);
     void stock_list(const QJsonDocument& stock);
+    void finish_stock_list(const QJsonDocument& stock, const QString& shortage_policy);
     void save_resource(const QString& resource, const QJsonDocument& data);
     void save_invoice_stock(const QJsonDocument& item, quint64 request_id);
     void get_business_items(bool refresh = false);
@@ -42,6 +43,7 @@ class ApiClient : public QObject {
     void invoice_failed(const QString& message);
     void pdf_generated(const QString& path);
     void pdf_failed(const QString& message);
+    void stock_shortage(const QJsonArray& items);
     void login_succeeded();
     void login_failed(const QString& message);
     void signup_succeeded();

@@ -16,7 +16,7 @@ class OfflineInvoiceSession {
     QJsonObject items(const QString& business_id) const;
     void clear_invoice();
     void begin_invoice(QJsonObject details, const QString& business_id);
-    QString generate_pdf(const QJsonArray& stock);
+    QString generate_pdf(const QJsonArray& stock, const QString& shortage_policy = "reject");
     QString invoice_number() const { return invoice_details_.value("invoice_number").toString(); }
 
   private:

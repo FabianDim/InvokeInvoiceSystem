@@ -5,6 +5,7 @@
 #include <QUrlQuery>
 #include <QCryptographicHash>
 #include "Utils/BusinessLogo.h"
+#include "Domain/Stock/StockShortage.h"
 
 namespace {
 using Infrastructure::Security::RateLimitResult;
@@ -138,15 +139,22 @@ void Server::create_routes_invoices() {
                                                          QHttpServerResponse::StatusCode::BadRequest);
                           QJsonParseError err{};
                           const QJsonDocument doc = QJsonDocument::fromJson(request.body(), &err);
-                          if (err.error != QJsonParseError::NoError || !doc.isArray())
+                          const auto policy = doc.isArray() ? QString("reject") : doc.object().value("stockShortagePolicy").toString();
+                          const auto items = doc.isArray() ? doc : QJsonDocument(doc.object().value("items").toArray());
+                          if (err.error != QJsonParseError::NoError ||
+                              (!doc.isArray() && !doc.object().value("items").isArray()) ||
+                              !Domain::Stock::valid_shortage_policy(policy))
                               return QHttpServerResponse(QJsonObject{{"error", "Expected an invoice item list."}},
                                                          QHttpServerResponse::StatusCode::BadRequest);
                           try {
-                              QHttpServerResponse response("application/pdf", session->invoice->complete_pdf(doc, session->user_id));
+                              QHttpServerResponse response("application/pdf", session->invoice->complete_pdf(items, session->user_id, policy));
                               auto headers = response.headers();
                               headers.append("Cache-Control", "no-store");
                               response.setHeaders(std::move(headers));
                               return response;
+                          } catch (const Domain::Stock::StockShortage& error) {
+                              return QHttpServerResponse(QJsonObject{{"error", QString::fromUtf8(error.what())},
+                                  {"code", "stock_shortage"}, {"items", error.items}}, QHttpServerResponse::StatusCode::Conflict);
                           } catch (const std::invalid_argument& error) {
                               return QHttpServerResponse(QJsonObject{{"error", QString::fromUtf8(error.what())}},
                                                          QHttpServerResponse::StatusCode::BadRequest);

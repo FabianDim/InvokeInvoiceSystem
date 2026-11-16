@@ -1,4 +1,3 @@
-/* Invoke: warm paper, deep ink, and citron. Shared control geometry. */
 QWidget { background-color: #f3f2ec; color: #24372f; font-family: "Segoe UI"; font-size: 14px; }
 QLabel { background: transparent; }
 QFrame#brand_bar { background: #20362e; border-bottom: 3px solid #d5ef85; }
@@ -15,7 +14,7 @@ QLabel[role="eyebrow"] { color: #63764c; font-size: 10px; font-weight: 700; padd
 QLabel[role="cardDetail"] { color: #647469; font-size: 12px; }
 QLabel[role="field"], QLabel#form_label { color: #46594e; font-size: 13px; font-weight: 600; }
 QLabel[role="status"] { color: #94601f; font-size: 13px; }
-QPushButton { min-height: 24px; max-height: 24px; padding: 8px 16px; border: 1px solid #ced5c8; border-radius: 8px; background-color: #fffefa; color: #24372f; font-size: 14px; font-weight: 600; }
+QPushButton { min-height: 24px; max-height: 24px; padding: 8px 16px; border: 1px solid #ced5c8; border-radius: 8px; background-color: #fffefa; color: #24372f; font-size: 14px; font-weight: 600; outline: none; }
 QPushButton[controlSize="dashboard"] { min-height: 24px; max-height: 24px; text-align: left; }
 QPushButton[role="primary"] { background-color: #284b3b; border-color: #284b3b; color: #ffffff; }
 QPushButton[role="accent"] { background-color: #d5ef85; border-color: #c1dd70; color: #20362e; }
@@ -25,7 +24,9 @@ QPushButton[role="accent"]:hover { background-color: #e0f6a2; border-color: #96b
 QPushButton:pressed { background-color: #d8e3cf; }
 QPushButton[role="primary"]:pressed { background-color: #1c382b; }
 QPushButton[role="accent"]:pressed { background-color: #c4df75; }
-QPushButton:focus { border-color: #668346; }
+/* Replace the native dotted rectangle without changing the control size. */
+QPushButton:focus { border: 2px solid #668346; padding: 7px 15px; }
+QPushButton[role="primary"]:focus { border-color: #d5ef85; }
 QPushButton:disabled { background-color: #eceee6; border-color: #e0e4d8; color: #7c8778; }
 QLineEdit, QComboBox, QDateEdit, QSpinBox, QDoubleSpinBox { min-height: 24px; max-height: 24px; padding: 8px 10px; border: 1px solid #ccd5c6; border-radius: 7px; background-color: #f8f9f3; color: #24372f; selection-background-color: #d5ef85; selection-color: #20362e; }
 QLineEdit:hover, QComboBox:hover, QDateEdit:hover { border-color: #9aac8e; }

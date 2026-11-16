@@ -28,6 +28,7 @@
 #include "Infrastructure/Enums/RouteEnums.h"
 class StockItem;
 class Invoice;
+class QDialog;
 namespace App::Views {
 class NewInvoiceStock : public QWidget {
     Q_OBJECT
@@ -57,6 +58,8 @@ class NewInvoiceStock : public QWidget {
     bool offline_ = false;
     quint64 stock_request_ = 0;
     QString business_id_;
+    QString shortage_policy_ = "reject";
+    QPointer<QDialog> shortage_dialog_;
     void append_item(const QJsonObject& item);
     void update_item_source();
     void set_saving_stock(bool saving);
@@ -67,6 +70,7 @@ class NewInvoiceStock : public QWidget {
     void add_item_to_invoice(const QJsonObject& doc);
 
     void add_item_list_to_invoice(const QJsonDocument& doc);
+    void resolve_stock_shortage(const QJsonDocument& doc, const QString& policy);
     void invoice_navigation(Page page);
     void save_invoice_stock(const QJsonDocument& item, quint64 request_id);
 
@@ -76,6 +80,7 @@ class NewInvoiceStock : public QWidget {
     void set_offline(bool offline);
     void pdf_generated(const QString& path);
     void pdf_failed(const QString& message);
+    void show_stock_shortage(const QJsonArray& items);
     void business_selected(const QJsonObject& business);
     void stock_saved(const QJsonDocument& item, quint64 request_id);
     void stock_save_failed(const QString& message, quint64 request_id);

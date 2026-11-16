@@ -4,6 +4,7 @@
 #include <QGroupBox>
 #include <QJsonDocument>
 #include <QScrollArea>
+#include <QMessageBox>
 
 using namespace App::Views;
 
@@ -14,6 +15,8 @@ NewInvoiceStock::NewInvoiceStock(QWidget* parent) : QWidget(parent) {
 void NewInvoiceStock::reset_invoice() {
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "NewInvoiceStock.reset_invoice");
     ++stock_request_;
+    shortage_policy_ = "reject";
+    if (shortage_dialog_) shortage_dialog_->reject();
     saving_pdf_ = false;
     set_saving_stock(false);
     stock_items = QJsonArray{};
@@ -249,7 +252,8 @@ QLayout* NewInvoiceStock::create_item_entry_form() {
         saving_pdf_ = true;
         set_saving_stock(false);
         status_label_->setText("Creating and saving PDF...");
-        emit add_item_list_to_invoice(QJsonDocument(stock_items));
+        if (shortage_policy_ == "reject") emit add_item_list_to_invoice(QJsonDocument(stock_items));
+        else emit resolve_stock_shortage(QJsonDocument(stock_items), shortage_policy_);
     });
     return container;
 }
@@ -273,6 +277,7 @@ void NewInvoiceStock::set_saving_stock(bool saving) {
 void NewInvoiceStock::append_item(const QJsonObject& item) {
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "NewInvoiceStock.append_item");
     stock_items.append(item);
+    shortage_policy_ = "reject";
     emit add_item_to_invoice(item);
     for (const auto& key : {"quantity", "price", "notes"})
         qobject_cast<QLineEdit*>(invoice_body_form_fields.value(key))->clear();
@@ -325,4 +330,45 @@ void NewInvoiceStock::pdf_failed(const QString& message) {
     saving_pdf_ = false;
     set_saving_stock(false);
     status_label_->setText(message);
+}
+
+void NewInvoiceStock::show_stock_shortage(const QJsonArray& items) {
+    if (!saving_pdf_ || shortage_dialog_) return;
+    auto* dialog = new QMessageBox(QMessageBox::Warning, "Not enough stock",
+        "Some items on this invoice exceed the stock on hand. How should the remaining stock be recorded?",
+        QMessageBox::NoButton, this);
+    dialog->setObjectName("stock_shortage_dialog");
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setTextFormat(Qt::PlainText);
+    QStringList details;
+    for (const auto& value : items) {
+        const auto item = value.toObject();
+        details.append(QString("%1: %2 available, %3 on this invoice")
+            .arg(item.value("Name").toString()).arg(item.value("Available").toDouble())
+            .arg(item.value("Requested").toDouble()));
+    }
+    dialog->setInformativeText(details.join('\n') + "\n\nYour choice applies to shortages on this invoice only.");
+    auto* zero = dialog->addButton("Set stock to zero", QMessageBox::AcceptRole);
+    auto* negative = dialog->addButton("Allow negative stock", QMessageBox::AcceptRole);
+    auto* cancel = dialog->addButton(QMessageBox::Cancel);
+    zero->setObjectName("shortage_zero");
+    negative->setObjectName("shortage_negative");
+    cancel->setObjectName("shortage_cancel");
+    for (auto* button : {zero, negative, cancel}) UiStyle::button(button);
+    dialog->setDefaultButton(cancel);
+    dialog->setEscapeButton(cancel);
+    shortage_dialog_ = dialog;
+    const auto generation = stock_request_;
+    connect(dialog, &QDialog::finished, this, [this, dialog, zero, negative, generation]() {
+        shortage_dialog_.clear();
+        if (generation != stock_request_ || !saving_pdf_) return;
+        if (dialog->clickedButton() != zero && dialog->clickedButton() != negative) {
+            pdf_failed("Invoice not completed. Stock has not changed; you can review the invoice or try again.");
+            return;
+        }
+        shortage_policy_ = dialog->clickedButton() == zero ? "zero" : "negative";
+        status_label_->setText("Creating and saving PDF...");
+        emit resolve_stock_shortage(QJsonDocument(stock_items), shortage_policy_);
+    });
+    dialog->open();
 }

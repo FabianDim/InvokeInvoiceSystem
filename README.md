@@ -429,9 +429,14 @@ Changing the prefix does not reset the counter. Abandoned invoice drafts can lea
 gaps. The assigned number is also the default PDF filename if no name was entered.
 
 Finishing an invoice deducts its saved stock quantities and stores an invoice
-record in one MongoDB transaction. Insufficient stock or an item from another
-business rejects the whole operation without partial deductions. Re-saving the
-same completed invoice PDF does not deduct stock again. New invoice-only items
+record in one MongoDB transaction. If an invoice exceeds stock on hand, a prompt
+lists the affected items and offers **Set stock to zero**, **Allow negative stock**,
+or **Cancel**. No stock changes until you choose how to proceed. The choice applies
+only to shortages on that invoice; items with enough stock are deducted normally.
+Cancelling keeps the invoice open for review. Items from another business always
+reject the whole operation without partial deductions. Re-saving the
+same completed invoice PDF does not deduct stock again, including after a local
+PDF save failure. New invoice-only items
 do not affect stock. Account invoice completion requires MongoDB Atlas or a
 replica set; standalone MongoDB cannot perform these transactions. Offline demo
 invoices apply the same inventory rules to their temporary records.
@@ -450,7 +455,7 @@ python -m unittest discover -s tests -p test_invoice_workflow.py -v
 
 The suite creates and removes its own test databases. It verifies prefix and
 counter persistence after backend restart, blank prefixes, concurrent numbering,
-stock deductions, repeated exports, transaction rollback and business isolation.
+stock deductions, shortage choices, repeated exports, transaction rollback and business isolation.
 It can also be registered with CTest using `-DINVOICE_ENABLE_WORKFLOW_TESTS=ON`
 and a Python interpreter with `pymongo` installed; the MongoDB test URI must still
 be supplied explicitly.
