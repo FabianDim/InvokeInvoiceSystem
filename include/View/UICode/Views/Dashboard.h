@@ -43,6 +43,7 @@ class Dashboard : public QWidget {
     QPushButton* stock_button;
     QPushButton* account_button;
     QPushButton* items_button;
+    QPushButton* invoices_button;
     QPushButton* default_invoice_settings_button;
 
   signals:

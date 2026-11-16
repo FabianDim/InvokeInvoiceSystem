@@ -9,6 +9,7 @@
 #include <QLineEdit>
 #include <QJsonArray>
 #include <QSignalBlocker>
+#include <QCheckBox>
 
 using namespace App::Views;
 
@@ -117,6 +118,10 @@ void InvoiceDetailsInput::create_page_layout() {
         }
         ++row;
     }
+    auto* paid = new QCheckBox("Already paid", content);
+    paid->setObjectName("invoice_paid");
+    base_invoice_form_fields_["paid"] = paid;
+    form->addWidget(paid, row, 1);
     layout->addLayout(form);
 
     auto* buttons = new QHBoxLayout;
@@ -150,7 +155,8 @@ void InvoiceDetailsInput::create_page_layout() {
                                                            {"file_name", text("invoice_file_name")},
                                                            {"file_dir", text("invoice_file_dir")},
                                                            {"date_created", date("date_created")},
-                                                           {"date_due", date("date_due")}}));
+                                                           {"date_due", date("date_due")},
+                                                           {"paid", qobject_cast<QCheckBox*>(base_invoice_form_fields_.value("paid"))->isChecked()}}));
     });
 }
 
@@ -240,6 +246,7 @@ void InvoiceDetailsInput::set_client_error(const QString& message) {
 void InvoiceDetailsInput::reset_form() {
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "InvoiceDetailsInput.reset_form");
     for (auto* field : base_invoice_form_fields_) {
+        if (auto* paid = qobject_cast<QCheckBox*>(field)) paid->setChecked(false);
         if (auto* edit = qobject_cast<QLineEdit*>(field))
             edit->clear();
         else if (auto* date = qobject_cast<QDateEdit*>(field))

@@ -21,6 +21,10 @@
 #include <QScrollBar>
 #include <QMessageBox>
 #include "Domain/Stock/StockShortage.h"
+#include "View/UICode/Views/InvoicesPage.h"
+#include "Infrastructure/Pdf/InvoicePdfGenerator.h"
+#include <QTableWidget>
+#include <QCheckBox>
 
 using App::Views::Dashboard;
 using Infrastructure::Http::ApiClient;
@@ -533,6 +537,21 @@ class BusinessSessionTests : public QObject {
         QVERIFY(stock->findChild<QLabel*>("invoice_stock_status")->text().contains("PDF saved"));
         QCoreApplication::processEvents();
         QVERIFY(window.grab().save("offline-invoice-ui.png"));
+        controller.page_navigation(Page::Dashboard);
+        window.dashboard_page()->findChild<QPushButton*>("browse_invoices_button")->click();
+        QCOMPARE(stack->currentWidget(), window.invoices_page());
+        auto* history = window.invoices_page()->findChild<QTableWidget*>("invoice_records");
+        QCOMPARE(history->rowCount(), 1);
+        history->selectRow(0);
+        window.invoices_page()->findChild<QPushButton*>("invoice_payment")->click();
+        QCOMPARE(history->item(0, 5)->text(), "Paid");
+        QSignalSpy exports(&api, &ApiClient::invoice_exported);
+        QSignalSpy invoices(&api, &ApiClient::invoices_received);
+        api.get_invoices();
+        const auto id = qvariant_cast<QJsonDocument>(invoices.last().first()).object().value("invoices").toArray().first().toObject().value("_id").toString();
+        api.export_saved_invoice(id, output.filePath("archived.pdf"));
+        QCOMPARE(exports.count(), 1);
+        QVERIFY(QFile::exists(output.filePath("archived.pdf")));
         QTest::qWait(100);
         QCOMPARE(connections.count(), 0);
         QVERIFY(server.saves.isEmpty());
@@ -730,6 +749,99 @@ class BusinessSessionTests : public QObject {
         QSignalSpy data(&client, &App::Views::ManagementForm::submit_resource);
         client.findChild<QPushButton*>("register_button_")->click();
         QCOMPARE(qvariant_cast<QJsonDocument>(data.first().at(1)).object().value("Address").toString(), "Australia");
+    }
+
+    void invoice_history_payment_overdue_and_wait_controls() {
+        App::Views::InvoicesPage page;
+        page.business_selected({{"_id", "business"}});
+        QJsonArray invoices;
+        for (int index = 0; index < 4; ++index)
+            invoices.append(QJsonObject{{"_id", QString::number(index)}, {"InvoiceNumber", QString("INV-%1").arg(index)},
+                {"ClientName", "Customer"}, {"DateCreated", QDate::currentDate().addDays(-10).toString(Qt::ISODate)},
+                {"DateDue", index == 3 ? "" : QDate::currentDate().addDays(index == 2 ? 0 : -1).toString(Qt::ISODate)},
+                {"Paid", index == 1}, {"Total", 25}});
+        page.populate_invoices(QJsonDocument(QJsonObject{{"BusinessID", "business"}, {"invoices", invoices}, {"offset", 0}, {"has_more", false}}));
+        auto* table = page.findChild<QTableWidget*>("invoice_records");
+        auto* payment = page.findChild<QPushButton*>("invoice_payment");
+        auto* export_pdf = page.findChild<QPushButton*>("invoice_export");
+        QVERIFY(table && payment && export_pdf);
+        QVERIFY(!payment->isEnabled());
+        QVERIFY(!export_pdf->isEnabled());
+        QCOMPARE(table->rowCount(), 4);
+        QCOMPARE(table->item(0, 5)->text(), "Unpaid - OVERDUE");
+        QCOMPARE(table->item(1, 5)->text(), "Paid");
+        QCOMPARE(table->item(2, 5)->text(), "Unpaid"); // Due today is not overdue.
+        QCOMPARE(table->item(3, 5)->text(), "Unpaid"); // Missing original date is unknown.
+        table->selectRow(0);
+        QVERIFY(page.findChild<QLabel*>("invoice_selection")->text().contains("Selected invoice: INV-0"));
+        QSignalSpy changes(&page, &App::Views::InvoicesPage::payment_requested);
+        payment->click();
+        QCOMPARE(changes.count(), 1);
+        QCOMPARE(changes.first().at(0).toString(), "0");
+        QCOMPARE(changes.first().at(1).toBool(), true);
+        QVERIFY(!payment->isEnabled());
+        page.payment_updated("0", true);
+        QCOMPARE(table->item(0, 5)->text(), "Paid");
+        QCOMPARE(payment->text(), "Mark as unpaid");
+        page.payment_updated("0", false);
+        QCOMPARE(table->item(0, 5)->text(), "Unpaid - OVERDUE");
+        QVERIFY(export_pdf->isEnabled());
+        page.export_wait(1);
+        QVERIFY(!export_pdf->isEnabled());
+        QTRY_VERIFY_WITH_TIMEOUT(export_pdf->isEnabled(), 2500);
+        if (const auto preview = qEnvironmentVariable("INVOICE_PDF_PREVIEW_DIR"); !preview.isEmpty()) {
+            page.resize(1100, 750); page.show(); QTest::qWait(50);
+            page.grab().save(preview + "/invoice-history.png");
+        }
+        page.business_selected({{"_id", "another"}});
+        QCOMPARE(table->rowCount(), 0);
+        QVERIFY(!payment->isEnabled());
+    }
+
+    void invoice_creation_paid_checkbox_is_submitted_and_reset() {
+        App::Views::InvoiceDetailsInput page;
+        const auto business = business_list().object().begin().value().toObject();
+        page.business_selected(business);
+        page.populate_clients(business_items(business.value("_id").toString()));
+        page.findChild<QComboBox*>("invoice_client")->setCurrentIndex(1);
+        auto* paid = page.findChild<QCheckBox*>("invoice_paid");
+        QVERIFY(paid);
+        QVERIFY(!paid->isChecked());
+        paid->setChecked(true);
+        QSignalSpy submitted(&page, &App::Views::InvoiceDetailsInput::set_invoice_details);
+        page.findChild<QPushButton*>("invoice_next")->click();
+        QCOMPARE(submitted.count(), 1);
+        QVERIFY(qvariant_cast<QJsonDocument>(submitted.first().first()).object().value("paid").toBool());
+        page.reset_form();
+        QVERIFY(!paid->isChecked());
+    }
+
+    void offline_archive_preserves_details_and_stock() {
+        Application::Invoices::OfflineInvoiceSession session;
+        const auto business = session.save("business", {{"Business name", "Original business"}}, {});
+        const auto client = session.save("client", {{"Name", "Original client"}}, business);
+        const auto stock = session.save("stock", {{"Name", "Widget"}, {"Quantity", 5}, {"Price", 10}}, business);
+        QTemporaryDir output;
+        QVERIFY(output.isValid());
+        session.begin_invoice({{"ClientID", client}, {"file_dir", output.path()},
+            {"date_created", "2026-01-01"}, {"date_due", "2026-01-15"}, {"paid", true}}, business);
+        const QJsonArray lines{QJsonObject{{"_id", stock}, {"Name", "Widget"}, {"Quantity", 2}, {"Price", 10}}};
+        session.generate_pdf(lines);
+        session.generate_pdf(lines);
+        QCOMPARE(session.invoices.size(), 1);
+        const auto id = session.invoices.first().toObject().value("_id").toString();
+        session.clear_invoice();
+        QCOMPARE(session.invoice_list(business).value("invoices").toArray().size(), 1);
+        QVERIFY(session.invoice_list("another").value("invoices").toArray().isEmpty());
+        session.clients = {}; // An archived invoice is independent of current contacts.
+        session.set_invoice_paid(business, id, false);
+        const auto record = session.saved_invoice(business, id);
+        QVERIFY(!record.value("Paid").toBool());
+        QCOMPARE(record.value("Client").toObject().value("Name").toString(), "Original client");
+        QCOMPARE(record.value("DateDue").toString(), "2026-01-15");
+        QVERIFY(Infrastructure::PDF::InvoicePdfGenerator::render_record(record).startsWith("%PDF-"));
+        QCOMPARE(session.stocks.first().toObject().value("Quantity").toInt(), 3);
+        QVERIFY_EXCEPTION_THROWN(session.saved_invoice("another", id), std::invalid_argument);
     }
 
     void offline_numbers_stock_decrement_and_retry() {

@@ -9,6 +9,7 @@
 #include <cmath>
 #include <stdexcept>
 #include "Infrastructure/Pdf/InvoicePdfGenerator.h"
+#include "Domain/Invoices/InvoiceRecord.h"
 using namespace Infrastructure::Services;
 
 InvoiceServices::InvoiceServices(MongoDBDataManager& db_manager) : db_manager_(db_manager) {}
@@ -53,6 +54,7 @@ void InvoiceServices::add_business_to_invoice(const QJsonDocument& doc) {
     if (!obj["Phone"].isUndefined())
         biz->setPhone(obj["Phone"].toString().toStdString());
     biz->set_website_url(obj.value("Website").toString().toStdString());
+    biz->setAddress(obj.value("Address").toString().toStdString());
     // Ignore client-supplied and legacy persisted paths at the backend boundary.
     biz->set_business_logo_data(obj.value("LogoData").toString().toStdString());
 
@@ -73,6 +75,7 @@ void InvoiceServices::add_client_to_invoice(const QJsonDocument& doc) {
 }
 
 void Infrastructure::Services::InvoiceServices::begin_invoice_details(const QJsonDocument& doc) {
+    Domain::Invoices::validate_details(doc.object());
     completion_id_ = QString::fromStdString(bsoncxx::oid{}.to_string());
     completed_pdf_.clear();
     completed_items_.clear();
@@ -84,6 +87,7 @@ void Infrastructure::Services::InvoiceServices::begin_invoice_details(const QJso
     };
     invoice_.setCliInvoiceID(doc.object().value("invoice_number").toString().toStdString());
     invoice_.setDueDate(doc.object().value("date_due").toString().toStdString());
+    invoice_.setIsPaid(doc.object().value("paid").toBool(false));
     invoice_.setCurrentDate(doc.object().value("date_created").toString().toStdString());
     invoice_.setTemplate(template_converter(doc.object().value("invoice_theme").toString().toStdString()));
 }
@@ -98,7 +102,8 @@ QByteArray InvoiceServices::complete_pdf(const QJsonDocument& stock, const std::
     }
     const auto pdf = generate_pdf(stock);
     db_manager_.complete_invoice(user_id, invoice_.getBusiness()->getBizID(), invoice_.getClient()->getClientID(),
-                                 completion_id_, QString::fromStdString(invoice_.getCliInvoiceID()), stock.array(), shortage_policy);
+                                 completion_id_, QString::fromStdString(invoice_.getCliInvoiceID()), stock.array(), shortage_policy,
+                                 Domain::Invoices::record(invoice_, stock.array()));
     completed_items_ = items;
     completed_pdf_ = pdf;
     return completed_pdf_;

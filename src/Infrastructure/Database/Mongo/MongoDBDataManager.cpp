@@ -14,6 +14,8 @@
 #include <QMap>
 #include <cmath>
 #include "Domain/Stock/StockShortage.h"
+#include "Domain/Invoices/InvoiceRecord.h"
+#include <mongocxx/options/find.hpp>
 
 QString MongoDBDataManager::reserve_invoice_number(const std::string& user_id, const std::string& business_id,
                                                    const QString& prefix) {
@@ -45,7 +47,8 @@ bool MongoDBDataManager::save_invoice_settings(const std::string& user_id, const
 
 void MongoDBDataManager::complete_invoice(const std::string& user_id, const std::string& business_id,
                                          const std::string& client_id, const QString& invoice_id,
-                                         const QString& number, const QJsonArray& stock, const QString& shortage_policy) {
+                                         const QString& number, const QJsonArray& stock, const QString& shortage_policy,
+                                         const QJsonObject& snapshot) {
     if (!Domain::Stock::valid_shortage_policy(shortage_policy))
         throw std::invalid_argument("Invalid stock shortage choice.");
     const auto owner = Infrastructure::Database::parse_object_id(user_id);
@@ -113,9 +116,85 @@ void MongoDBDataManager::complete_invoice(const std::string& user_id, const std:
         }
         const auto result = db["Invoices"].insert_one(*transaction, make_document(
             kvp("_id", bsoncxx::oid(invoice_id.toStdString())), kvp("UserID", *owner), kvp("BusinessID", *business),
-            kvp("ClientID", *client), kvp("InvoiceNumber", number.toStdString()), kvp("ItemsJson", payload)));
+            kvp("ClientID", *client), kvp("InvoiceNumber", number.toStdString()), kvp("ItemsJson", payload),
+            kvp("SnapshotJson", QJsonDocument(snapshot).toJson(QJsonDocument::Compact).toStdString()),
+            kvp("SnapshotVersion", snapshot.value("Version").toInt()),
+            kvp("ClientName", snapshot.value("Client").toObject().value("Name").toString().toStdString()),
+            kvp("DateCreated", snapshot.value("DateCreated").toString().toStdString()),
+            kvp("DateDue", snapshot.value("DateDue").toString().toStdString()),
+            kvp("Paid", snapshot.value("Paid").toBool()), kvp("Total", snapshot.value("Total").toDouble())));
         if (!result) throw std::runtime_error("Could not complete invoice.");
     });
+}
+QJsonObject MongoDBDataManager::list_invoices(const std::string& user_id, const QString& business_id, int offset) {
+    const auto owner = Infrastructure::Database::parse_object_id(user_id);
+    const auto business = Infrastructure::Database::parse_object_id(business_id.toStdString());
+    if (!owner || !business || offset < 0) throw std::invalid_argument("Invalid invoice list request.");
+    auto collection = database()["Invoices"];
+    collection.create_index(make_document(kvp("UserID", 1), kvp("BusinessID", 1), kvp("_id", -1)));
+    // Older completed invoices had no payment field; they begin as unpaid.
+    collection.update_many(make_document(kvp("UserID", *owner), kvp("BusinessID", *business),
+        kvp("Paid", make_document(kvp("$exists", false)))), make_document(kvp("$set", make_document(kvp("Paid", false)))));
+    mongocxx::options::find options;
+    options.sort(make_document(kvp("_id", -1)));
+    options.skip(offset);
+    options.limit(51);
+    options.projection(make_document(kvp("SnapshotJson", 0), kvp("ItemsJson", 0)));
+    QJsonArray records;
+    for (const auto& view : collection.find(make_document(kvp("UserID", *owner), kvp("BusinessID", *business)), options)) {
+        const auto text = [&](const char* key) { const auto value = view[key];
+            return value && value.type() == bsoncxx::type::k_string ? QString::fromUtf8(value.get_string().value) : QString{}; };
+        const auto total = view["Total"];
+        records.append(QJsonObject{{"_id", QString::fromStdString(view["_id"].get_oid().value.to_string())},
+            {"BusinessID", business_id}, {"InvoiceNumber", text("InvoiceNumber")}, {"ClientName", text("ClientName")},
+            {"DateCreated", text("DateCreated")}, {"DateDue", text("DateDue")},
+            {"Paid", view["Paid"] && view["Paid"].get_bool().value},
+            {"Total", total && total.type() == bsoncxx::type::k_double ? QJsonValue(total.get_double().value) : QJsonValue()},
+            {"LegacyCopy", !view["SnapshotVersion"] || view["SnapshotVersion"].get_int32().value != 1}});
+    }
+    const bool more = records.size() > 50;
+    if (more) records.removeLast();
+    return {{"BusinessID", business_id}, {"invoices", records}, {"offset", offset}, {"has_more", more}};
+}
+
+QJsonObject MongoDBDataManager::saved_invoice(const std::string& user_id, const QString& business_id, const QString& invoice_id) {
+    const auto owner = Infrastructure::Database::parse_object_id(user_id);
+    const auto business = Infrastructure::Database::parse_object_id(business_id.toStdString());
+    const auto id = Infrastructure::Database::parse_object_id(invoice_id.toStdString());
+    if (!owner || !business || !id) throw std::invalid_argument("Invalid invoice ID.");
+    const auto document = database()["Invoices"].find_one(make_document(kvp("_id", *id), kvp("UserID", *owner), kvp("BusinessID", *business)));
+    if (!document) throw std::invalid_argument("Invoice not found for this business.");
+    const auto view = document->view();
+    QJsonObject record;
+    if (const auto snapshot = view["SnapshotJson"]; snapshot && snapshot.type() == bsoncxx::type::k_string)
+        record = QJsonDocument::fromJson(QByteArray::fromStdString(std::string(snapshot.get_string().value))).object();
+    if (record.isEmpty()) {
+        // Preserve access to pre-snapshot invoices without inventing their original dates.
+        const auto businesses = get_account_businesses(user_id).object();
+        if (!businesses.contains(business_id)) throw std::invalid_argument("Original business details are unavailable for this legacy invoice.");
+        QJsonObject client;
+        const auto client_id = QString::fromStdString(view["ClientID"].get_oid().value.to_string());
+        for (const auto& value : list_resources("clients", user_id, business_id.toStdString()).array())
+            if (value.toObject().value("_id").toString() == client_id) client = value.toObject();
+        if (client.isEmpty()) throw std::invalid_argument("Original client details are unavailable for this legacy invoice.");
+        record = {{"Business", businesses.value(business_id)}, {"Client", client}, {"LegacyCopy", true},
+            {"InvoiceNumber", QString::fromUtf8(view["InvoiceNumber"].get_string().value)},
+            {"Items", QJsonDocument::fromJson(QByteArray::fromStdString(std::string(view["ItemsJson"].get_string().value))).array()}};
+    }
+    record["Paid"] = view["Paid"] && view["Paid"].get_bool().value;
+    record["_id"] = invoice_id;
+    record["BusinessID"] = business_id;
+    return record;
+}
+
+bool MongoDBDataManager::set_invoice_paid(const std::string& user_id, const QString& business_id, const QString& invoice_id, bool paid) {
+    const auto owner = Infrastructure::Database::parse_object_id(user_id);
+    const auto business = Infrastructure::Database::parse_object_id(business_id.toStdString());
+    const auto id = Infrastructure::Database::parse_object_id(invoice_id.toStdString());
+    if (!owner || !business || !id) return false;
+    const auto result = database()["Invoices"].update_one(make_document(kvp("_id", *id), kvp("UserID", *owner), kvp("BusinessID", *business)),
+        make_document(kvp("$set", make_document(kvp("Paid", paid)))));
+    return result && result->matched_count() == 1;
 }
 bsoncxx::document::value MongoDBDataManager::buildNewUser(const std::shared_ptr<User>& newUser) {
     using bsoncxx::builder::stream::document;

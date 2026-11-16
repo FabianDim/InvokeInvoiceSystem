@@ -6,6 +6,8 @@
 #include <QCryptographicHash>
 #include "Utils/BusinessLogo.h"
 #include "Domain/Stock/StockShortage.h"
+#include "Infrastructure/Pdf/InvoicePdfGenerator.h"
+#include "Domain/Invoices/InvoiceRecord.h"
 
 namespace {
 using Infrastructure::Security::RateLimitResult;
@@ -25,7 +27,7 @@ QHttpServerResponse rate_limit_response(const RateLimitResult& result) {
     const bool limited = result.status == RateLimitStatus::Limited;
     QHttpServerResponse response(QJsonObject{{"error", limited
         ? "Too many attempts. Please try again later."
-        : "Sign-in is busy. Please try again later."}},
+        : "Service is busy. Please try again later."}},
         limited ? QHttpServerResponder::StatusCode::TooManyRequests
                 : QHttpServerResponder::StatusCode::ServiceUnavailable);
     auto headers = response.headers();
@@ -67,6 +69,66 @@ void Server::create_routes_basic() {
 }
 
 void Server::create_routes_invoices() {
+    httpServer_.route("/invoices/list", QHttpServerRequest::Method::Get,
+        Infrastructure::Logging::tracedRoute("/invoices/list", [this](const QHttpServerRequest& request) -> QHttpServerResponse {
+            const auto session = session_for(request);
+            if (!session) return QHttpServerResponse(QJsonObject{{"error", "Please sign in again."}}, QHttpServerResponse::StatusCode::Unauthorized);
+            const auto quota = rate_limiter_->check("invoice-list:" + QString::fromStdString(session->user_id), 60, 60);
+            if (quota.status != RateLimitStatus::Allowed) return rate_limit_response(quota);
+            const QUrlQuery query(request.url());
+            bool valid = true;
+            const auto offset = query.hasQueryItem("offset") ? query.queryItemValue("offset").toInt(&valid) : 0;
+            if (!valid || offset < 0 || offset > 1'000'000)
+                return QHttpServerResponse(QJsonObject{{"error", "Invalid page."}}, QHttpServerResponse::StatusCode::BadRequest);
+            try {
+                QHttpServerResponse response(db_manager_.list_invoices(session->user_id, query.queryItemValue("BusinessID"), offset));
+                auto headers = response.headers(); headers.append("Cache-Control", "no-store"); response.setHeaders(std::move(headers));
+                return response;
+            } catch (const std::invalid_argument& error) {
+                return QHttpServerResponse(QJsonObject{{"error", QString::fromUtf8(error.what())}}, QHttpServerResponse::StatusCode::BadRequest);
+            } catch (const std::exception&) {
+                return QHttpServerResponse(QJsonObject{{"error", "Could not load invoices."}}, QHttpServerResponse::StatusCode::InternalServerError);
+            }
+        }));
+    httpServer_.route("/invoices/payment", QHttpServerRequest::Method::Post,
+        Infrastructure::Logging::tracedRoute("/invoices/payment", [this](const QHttpServerRequest& request) -> QHttpServerResponse {
+            const auto session = session_for(request);
+            if (!session) return QHttpServerResponse(QJsonObject{{"error", "Please sign in again."}}, QHttpServerResponse::StatusCode::Unauthorized);
+            const auto quota = rate_limiter_->check("invoice-payment:" + QString::fromStdString(session->user_id), 60, 60);
+            if (quota.status != RateLimitStatus::Allowed) return rate_limit_response(quota);
+            const auto data = QJsonDocument::fromJson(request.body()).object();
+            if (!data.value("Paid").isBool())
+                return QHttpServerResponse(QJsonObject{{"error", "Specify paid or unpaid."}}, QHttpServerResponse::StatusCode::BadRequest);
+            try {
+                if (!db_manager_.set_invoice_paid(session->user_id, data.value("BusinessID").toString(), data.value("InvoiceID").toString(), data.value("Paid").toBool()))
+                    return QHttpServerResponse(QJsonObject{{"error", "Invoice not found for this business."}}, QHttpServerResponse::StatusCode::NotFound);
+                return QHttpServerResponse(QJsonObject{{"ok", true}});
+            } catch (const std::exception&) {
+                return QHttpServerResponse(QJsonObject{{"error", "Could not update payment status."}}, QHttpServerResponse::StatusCode::InternalServerError);
+            }
+        }));
+    httpServer_.route("/invoices/pdf", QHttpServerRequest::Method::Get,
+        Infrastructure::Logging::tracedRoute("/invoices/pdf", [this](const QHttpServerRequest& request) -> QHttpServerResponse {
+            const auto session = session_for(request);
+            if (!session) return QHttpServerResponse(QJsonObject{{"error", "Please sign in again."}}, QHttpServerResponse::StatusCode::Unauthorized);
+            // Account keys share the wait across invoices, sessions and sign-ins.
+            const auto key = QString::fromStdString(session->user_id);
+            const auto wait = rate_limiter_->check("invoice-regenerate:" + key, 1, 10);
+            if (wait.status != RateLimitStatus::Allowed) return rate_limit_response(wait);
+            const auto quota = rate_limiter_->check("invoice-pdf:" + key, 30, 60);
+            if (quota.status != RateLimitStatus::Allowed) return rate_limit_response(quota);
+            const QUrlQuery query(request.url());
+            try {
+                const auto record = db_manager_.saved_invoice(session->user_id, query.queryItemValue("BusinessID"), query.queryItemValue("InvoiceID"));
+                QHttpServerResponse response("application/pdf", Infrastructure::PDF::InvoicePdfGenerator::render_record(record));
+                auto headers = response.headers(); headers.append("Cache-Control", "no-store"); response.setHeaders(std::move(headers));
+                return response;
+            } catch (const std::invalid_argument& error) {
+                return QHttpServerResponse(QJsonObject{{"error", QString::fromUtf8(error.what())}}, QHttpServerResponse::StatusCode::NotFound);
+            } catch (const std::exception&) {
+                return QHttpServerResponse(QJsonObject{{"error", "Could not regenerate this invoice."}}, QHttpServerResponse::StatusCode::InternalServerError);
+            }
+        }));
     httpServer_.route("/invoices/invoice_start",
                       QHttpServerRequest::Method::Post,
                       Infrastructure::Logging::tracedRoute("/invoices/invoice_start", [this](const QHttpServerRequest& request) -> QHttpServerResponse {
@@ -113,12 +175,16 @@ void Server::create_routes_invoices() {
                           session->invoice->add_client_to_invoice(QJsonDocument(selected_client));
                           auto details = doc.object();
                           try {
+                              Domain::Invoices::validate_details(details);
                               if (details.value("invoice_number").toString().trimmed().isEmpty()) {
                                   const auto business = businesses.value(business_id).toObject();
                                   const auto prefix = business.value("InvoicePrefix").toString("INV-");
                                   details["invoice_number"] = db_manager_.reserve_invoice_number(session->user_id, business_id.toStdString(), prefix);
                               }
                               session->invoice->begin_invoice_details(QJsonDocument(details));
+                          } catch (const std::invalid_argument& error) {
+                              session->invoice.reset();
+                              return QHttpServerResponse(QJsonObject{{"error", QString::fromUtf8(error.what())}}, QHttpServerResponse::StatusCode::BadRequest);
                           } catch (const std::exception&) {
                               session->invoice.reset();
                               return QHttpServerResponse(QJsonObject{{"error", "Could not assign an invoice number."}},
@@ -147,6 +213,8 @@ void Server::create_routes_invoices() {
                               return QHttpServerResponse(QJsonObject{{"error", "Expected an invoice item list."}},
                                                          QHttpServerResponse::StatusCode::BadRequest);
                           try {
+                              const auto quota = rate_limiter_->check("invoice-pdf:" + QString::fromStdString(session->user_id), 30, 60);
+                              if (quota.status != RateLimitStatus::Allowed) return rate_limit_response(quota);
                               QHttpServerResponse response("application/pdf", session->invoice->complete_pdf(items, session->user_id, policy));
                               auto headers = response.headers();
                               headers.append("Cache-Control", "no-store");

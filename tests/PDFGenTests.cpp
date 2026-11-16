@@ -39,6 +39,10 @@ void TestPDFGen::pdf_client_details() {
     client->setEmail("accounts@example.com");
     client->setPhoneNumber("02 1234 5678");
     invoice->setClient(client);
+    invoice->setCliInvoiceID("INV-2026-0042");
+    invoice->setCurrentDate("2026-11-01");
+    invoice->setDueDate("2026-11-30");
+    invoice->setIsPaid(false);
     for (int index = 0; index < 60; ++index) {
         auto item = std::make_shared<StockItem>();
         item->setStockID("STK" + std::to_string(index));
@@ -55,6 +59,12 @@ void TestPDFGen::pdf_client_details() {
     QVERIFY(pdf.open(QIODevice::ReadOnly));
     // Portable logo bytes still render even though filesystem paths are ignored.
     QVERIFY(pdf.readAll().contains("/Subtype /Image"));
+    if (const auto preview = qEnvironmentVariable("INVOICE_PDF_PREVIEW_DIR"); !preview.isEmpty()) {
+        QDir().mkpath(preview);
+        const auto destination = preview + "/multipage.pdf";
+        QFile::remove(destination);
+        QVERIFY(QFile::copy(path, destination));
+    }
 }
 
 void TestPDFGen::pdf_multiple_page_creation_test() {

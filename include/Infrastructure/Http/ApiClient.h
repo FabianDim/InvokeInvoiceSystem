@@ -6,6 +6,7 @@
 #include <QJsonDocument>
 #include <QElapsedTimer>
 #include <QPointer>
+#include <QDeadlineTimer>
 #include "Application/Invoices/OfflineInvoiceSession.h"
 #include "Domain/Accounts/Interfaces/IAccountManager.h"
 
@@ -17,6 +18,9 @@ class ApiClient : public QObject {
     void set_offline(bool offline);
     bool is_offline() const { return offline_; }
   public slots:
+    void get_invoices(int offset = 0);
+    void set_invoice_paid(const QString& id, bool paid);
+    void export_saved_invoice(const QString& id, const QString& path);
     void do_login(const QString& email, const QString& password, bool remember);
     void do_signup(const QJsonDocument& details);
     void get_business_list();
@@ -31,6 +35,13 @@ class ApiClient : public QObject {
     void get_business_items(bool refresh = false);
     void clear_session();
   signals:
+    void invoices_received(const QJsonDocument& records);
+    void invoice_history_failed(const QString& message);
+    void invoice_payment_updated(const QString& id, bool paid);
+    void invoice_payment_failed(const QString& message);
+    void invoice_exported(const QString& path);
+    void invoice_export_failed(const QString& message);
+    void invoice_export_wait(int seconds);
     void business_created(const QString& id);
     void business_list_loading();
     void business_list_failed(const QString& message);
@@ -56,6 +67,9 @@ class ApiClient : public QObject {
     void invoice_stock_save_failed(const QString& message, quint64 request_id);
 
   private:
+    QDeadlineTimer invoice_export_deadline_{0};
+    bool invoice_export_busy_ = false;
+    quint64 invoice_list_generation_ = 0;
     bool offline_ = false;
     Application::Invoices::OfflineInvoiceSession offline_session_;
     bool loginInProgress_ = false;

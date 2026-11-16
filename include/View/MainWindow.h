@@ -14,6 +14,7 @@
 #include "UICode/Views/ManagementForm.h"
 #include "UICode/Views/SignupPage.h"
 #include "UICode/Views/ItemsPage.h"
+#include "UICode/Views/InvoicesPage.h"
 #include "UICode/Views/DefaultInvoiceSettings.h"
 
 namespace Invoke {
@@ -53,6 +54,7 @@ class MainWindow : public QMainWindow {
     ManagementForm* stock_settings_page();
     ManagementForm* account_settings_page();
     ItemsPage* items_page();
+    InvoicesPage* invoices_page();
     DefaultInvoiceSettings* default_invoice_settings_page();
 
   signals:
@@ -80,6 +82,7 @@ class MainWindow : public QMainWindow {
     ManagementForm* stock_settings_page_ = nullptr;
     ManagementForm* account_settings_page_ = nullptr;
     ItemsPage* items_page_ = nullptr;
+    InvoicesPage* invoices_page_ = nullptr;
     DefaultInvoiceSettings* default_invoice_settings_page_ = nullptr;
     QVBoxLayout* mainLayout();
 

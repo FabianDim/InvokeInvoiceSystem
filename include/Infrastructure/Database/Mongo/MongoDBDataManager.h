@@ -8,6 +8,7 @@
 #include <bsoncxx/builder/stream/document.hpp>
 #include "bsoncxx/builder/basic/kvp.hpp"
 #include <qjsondocument.h>
+#include <QJsonObject>
 #include "Infrastructure/Database/Mongo/MongoDBHandler.h"
 #include "Infrastructure/Security/PasswordHashing/bcrypt.h"
 using bsoncxx::builder::basic::kvp;
@@ -49,7 +50,11 @@ class MongoDBDataManager {
     bool save_invoice_settings(const std::string& user_id, const QJsonObject& settings);
     void complete_invoice(const std::string& user_id, const std::string& business_id,
                           const std::string& client_id, const QString& invoice_id,
-                          const QString& number, const QJsonArray& stock, const QString& shortage_policy = "reject");
+                          const QString& number, const QJsonArray& stock, const QString& shortage_policy = "reject",
+                          const QJsonObject& snapshot = {});
+    QJsonObject list_invoices(const std::string& user_id, const QString& business_id, int offset = 0);
+    QJsonObject saved_invoice(const std::string& user_id, const QString& business_id, const QString& invoice_id);
+    bool set_invoice_paid(const std::string& user_id, const QString& business_id, const QString& invoice_id, bool paid);
 
     bool insertDocument(const std::string& collectionName, const bsoncxx::document::view& docView, std::string* inserted_id = nullptr);
     bsoncxx::document::value buildNewUser(const std::shared_ptr<User>& newUser);

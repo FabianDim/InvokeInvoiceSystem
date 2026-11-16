@@ -245,6 +245,8 @@
         src/Domain/Accounts/User.cpp
         src/View/UICode/Views/ItemsPage.cpp
         include/View/UICode/Views/ItemsPage.h
+        src/View/UICode/Views/InvoicesPage.cpp
+        include/View/UICode/Views/InvoicesPage.h
         src/Application/Controllers/AppController.cpp
         include/Application/Controllers/AppController.h
         src/View/UICode/Views/Dashboard.cpp
