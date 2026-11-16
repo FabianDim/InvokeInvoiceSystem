@@ -189,13 +189,12 @@ files. Pass database credentials at runtime, never as Docker build arguments.
 
 ### Push the backend to Heroku
 
-<<<<<<< Updated upstream
 #### GitHub checks and frontend releases
 
 Pull requests targeting `main` and pushes to `main` run
 `.github/workflows/main-ci.yml`. PRs run the required **All available tests**
 check. Pushes to `main` build and publish the release without repeating that test
-suite. Windows packaging and the backend runtime-image check run only after merge:
+suite. Windows packaging and Heroku deployment run on the push after merge:
 
 1. Choose a version for the CI builds and frontend release. With the current
    `0.1.0` base in `vcpkg.json`, workflow runs produce `0.1.1`, `0.1.2`, etc.
@@ -209,8 +208,12 @@ suite. Windows packaging and the backend runtime-image check run only after merg
    plugins and MSVC runtime. Reject non-system DLL imports and check the
    executable's version with only the EXE in its folder and no developer
    dependency paths.
-4. In the same push workflow, check that the backend's `runtime` Docker image builds successfully.
-5. After both builds pass, publish a GitHub Release tagged `v<version>` at the main commit, with the
+4. In the same push workflow, build the backend's `runtime` Docker image and push
+   it to `registry.heroku.com/invoice-backend-app/web`. This does not restart the app yet.
+5. After both builds pass, release that exact backend image on Heroku and wait
+   for the app's root URL to report the matching version. A failed deployment
+   blocks frontend publication; it does not automatically roll back Heroku.
+6. After deployment succeeds, publish a GitHub Release tagged `v<version>` at the main commit, with the
    standalone Windows EXE, a SHA-256 checksum and separate dependency notices.
    GitHub provides separate source-code ZIP and tar.gz downloads for that tag.
    Failed builds prevent publication.
@@ -221,8 +224,8 @@ relies on that pre-merge validation; a direct push or protection bypass does not
 run tests. Windows packaging failures are detected after merge. This workflow
 change does not configure the repository's branch protection settings.
 
-GitHub Actions does not push to Heroku's registry or release the backend. No
-Heroku secrets or production database credentials are needed in GitHub.
+GitHub Actions deploys the backend using the `HEROKU_API_KEY` repository secret.
+Production database credentials remain in Heroku's config vars.
 
 Test reports are uploaded as the `test-results` artifact. Dependency layers are
 cached between runs; the first build compiles Qt and can take considerably longer.
@@ -256,27 +259,33 @@ for transactional integration tests. `InvoiceMenuTests.cpp` contains only a
 commented-out test, so it has no executable test cases. All six active C++ suites
 run in this workflow.
 
-#### Heroku-managed automatic deployment
+#### GitHub Actions deployment setup
 
-In the Heroku app's **Deploy** tab, connect this GitHub repository, select `main`,
-check **Wait for GitHub checks to pass before deploy**, and select **Enable
-Automatic Deploys**. Heroku then handles deployment after the checks succeed.
-The repository's `heroku.yml` tells Heroku to build `Dockerfile` for the `web`
-process; the final `runtime` stage supplies its startup command. The app must
-use the `container` stack and have its MongoDB runtime config vars configured.
-These dashboard settings must be enabled in Heroku; adding the workflow does
-not change them. See [Heroku GitHub integration](https://devcenter.heroku.com/articles/github-integration)
-and [Docker builds with heroku.yml](https://devcenter.heroku.com/articles/build-docker-images-heroku-yml).
+In the GitHub repository's **Settings > Secrets and variables > Actions**, add a
+repository secret named `HEROKU_API_KEY` containing a Heroku API token with access
+to `invoice-backend-app`. Do not put the token in the workflow or source files.
+The workflow uses it only in the post-merge backend push and deployment jobs;
+PR tests do not receive it. No Heroku CLI installation is required on the runner.
+
+The existing Heroku app must use the `container` stack, have a running `web`
+formation, and retain its MongoDB config vars. The workflow targets the app and
+URL in its `HEROKU_APP_NAME` and `HEROKU_APP_URL` environment settings.
+Disable Heroku's separate GitHub automatic deployment in the app's **Deploy**
+tab so it does not compete with this workflow. The workflow does not change
+these dashboard settings, provision an app, or change dyno scaling.
+
+Releasing the backend restarts the app and clears its in-memory login sessions
+and invoice drafts. Users must sign in again. See
+[Heroku container deployment](https://devcenter.heroku.com/articles/container-registry-and-runtime)
+for registry authentication and the image-release API.
 
 #### Manual deployment
-=======
 If a remote build ends with `Build Timeout Expired` while compiling Qt, build on
 your local Docker builder and upload the completed image using the command below.
 Start Docker Desktop with Linux containers enabled first. This keeps compilation
 outside Heroku's remote build deadline; a cold Qt build can exceed that deadline
 even with Release-only dependencies. The timeout alone does not indicate a Qt
 compiler error. Use the same local builder on subsequent builds to reuse its cache.
->>>>>>> Stashed changes
 
 Heroku's registry requires Docker Image Manifest V2, Schema 2. With Docker's
 containerd image store, `heroku container:push` can produce an OCI manifest that

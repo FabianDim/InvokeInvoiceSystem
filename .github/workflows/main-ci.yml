@@ -1,4 +1,4 @@
-name: Test, build and release frontend
+name: Test, build and deploy
 
 on:
   pull_request:
@@ -8,6 +8,10 @@ on:
 
 permissions:
   contents: read
+
+env:
+  HEROKU_APP_NAME: invoice-backend-app
+  HEROKU_APP_URL: https://invoice-backend-app-69d26786220b.herokuapp.com
 
 # Keep releases serialized while each PR validates independently.
 concurrency:
@@ -149,29 +153,92 @@ jobs:
           if-no-files-found: error
 
   backend:
-    name: Check backend Docker image
+    name: Build and push backend to Heroku
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: version
     runs-on: ubuntu-24.04
     timeout-minutes: 180
+    outputs:
+      image_id: ${{ fromJSON(steps.image.outputs.metadata)['containerimage.config.digest'] }}
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - name: Check deployment credentials
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        run: |
+          if [ -z "$HEROKU_API_KEY" ]; then
+            echo "::error::Add the HEROKU_API_KEY repository secret before deploying."
+            exit 1
+          fi
+      - name: Log in to Heroku Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: registry.heroku.com
+          username: _
+          password: ${{ secrets.HEROKU_API_KEY }}
+      - name: Build and push backend image
+        id: image
+        uses: docker/build-push-action@v6
         with:
           context: .
           target: runtime
           build-args: APP_VERSION=${{ needs.version.outputs.version }}
           platforms: linux/amd64
-          outputs: type=cacheonly
+          # Heroku requires a single Docker V2 image, without an OCI image index.
+          provenance: false
+          sbom: false
+          outputs: type=registry,name=registry.heroku.com/${{ env.HEROKU_APP_NAME }}/web,oci-mediatypes=false
           cache-from: type=gha,scope=invoice
+          cache-to: type=gha,mode=max,scope=invoice
+
+  deploy:
+    name: Release backend on Heroku
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [version, frontend, backend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Release this run's backend image
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          IMAGE_ID: ${{ needs.backend.outputs.image_id }}
+        run: |
+          set -euo pipefail
+          if [ -z "$HEROKU_API_KEY" ] || [[ ! "$IMAGE_ID" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "::error::Missing deployment credentials or invalid backend image ID."
+            exit 1
+          fi
+          # Heroku expects the image config ID, not the registry manifest digest.
+          # Release the exact image built by this run, even if the web tag changes.
+          jq -n --arg image "$IMAGE_ID" \
+            '{updates: [{type: "web", docker_image: $image}]}' > release.json
+          curl --fail-with-body --silent --show-error --connect-timeout 15 --max-time 120 \
+            --request PATCH "https://api.heroku.com/apps/$HEROKU_APP_NAME/formation" \
+            --header "Authorization: Bearer $HEROKU_API_KEY" \
+            --header 'Accept: application/vnd.heroku+json; version=3.docker-releases' \
+            --header 'Content-Type: application/json' \
+            --data-binary @release.json --output release-response.json
+      - name: Verify deployed backend version
+        env:
+          APP_VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          for attempt in $(seq 1 30); do
+            if version=$(curl --fail --silent --show-error --connect-timeout 5 --max-time 10 "$HEROKU_APP_URL/") && [ "$version" = "$APP_VERSION" ]; then
+              echo "Backend $APP_VERSION is running on Heroku."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Heroku did not serve expected backend version $APP_VERSION. Check the app's release and logs."
+          exit 1
 
   release:
     name: Publish frontend on GitHub
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [version, frontend, backend]
+    needs: [version, frontend, deploy]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
