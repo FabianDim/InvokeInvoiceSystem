@@ -23,7 +23,8 @@ void InvoiceDetailsInput::create_page_layout() {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(16);
     auto* title = UiStyle::label("New invoice", content, "title");
-    title->setAlignment(Qt::AlignCenter);
+    title->setAlignment(Qt::AlignLeft);
+    layout->addWidget(UiStyle::label("FROM YOUR BUSINESS TO THEIR INBOX", content, "eyebrow"));
     layout->addWidget(title);
 
     auto* form = new QGridLayout;

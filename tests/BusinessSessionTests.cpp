@@ -17,6 +17,10 @@
 #include <QTemporaryDir>
 #include <QSettings>
 #include <QClipboard>
+#include <QScrollArea>
+#include <QScrollBar>
+#include <QMessageBox>
+#include "Domain/Stock/StockShortage.h"
 
 using App::Views::Dashboard;
 using Infrastructure::Http::ApiClient;
@@ -79,10 +83,12 @@ struct RecordingServer {
     QByteArray pdf_type = "application/pdf";
     int pdf_status = 200;
     int pdf_requests = 0;
+    QList<QJsonDocument> pdf_payloads;
 
     bool start() {
-        http.route("/invoices/stock-list", QHttpServerRequest::Method::Post, [this]() {
+        http.route("/invoices/stock-list", QHttpServerRequest::Method::Post, [this](const QHttpServerRequest& request) {
             ++pdf_requests;
+            pdf_payloads.append(QJsonDocument::fromJson(request.body()));
             return QHttpServerResponse(pdf_type, pdf_body, static_cast<QHttpServerResponder::StatusCode>(pdf_status));
         });
         http.route("/business/list", QHttpServerRequest::Method::Get, []() { return QHttpServerResponse(business_list().object()); });
@@ -129,6 +135,45 @@ class BusinessSessionTests : public QObject {
     Q_OBJECT
     QTemporaryDir settings_directory_;
   private slots:
+    void account_settings_populates_current_identity_on_each_visit() {
+        TestAccountManager account;
+        App::Views::MainWindow window(account);
+        auto* form = window.account_settings_page();
+        const auto fields = form->findChildren<QLineEdit*>("form_input");
+        QCOMPARE(fields.size(), 4);
+
+        // The window and form are constructed before sign-in completes.
+        auto first_user = std::make_shared<User>("alex@example.com", "never display this");
+        first_user->setFirstName("Alex");
+        first_user->setLastName("Taylor");
+        account.set_authenticated_user(first_user);
+        window.show_page(form);
+        QCOMPARE(fields[0]->text(), QString("Alex"));
+        QCOMPARE(fields[1]->text(), QString("Taylor"));
+        QCOMPARE(fields[2]->text(), QString("alex@example.com"));
+        QVERIFY(fields[3]->text().isEmpty());
+        QCOMPARE(fields[3]->echoMode(), QLineEdit::Password);
+
+        fields[0]->setText("Unsaved edit");
+        fields[3]->setText("Unsaved password");
+        window.show_page(window.dashboard_page());
+        first_user->setLastName("Updated");
+        window.show_page(form);
+        QCOMPARE(fields[0]->text(), QString("Alex"));
+        QCOMPARE(fields[1]->text(), QString("Updated"));
+        QVERIFY(fields[3]->text().isEmpty());
+
+        // A different or signed-out user must never see the previous profile.
+        account.set_authenticated_user(std::make_shared<User>("second@example.com", ""));
+        window.show_page(form);
+        QVERIFY(fields[0]->text().isEmpty());
+        QVERIFY(fields[1]->text().isEmpty());
+        QCOMPARE(fields[2]->text(), QString("second@example.com"));
+        account.logOut();
+        window.show_page(form);
+        for (const auto* field : fields) QVERIFY(field->text().isEmpty());
+    }
+
     void online_finish_downloads_pdf_and_retries_failures() {
         RecordingServer server;
         QVERIFY(server.start());
@@ -216,6 +261,95 @@ class BusinessSessionTests : public QObject {
         QTest::qWait(100);
         QVERIFY(!QFileInfo::exists(output.filePath("stale.pdf")));
         QCOMPARE(saved.count(), 2);
+    }
+
+    void online_stock_shortage_choices_data() {
+        QTest::addColumn<QString>("policy");
+        QTest::newRow("zero") << QString("zero");
+        QTest::newRow("negative") << QString("negative");
+    }
+
+    void online_stock_shortage_choices() {
+        QFETCH(QString, policy);
+        RecordingServer server;
+        QVERIFY(server.start());
+        TestAccountManager account;
+        ApiClient api(server.url(), &account);
+        App::Views::MainWindow window(account);
+        Application::Controllers::AppController controller(&window, account, &api);
+        QTemporaryDir output;
+        QVERIFY(output.isValid());
+        api.business_selected(QJsonObject{{"_id", "65a000000000000000000001"}});
+        QSignalSpy started(&api, &ApiClient::invoice_started);
+        QSignalSpy saved(&api, &ApiClient::pdf_generated);
+        QSignalSpy failed(&api, &ApiClient::pdf_failed);
+        api.invoice_details(QJsonDocument(QJsonObject{{"ClientID", "65b000000000000000000001"},
+            {"file_dir", output.path()}, {"file_name", "shortage"}}));
+        QTRY_COMPARE(started.count(), 1);
+        auto* page = window.new_invoice_stock_page();
+        auto* finish = page->findChild<QPushButton*>("invoice_finish");
+        const QJsonArray lines{QJsonObject{{"_id", "65c000000000000000000001"},
+            {"Name", "Widget"}, {"Quantity", 4}, {"Price", 10}}};
+        page->stock_items = lines;
+        const auto pdf = server.pdf_body;
+        server.pdf_type = "application/json";
+        server.pdf_status = 409;
+        server.pdf_body = R"({"error":"Insufficient stock","code":"stock_shortage","items":[{"Name":"Widget","Available":2,"Requested":4}]})";
+        finish->click();
+        QTRY_VERIFY(page->findChild<QMessageBox*>("stock_shortage_dialog"));
+        QPointer<QMessageBox> dialog = page->findChild<QMessageBox*>("stock_shortage_dialog");
+        QVERIFY(dialog->informativeText().contains("2 available, 4 on this invoice"));
+        QVERIFY(!finish->isEnabled());
+        QCOMPARE(server.pdf_payloads.last().array(), lines);
+        QVERIFY(failed.isEmpty());
+        QVERIFY(saved.isEmpty());
+        QVERIFY(!QFile::exists(output.filePath("shortage.pdf")));
+        dialog->findChild<QPushButton*>("shortage_cancel")->click();
+        QTRY_VERIFY(dialog.isNull());
+        QVERIFY(finish->isEnabled());
+        QCOMPARE(server.pdf_requests, 1);
+        QCOMPARE(page->stock_items, lines);
+
+        // Dismissing the prompt must not carry a choice into the next attempt.
+        finish->click();
+        QTRY_VERIFY(page->findChild<QMessageBox*>("stock_shortage_dialog"));
+        dialog = page->findChild<QMessageBox*>("stock_shortage_dialog");
+        QCOMPARE(server.pdf_payloads.last().array(), lines);
+        server.pdf_type = "application/pdf";
+        server.pdf_status = 200;
+        server.pdf_body = pdf;
+        // Simulate a local write failure after the backend has completed the invoice.
+        QVERIFY(QDir(output.path()).mkdir("shortage.pdf"));
+        dialog->findChild<QPushButton*>("shortage_" + policy)->click();
+        QTRY_COMPARE(failed.count(), 1);
+        QCOMPARE(server.pdf_payloads.last().object().value("stockShortagePolicy").toString(), policy);
+        QCOMPARE(server.pdf_payloads.last().object().value("items").toArray(), lines);
+        QVERIFY(finish->isEnabled());
+        QVERIFY(QDir(output.path()).rmdir("shortage.pdf"));
+        finish->click();
+        QTRY_COMPARE(saved.count(), 1);
+        QCOMPARE(server.pdf_payloads.last().object().value("stockShortagePolicy").toString(), policy);
+        QFile file(output.filePath("shortage.pdf"));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QCOMPARE(file.readAll(), pdf);
+        file.close();
+
+        // Starting a new invoice closes a pending prompt without submitting it.
+        page->reset_invoice();
+        page->stock_items = lines;
+        server.pdf_type = "application/json";
+        server.pdf_status = 409;
+        server.pdf_body = R"({"code":"stock_shortage","items":[{"Name":"Widget","Available":0,"Requested":4}]})";
+        finish->click();
+        QTRY_VERIFY(page->findChild<QMessageBox*>("stock_shortage_dialog"));
+        dialog = page->findChild<QMessageBox*>("stock_shortage_dialog");
+        QCOMPARE(server.pdf_payloads.last().array(), lines);
+        const auto requests = server.pdf_requests;
+        page->reset_invoice();
+        QTRY_VERIFY(dialog.isNull());
+        QCOMPARE(server.pdf_requests, requests);
+        QVERIFY(page->stock_items.isEmpty());
+        QVERIFY(finish->isEnabled());
     }
 
     void auth_sessions_isolate_users_and_expire() {
@@ -512,7 +646,10 @@ class BusinessSessionTests : public QObject {
         QCOMPARE(stack->currentWidget(), window.dashboard_page());
         auto* title = window.dashboard_page()->findChild<QLabel*>("titleLabel");
         QVERIFY(title);
-        QCOMPARE(title->font().pixelSize(), 32);
+        QCOMPARE(title->font().pixelSize(), 30);
+        window.dashboard_page()->findChild<QComboBox*>("business_selector")->setCurrentIndex(1);
+        QTest::qWait(30);
+        window.repaint();
         QVERIFY(window.grab().save("dashboard-packaged-style.png"));
 
         auto* menu = window.menuBar()->actions().at(1)->menu();
@@ -617,6 +754,61 @@ class BusinessSessionTests : public QObject {
         QCOMPARE(session.stocks.first().toObject().value("Quantity").toInt(), 3);
     }
 
+    void offline_stock_shortage_choices_data() {
+        QTest::addColumn<QString>("policy");
+        QTest::addColumn<int>("balance");
+        QTest::newRow("zero") << QString("zero") << 0;
+        QTest::newRow("negative") << QString("negative") << -3;
+    }
+
+    void offline_stock_shortage_choices() {
+        QFETCH(QString, policy);
+        QFETCH(int, balance);
+        Application::Invoices::OfflineInvoiceSession session;
+        const auto business = session.save("business", {{"Business name", "A"}}, {});
+        const auto client = session.save("client", {{"Name", "Customer"}}, business);
+        const auto stock = session.save("stock", {{"Name", "Widget"}, {"Quantity", 5}, {"Price", 10}}, business);
+        const auto other = session.save("stock", {{"Name", "Other"}, {"Quantity", 10}, {"Price", 1}}, business);
+        QTemporaryDir output;
+        QVERIFY(output.isValid());
+        const QJsonObject details{{"ClientID", client}, {"file_dir", output.path()}};
+        session.begin_invoice(details, business);
+        const auto before = session.stocks;
+        const QJsonObject line{{"_id", stock}, {"Name", "Widget"}, {"Quantity", 4}, {"Price", 10}};
+        const QJsonArray lines{line, line, QJsonObject{{"_id", other}, {"Name", "Other"}, {"Quantity", 2}, {"Price", 1}}};
+        bool rejected = false;
+        try {
+            session.generate_pdf(lines);
+        } catch (const Domain::Stock::StockShortage& error) {
+            rejected = true;
+            QCOMPARE(error.items.size(), 1);
+            const auto item = error.items.first().toObject();
+            QCOMPARE(item.value("_id").toString(), stock);
+            QCOMPARE(item.value("Available").toInt(), 5);
+            QCOMPARE(item.value("Requested").toInt(), 8);
+        }
+        QVERIFY(rejected);
+        QCOMPARE(session.stocks, before);
+        QVERIFY(QDir(output.path()).entryList({"*.pdf"}, QDir::Files).isEmpty());
+        QVERIFY_EXCEPTION_THROWN(session.generate_pdf(lines, "invalid"), std::invalid_argument);
+        QCOMPARE(session.stocks, before);
+        const auto path = session.generate_pdf(lines, policy);
+        QVERIFY(QFile::exists(path));
+        QCOMPARE(session.stocks.at(0).toObject().value("Quantity").toInt(), balance);
+        QCOMPARE(session.stocks.at(1).toObject().value("Quantity").toInt(), 8);
+        const auto completed = session.stocks;
+        session.generate_pdf(lines, policy);
+        session.generate_pdf(lines); // A retry does not need to reconfirm completed stock changes.
+        QCOMPARE(session.stocks, completed);
+        QVERIFY_EXCEPTION_THROWN(session.generate_pdf(QJsonArray{line}, policy), std::runtime_error);
+        QCOMPARE(session.stocks, completed);
+        session.begin_invoice(details, business);
+        QVERIFY_EXCEPTION_THROWN(session.generate_pdf(QJsonArray{line}), Domain::Stock::StockShortage);
+        QCOMPARE(session.stocks, completed);
+        session.generate_pdf(QJsonArray{line}, "negative");
+        QCOMPARE(session.stocks.at(0).toObject().value("Quantity").toInt(), balance - 4);
+    }
+
     void dashboard_requires_selection_and_preserves_it_on_refresh() {
         Dashboard dashboard;
         auto* selector = dashboard.findChild<QComboBox*>("business_selector");
@@ -650,10 +842,18 @@ class BusinessSessionTests : public QObject {
         QVERIFY(!button(dashboard, "Create new invoice")->isEnabled());
     }
 
+    void controls_have_consistent_roles_and_geometry_data() {
+        QTest::addColumn<QSize>("window_size");
+        QTest::newRow("standard") << QSize(800, 800);
+        QTest::newRow("compact") << QSize(640, 640);
+        QTest::newRow("desktop") << QSize(1080, 860);
+    }
+
     void controls_have_consistent_roles_and_geometry() {
+        QFETCH(QSize, window_size);
         TestAccountManager account;
         App::Views::MainWindow window(account);
-        window.resize(800, 800);
+        window.resize(window_size);
         window.show();
         const QList<QPair<QString, QWidget*>> pages{
             {"login", window.login_page()}, {"signup", window.signup_page()},
@@ -673,10 +873,23 @@ class BusinessSessionTests : public QObject {
                 if (!button->isVisible()) continue;
                 if (button_height < 0) button_height = button->height();
                 QCOMPARE(button->height(), button_height);
+                if (auto* scroll = page->findChild<QScrollArea*>(); scroll && scroll->isAncestorOf(button)) {
+                    scroll->ensureWidgetVisible(button);
+                    QCoreApplication::processEvents();
+                    const QRect visible_bounds(button->mapTo(scroll->viewport(), QPoint()), button->size());
+                    QVERIFY2(scroll->viewport()->rect().contains(visible_bounds),
+                             qPrintable(name + ": unreachable " + button->text()));
+                }
                 const QRect bounds(button->mapTo(page, QPoint()), button->size());
                 QVERIFY2(page->rect().contains(bounds), qPrintable(name + ": clipped " + button->text()));
             }
-            QVERIFY(window.grab().save(name + "-consistent-ui.png"));
+            if (auto* scroll = page->findChild<QScrollArea*>()) {
+                scroll->verticalScrollBar()->setValue(0);
+                scroll->horizontalScrollBar()->setValue(0);
+            }
+            QTest::qWait(30);
+            window.repaint();
+            QVERIFY(window.grab().save(name + "-" + QTest::currentDataTag() + "-ui.png"));
         }
         auto* dashboard = window.dashboard_page();
         QCOMPARE(button(*dashboard, "Create new invoice")->size(), button(*dashboard, "Create new client")->size());

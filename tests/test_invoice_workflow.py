@@ -138,11 +138,11 @@ class InvoiceWorkflowTests(unittest.TestCase):
         self.assertEqual(self.request("/invoices/stock-list", [line], self.token)[0], 400)
         self.begin()
         failed = [line, {"_id": empty, "Name": "Empty", "Quantity": 1, "Price": 5}]
-        self.assertEqual(self.request("/invoices/stock-list", failed, self.token)[0], 400)
+        self.assertEqual(self.request("/invoices/stock-list", failed, self.token)[0], 409)
         self.assertEqual(self.quantity(stock), 4)
         self.assertEqual(self.quantity(empty), 0)
         self.assertEqual(self.db.Invoices.count_documents({}), 1)
-        self.assertEqual(self.request("/invoices/stock-list", [dict(line, Quantity=5)], self.token)[0], 400)
+        self.assertEqual(self.request("/invoices/stock-list", [dict(line, Quantity=5)], self.token)[0], 409)
         self.assertEqual(self.quantity(stock), 4)
         # Ad hoc invoice lines are allowed and do not affect inventory.
         self.assertEqual(self.request("/invoices/stock-list", [{"Name": "Service", "Quantity": 1, "Price": 20}], self.token)[0], 200)
@@ -157,7 +157,7 @@ class InvoiceWorkflowTests(unittest.TestCase):
         with ThreadPoolExecutor(2) as pool:
             results = list(pool.map(lambda token: self.request("/invoices/stock-list",
                 [{"_id": stock, "Name": "Last one", "Quantity": 1, "Price": 10}], token)[0], tokens))
-        self.assertEqual(sorted(results), [200, 400])
+        self.assertEqual(sorted(results), [200, 409])
         self.assertEqual(self.quantity(stock), 0)
 
     def test_foreign_stock_is_rejected_without_deducting_own_stock(self):
@@ -166,9 +166,59 @@ class InvoiceWorkflowTests(unittest.TestCase):
         foreign = self.save("stock", {"BusinessID": foreign_business, "Name": "Foreign", "Price": 1, "Quantity": 5})
         self.begin()
         lines = [{"_id": id, "Name": "Item", "Quantity": 1, "Price": 1} for id in (own, foreign)]
-        self.assertEqual(self.request("/invoices/stock-list", lines, self.token)[0], 400)
+        for policy in ("reject", "zero", "negative"):
+            payload = {"items": lines, "stockShortagePolicy": policy}
+            self.assertEqual(self.request("/invoices/stock-list", payload, self.token)[0], 400)
         self.assertEqual(self.quantity(own), 5)
         self.assertEqual(self.quantity(foreign), 5)
+
+    def test_shortage_choices_are_atomic_and_retries_do_not_deduct_twice(self):
+        for policy, balance in (("zero", 0), ("negative", -3)):
+            with self.subTest(policy=policy):
+                stock = self.save("stock", {"BusinessID": self.business, "Name": "Widget", "Price": 10, "Quantity": 5})
+                enough = self.save("stock", {"BusinessID": self.business, "Name": "Enough", "Price": 1, "Quantity": 10})
+                line = {"_id": stock, "Name": "Widget", "Quantity": 4, "Price": 10}
+                lines = [line, line, {"_id": enough, "Name": "Enough", "Quantity": 2, "Price": 1}]
+                self.begin()
+                count = self.db.Invoices.count_documents({})
+                status, error = self.request("/invoices/stock-list", lines, self.token)
+                self.assertEqual(status, 409, error)
+                self.assertEqual(error["code"], "stock_shortage")
+                self.assertEqual(error["items"], [{"_id": stock, "Name": "Widget", "Available": 5, "Requested": 8}])
+                self.assertEqual(self.quantity(stock), 5)
+                self.assertEqual(self.quantity(enough), 10)
+                self.assertEqual(self.db.Invoices.count_documents({}), count)
+                payload = {"items": lines, "stockShortagePolicy": policy}
+                status, pdf = self.request("/invoices/stock-list", payload, self.token)
+                self.assertEqual(status, 200, pdf)
+                self.assertTrue(pdf.startswith(b"%PDF"))
+                self.assertEqual(self.quantity(stock), balance)
+                self.assertEqual(self.quantity(enough), 8)
+                self.assertEqual(self.db.Invoices.count_documents({}), count + 1)
+                self.assertEqual(self.request("/invoices/stock-list", payload, self.token), (200, pdf))
+                self.assertEqual(self.request("/invoices/stock-list", lines, self.token), (200, pdf))
+                self.assertEqual(self.quantity(stock), balance)
+                self.assertEqual(self.quantity(enough), 8)
+                # Listing must support the signed 64-bit quantities stored by completion.
+                status, records = self.request("/stock/list?BusinessID=" + self.business, token=self.token)
+                self.assertEqual(status, 200)
+                self.assertEqual(next(row["Quantity"] for row in records if row["_id"] == stock), balance)
+                self.begin()
+                self.assertEqual(self.request("/invoices/stock-list", [line], self.token)[0], 409)
+                self.assertEqual(self.request("/invoices/stock-list",
+                    {"items": [line], "stockShortagePolicy": "negative"}, self.token)[0], 200)
+                self.assertEqual(self.quantity(stock), balance - 4)
+
+    def test_invalid_shortage_choices_leave_inventory_unchanged(self):
+        stock = self.save("stock", {"BusinessID": self.business, "Name": "Widget", "Price": 10, "Quantity": 1})
+        self.begin()
+        lines = [{"_id": stock, "Name": "Widget", "Quantity": 2, "Price": 10}]
+        for payload in ({"items": lines}, {"items": lines, "stockShortagePolicy": "invalid"},
+                        {"items": lines, "stockShortagePolicy": True},
+                        {"items": {}, "stockShortagePolicy": "zero"}):
+            self.assertEqual(self.request("/invoices/stock-list", payload, self.token)[0], 400)
+        self.assertEqual(self.quantity(stock), 1)
+        self.assertEqual(self.db.Invoices.count_documents({}), 0)
 
 
 if __name__ == "__main__":

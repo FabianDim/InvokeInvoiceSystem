@@ -23,6 +23,7 @@ class ManagementForm : public QWidget {
 
   public slots:
     void set_status(const QString& message);
+    void set_account_details(const QString& first_name, const QString& last_name, const QString& email);
     void set_offline(bool offline);
     void select_logo(const QString& path);
     void save_succeeded();

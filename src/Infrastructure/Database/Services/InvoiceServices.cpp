@@ -88,7 +88,8 @@ void Infrastructure::Services::InvoiceServices::begin_invoice_details(const QJso
     invoice_.setTemplate(template_converter(doc.object().value("invoice_theme").toString().toStdString()));
 }
 
-QByteArray InvoiceServices::complete_pdf(const QJsonDocument& stock, const std::string& user_id) {
+QByteArray InvoiceServices::complete_pdf(const QJsonDocument& stock, const std::string& user_id,
+                                       const QString& shortage_policy) {
     const auto items = stock.toJson(QJsonDocument::Compact);
     if (!completed_pdf_.isEmpty()) {
         if (items != completed_items_)
@@ -97,7 +98,7 @@ QByteArray InvoiceServices::complete_pdf(const QJsonDocument& stock, const std::
     }
     const auto pdf = generate_pdf(stock);
     db_manager_.complete_invoice(user_id, invoice_.getBusiness()->getBizID(), invoice_.getClient()->getClientID(),
-                                 completion_id_, QString::fromStdString(invoice_.getCliInvoiceID()), stock.array());
+                                 completion_id_, QString::fromStdString(invoice_.getCliInvoiceID()), stock.array(), shortage_policy);
     completed_items_ = items;
     completed_pdf_ = pdf;
     return completed_pdf_;

@@ -145,6 +145,10 @@ AppController::AppController(App::Views::MainWindow* main,
                      &App::Views::NewInvoiceStock::add_item_list_to_invoice,
                      api_,
                      &Infrastructure::Http::ApiClient::stock_list);
+    connect(main_->new_invoice_stock_page(), &App::Views::NewInvoiceStock::resolve_stock_shortage,
+            api_, &Infrastructure::Http::ApiClient::finish_stock_list);
+    connect(api_, &Infrastructure::Http::ApiClient::stock_shortage,
+            main_->new_invoice_stock_page(), &App::Views::NewInvoiceStock::show_stock_shortage);
     QObject::connect(main_->new_invoice_stock_page(),
                      &App::Views::NewInvoiceStock::find_stock,
                      api_,

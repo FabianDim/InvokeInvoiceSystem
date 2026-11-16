@@ -218,9 +218,13 @@
         src/Infrastructure/Http/ApiClient.cpp
         include/Infrastructure/Http/ApiClient.h
         src/Infrastructure/Pdf/InvoicePdfGenerator.cpp
+        src/Infrastructure/Security/LocalAuth/LocalPasswordSaving.cpp
+        src/Infrastructure/Security/LocalAuth/KeyChainClass.cpp
+        include/Infrastructure/Security/LocalAuth/KeyChainClass.h
     )
     target_include_directories(FrontendSessionTests PRIVATE ${CMAKE_SOURCE_DIR}/include)
     target_link_libraries(FrontendSessionTests PRIVATE
+        Qt6Keychain::Qt6Keychain
         Qt6::Test Qt6::Gui Qt6::HttpServer Qt6::Network
         fmt::fmt unofficial::libharu::hpdf
         $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>

@@ -49,7 +49,7 @@ class MongoDBDataManager {
     bool save_invoice_settings(const std::string& user_id, const QJsonObject& settings);
     void complete_invoice(const std::string& user_id, const std::string& business_id,
                           const std::string& client_id, const QString& invoice_id,
-                          const QString& number, const QJsonArray& stock);
+                          const QString& number, const QJsonArray& stock, const QString& shortage_policy = "reject");
 
     bool insertDocument(const std::string& collectionName, const bsoncxx::document::view& docView, std::string* inserted_id = nullptr);
     bsoncxx::document::value buildNewUser(const std::shared_ptr<User>& newUser);

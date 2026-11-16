@@ -13,6 +13,7 @@
 #include <mongocxx/options/find_one_and_update.hpp>
 #include <QMap>
 #include <cmath>
+#include "Domain/Stock/StockShortage.h"
 
 QString MongoDBDataManager::reserve_invoice_number(const std::string& user_id, const std::string& business_id,
                                                    const QString& prefix) {
@@ -44,7 +45,9 @@ bool MongoDBDataManager::save_invoice_settings(const std::string& user_id, const
 
 void MongoDBDataManager::complete_invoice(const std::string& user_id, const std::string& business_id,
                                          const std::string& client_id, const QString& invoice_id,
-                                         const QString& number, const QJsonArray& stock) {
+                                         const QString& number, const QJsonArray& stock, const QString& shortage_policy) {
+    if (!Domain::Stock::valid_shortage_policy(shortage_policy))
+        throw std::invalid_argument("Invalid stock shortage choice.");
     const auto owner = Infrastructure::Database::parse_object_id(user_id);
     const auto business = Infrastructure::Database::parse_object_id(business_id);
     const auto client = Infrastructure::Database::parse_object_id(client_id);
@@ -74,13 +77,39 @@ void MongoDBDataManager::complete_invoice(const std::string& user_id, const std:
                 throw std::invalid_argument("This invoice is complete. Start a new invoice to change its items.");
             return;
         }
+        QJsonArray shortages;
+        QMap<QString, std::int64_t> remaining;
         for (auto it = quantities.constBegin(); it != quantities.constEnd(); ++it) {
+            const auto record = db["Stock"].find_one(*transaction,
+                make_document(kvp("_id", bsoncxx::oid(it.key().toStdString())), kvp("BusinessID", *business)));
+            if (!record)
+                throw std::invalid_argument("A stock item is no longer available for this business. Refresh stock and try again.");
+            const auto view = record->view();
+            const auto stored = view["Quantity"];
+            const std::int64_t available = stored.type() == bsoncxx::type::k_int64
+                ? stored.get_int64().value : stored.get_int32().value;
+            // Quantities created/edited by the app are bounded. Guard legacy records too.
+            if (available < -9'000'000'000'000LL || available > 9'000'000'000'000LL)
+                throw std::invalid_argument("Stock quantity is outside the supported range.");
+            auto balance = available - it.value();
+            if (balance < 0) {
+                const auto name = view["Name"];
+                shortages.append(QJsonObject{{"_id", it.key()},
+                    {"Name", name && name.type() == bsoncxx::type::k_string ? QString::fromUtf8(name.get_string().value) : it.key()},
+                    {"Available", static_cast<double>(available)}, {"Requested", it.value()}});
+                if (shortage_policy == "zero") balance = 0;
+            }
+            remaining[it.key()] = balance;
+        }
+        if (!shortages.isEmpty() && shortage_policy == "reject")
+            throw Domain::Stock::StockShortage(shortages);
+        // All records have been checked. Transaction conflicts retry against fresh stock.
+        for (auto it = remaining.constBegin(); it != remaining.constEnd(); ++it) {
             const auto result = db["Stock"].update_one(*transaction,
-                make_document(kvp("_id", bsoncxx::oid(it.key().toStdString())), kvp("BusinessID", *business),
-                              kvp("Quantity", make_document(kvp("$gte", it.value())))),
-                make_document(kvp("$inc", make_document(kvp("Quantity", -it.value())))));
+                make_document(kvp("_id", bsoncxx::oid(it.key().toStdString())), kvp("BusinessID", *business)),
+                make_document(kvp("$set", make_document(kvp("Quantity", it.value())))));
             if (!result || result->matched_count() != 1)
-                throw std::invalid_argument("Insufficient stock, or an item does not belong to this business. Refresh stock and try again.");
+                throw std::invalid_argument("A stock item is no longer available for this business.");
         }
         const auto result = db["Invoices"].insert_one(*transaction, make_document(
             kvp("_id", bsoncxx::oid(invoice_id.toStdString())), kvp("UserID", *owner), kvp("BusinessID", *business),
@@ -348,7 +377,9 @@ QJsonDocument MongoDBDataManager::list_resources(const std::string& resource,
             } else {
                 item["Name"] = text("Name");
                 item["Price"] = view["StdPrice"].get_double().value;
-                item["Quantity"] = view["Quantity"].get_int32().value;
+                const auto quantity = view["Quantity"];
+                item["Quantity"] = quantity.type() == bsoncxx::type::k_int64
+                    ? static_cast<double>(quantity.get_int64().value) : quantity.get_int32().value;
                 item["Unit"] = text("Unit Type");
                 const auto margin = view["ProfitMargin"];
                 if (margin && margin.type() == bsoncxx::type::k_double)
