@@ -1,6 +1,7 @@
 #include "Infrastructure/Logging/Logging.h"
 #include "View/MainWindow.h"
 #include "Domain/Accounts/Interfaces/IAccountManager.h"
+#include "Domain/Accounts/User.h"
 #include "View/UICode/Views/LandingPage.h" // use forward slashes
 #include <QMenuBar>
 #include <QComboBox>
@@ -20,8 +21,22 @@ App::Views::MainWindow::MainWindow(Invoke::Domain::Accounts::IAccountManager& ac
     auto* central = new QWidget(this);
     auto* vbox = new QVBoxLayout(central);
     vbox->setContentsMargins(0, 0, 0, 0);
-    vbox->setSpacing(6);
+    vbox->setSpacing(0);
     setCentralWidget(central);
+
+    auto* brand_bar = new QFrame(central);
+    brand_bar->setObjectName("brand_bar");
+    auto* brand_layout = new QHBoxLayout(brand_bar);
+    brand_layout->setContentsMargins(28, 12, 28, 12);
+    brand_layout->setSpacing(12);
+    auto* mark = UiStyle::label("/i", brand_bar, "brandMark");
+    mark->setAlignment(Qt::AlignCenter);
+    mark->setFixedSize(36, 36);
+    brand_layout->addWidget(mark);
+    brand_layout->addWidget(UiStyle::label("invoke", brand_bar, "wordmark"));
+    brand_layout->addStretch();
+    brand_layout->addWidget(UiStyle::label("INVOICE WORKSPACE", brand_bar, "brandCaption"));
+    vbox->addWidget(brand_bar);
 
     offline_banner_ = new QWidget(central);
     offline_banner_->setObjectName("offline_banner");
@@ -133,6 +148,13 @@ void App::Views::MainWindow::show_page(QWidget* widget) {
     dashboard_page()->set_logged_in(acctMgr.is_logged_in());
     loginAct->setVisible(!offline_ && !acctMgr.is_logged_in());
     logoutAct->setVisible(!offline_ && acctMgr.is_logged_in());
+    if (widget == account_settings_page_) {
+        const auto user = !offline_ && acctMgr.is_logged_in() ? acctMgr.getAccount() : nullptr;
+        account_settings_page_->set_account_details(
+            user ? QString::fromStdString(user->getFirstName()) : QString{},
+            user ? QString::fromStdString(user->getLastName()) : QString{},
+            user ? QString::fromStdString(user->getEmail()) : QString{});
+    }
     pagesStack->setCurrentWidget(widget);
 }
 

@@ -1,6 +1,7 @@
 #include "Infrastructure/Logging/HttpLogging.h"
 #include "Infrastructure/Http/ApiClient.h"
 #include "Domain/Accounts/User.h"
+#include "Domain/Stock/StockShortage.h"
 #include <QJsonArray>
 #include <QUrlQuery>
 #include <QDir>
@@ -335,12 +336,22 @@ void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoi
 }
 
 void Infrastructure::Http::ApiClient::stock_list(const QJsonDocument& stock) {
+    finish_stock_list(stock, "reject");
+}
+
+void Infrastructure::Http::ApiClient::finish_stock_list(const QJsonDocument& stock, const QString& shortage_policy) {
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::http(), "ApiClient.stock_list");
+    if (!stock.isArray() || !Domain::Stock::valid_shortage_policy(shortage_policy)) {
+        emit pdf_failed("Invalid invoice item list or stock shortage choice.");
+        return;
+    }
     if (offline_) {
         try {
-            const auto path = offline_session_.generate_pdf(stock.array());
+            const auto path = offline_session_.generate_pdf(stock.array(), shortage_policy);
             invalidate_business_items();
             emit pdf_generated(path);
+        } catch (const Domain::Stock::StockShortage& error) {
+            emit stock_shortage(error.items);
         } catch (const std::exception& error) {
             emit pdf_failed(QString::fromUtf8(error.what()));
         }
@@ -367,7 +378,10 @@ void Infrastructure::Http::ApiClient::stock_list(const QJsonDocument& stock) {
     url.setPath("/invoices/stock-list");
     auto request = make_request(url);
     request.setRawHeader("Accept", "application/pdf");
-    auto* reply = networkManager_->post(request, stock.toJson(QJsonDocument::Compact));
+    const auto payload = shortage_policy == "reject" ? stock
+        : QJsonDocument(QJsonObject{{"items", stock.array()}, {"stockShortagePolicy", shortage_policy}});
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    auto* reply = networkManager_->post(request, payload.toJson(QJsonDocument::Compact));
     Infrastructure::Logging::traceReply(reply);
     connect(reply, &QNetworkReply::finished, this, [this, reply, path, generation]() {
         Infrastructure::Logging::RequestContext context(reply->request().rawHeader("X-Request-ID"));
@@ -378,7 +392,13 @@ void Infrastructure::Http::ApiClient::stock_list(const QJsonDocument& stock) {
         }
         const auto data = reply->readAll();
         if (reply->error() != QNetworkReply::NoError) {
-            const auto error = QJsonDocument::fromJson(data).object().value("error").toString();
+            const auto response = QJsonDocument::fromJson(data).object();
+            if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 409 &&
+                response.value("code").toString() == "stock_shortage" && !response.value("items").toArray().isEmpty()) {
+                emit stock_shortage(response.value("items").toArray());
+                return;
+            }
+            const auto error = response.value("error").toString();
             emit pdf_failed(error.isEmpty() ? "Could not download the PDF: " + reply->errorString() : error);
             return;
         }
@@ -535,6 +555,8 @@ void Infrastructure::Http::ApiClient::do_login(const QString& email, const QStri
             session_token_ = token;
             auto user = std::make_shared<User>(identity.value("email").toString().toStdString(), "");
             user->setMongoUserID(identity.value("_id").toString().toStdString());
+            user->setFirstName(identity.value("firstName").toString().toStdString());
+            user->setLastName(identity.value("lastName").toString().toStdString());
             if (account_manager_)
                 account_manager_->set_authenticated_user(std::move(user));
             emit login_succeeded();

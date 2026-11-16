@@ -15,7 +15,7 @@ App::Views::Dashboard::Dashboard(QWidget* parent) : QWidget(parent) {
 }
 
 void App::Views::Dashboard::create_page_layout() {
-    auto* content = UiStyle::page_content(this, 640);
+    auto* content = UiStyle::page_content(this, 920, false);
     button_group_ = new QButtonGroup(this);
 
     button_group_->setObjectName("dashboard_button_group");
@@ -28,13 +28,13 @@ void App::Views::Dashboard::create_page_layout() {
     auto* title = new QLabel("Your workspace", content);
     title->setObjectName("titleLabel");
     title->setProperty("role", "title");
-    title->setAlignment(Qt::AlignCenter);
+    title->setAlignment(Qt::AlignLeft);
     layout->addWidget(title, 0, 0, 1, 2);
     auto* subtitle = new QLabel("Create invoices from the business data you already manage.", content);
     subtitle->setObjectName("subtitleLabel");
     subtitle->setProperty("role", "subtitle");
     subtitle->setWordWrap(true);
-    subtitle->setAlignment(Qt::AlignCenter);
+    subtitle->setAlignment(Qt::AlignLeft);
     layout->addWidget(subtitle, 1, 0, 1, 2);
 
     auto* business_label = new QLabel("Active business", content);
@@ -53,8 +53,7 @@ void App::Views::Dashboard::create_page_layout() {
     business_row->addWidget(business_select_, 1);
     layout->addLayout(business_row, 2, 0, 1, 2);
 
-    QIcon icon(":/icons/invoice_icon.png");
-    invoice_button = new QPushButton(icon, "Create new invoice", content);
+    invoice_button = new QPushButton("Create new invoice", content);
     client_button = new QPushButton("Create new client", content);
     business_button = new QPushButton("Configure business", content);
     stock_button = new QPushButton("Create stock item", content);
@@ -72,13 +71,30 @@ void App::Views::Dashboard::create_page_layout() {
     account_button->setObjectName("dashboard_button");
     UiStyle::button(invoice_button, "accent", true);
     for (auto* button : {client_button, business_button, stock_button, account_button, items_button, default_invoice_settings_button})
-        UiStyle::button(button, "primary", true);
-    layout->addWidget(invoice_button, 3, 0);
-    layout->addWidget(client_button, 3, 1);
-    layout->addWidget(business_button, 4, 0);
-    layout->addWidget(stock_button, 4, 1);
-    layout->addWidget(items_button, 5, 0);
-    layout->addWidget(account_button, 5, 1);
+        UiStyle::button(button, "secondary", true);
+    const auto add_action = [layout, content](QPushButton* button, const QString& category,
+                                            const QString& description, int row, int column) {
+        auto* card = new QFrame(content);
+        card->setObjectName(category == "06 / PERSONAL" ? "account_action_card" : "action_card");
+        auto* card_layout = new QVBoxLayout(card);
+        card_layout->setContentsMargins(18, 12, 18, 12);
+        card_layout->setSpacing(6);
+        card_layout->addWidget(UiStyle::label(category, card, "eyebrow"));
+        card_layout->addWidget(button);
+        auto* detail = UiStyle::label(description, card, "cardDetail");
+        detail->setWordWrap(true);
+        auto detail_policy = detail->sizePolicy();
+        detail_policy.setHorizontalPolicy(QSizePolicy::Ignored);
+        detail->setSizePolicy(detail_policy);
+        card_layout->addWidget(detail);
+        layout->addWidget(card, row, column);
+    };
+    add_action(invoice_button, "01 / INVOICING", "From work done to invoice sent.", 3, 0);
+    add_action(client_button, "02 / CLIENTS", "A place for every working relationship.", 3, 1);
+    add_action(business_button, "03 / BUSINESS", "Your business, down to the details.", 4, 0);
+    add_action(stock_button, "04 / INVENTORY", "Products, quantities and pricing.", 4, 1);
+    add_action(items_button, "05 / RECORDS", "Find the details you need, together.", 5, 0);
+    add_action(account_button, "06 / PERSONAL", "A little housekeeping for your account.", 5, 1);
     layout->addWidget(default_invoice_settings_button, 6, 0, 1, 2);
     loading_label_ = UiStyle::label("", content, "status");
     loading_label_->setObjectName("business_loading_status");
@@ -109,6 +125,7 @@ void Dashboard::set_offline(bool offline) {
     offline_ = offline;
     default_invoice_settings_button->setVisible(has_business());
     account_button->setVisible(!offline);
+    findChild<QFrame*>("account_action_card")->setVisible(!offline);
     business_button->setText(offline ? "Create demo business" : "Configure business");
     items_button->setText(offline ? "Browse demo records" : "Browse business records");
     findChild<QLabel*>("titleLabel")->setText(offline ? "Try an offline invoice" : "Your workspace");

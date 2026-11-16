@@ -20,7 +20,8 @@ class InvoiceServices {
     void add_client_to_invoice(const QJsonDocument& doc);
     void begin_invoice_details(const QJsonDocument& doc);
     QByteArray generate_pdf(const QJsonDocument& stock) const;
-    QByteArray complete_pdf(const QJsonDocument& stock, const std::string& user_id);
+    QByteArray complete_pdf(const QJsonDocument& stock, const std::string& user_id,
+                            const QString& shortage_policy = "reject");
 
   private:
     Invoice invoice_;

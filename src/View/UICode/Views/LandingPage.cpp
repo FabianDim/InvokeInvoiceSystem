@@ -16,10 +16,10 @@ void LandingPage::createPageLayout() {
     inner_layout_->setSpacing(16);
     auto* title = UiStyle::label("Invoke Invoice System", title_widget_, "title");
     title->setObjectName("titleLabel");
-    title->setAlignment(Qt::AlignCenter);
+    title->setAlignment(Qt::AlignLeft);
     title->setWordWrap(true);
     auto* subtitle = UiStyle::label("Create invoices and manage your business.", title_widget_, "subtitle");
-    subtitle->setAlignment(Qt::AlignCenter);
+    subtitle->setAlignment(Qt::AlignLeft);
     subtitle->setWordWrap(true);
     inner_layout_->addWidget(title);
     inner_layout_->addWidget(subtitle);

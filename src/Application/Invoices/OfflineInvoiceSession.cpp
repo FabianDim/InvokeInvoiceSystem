@@ -7,6 +7,7 @@
 #include <cmath>
 #include <stdexcept>
 #include <QMap>
+#include "Domain/Stock/StockShortage.h"
 
 using namespace Application::Invoices;
 
@@ -117,7 +118,9 @@ void OfflineInvoiceSession::begin_invoice(QJsonObject details, const QString& bu
     invoice_business_ = businesses.value(business_id).toObject();
 }
 
-QString OfflineInvoiceSession::generate_pdf(const QJsonArray& stock) {
+QString OfflineInvoiceSession::generate_pdf(const QJsonArray& stock, const QString& shortage_policy) {
+    if (!Domain::Stock::valid_shortage_policy(shortage_policy))
+        throw std::invalid_argument("Invalid stock shortage choice.");
     if (completed_ && stock != completed_items_)
         throw std::runtime_error("This invoice is complete. Start a new invoice to change its items.");
     auto updated_stock = stocks;
@@ -131,20 +134,28 @@ QString OfflineInvoiceSession::generate_pdf(const QJsonArray& stock) {
             throw std::runtime_error("Invalid stock quantity.");
         quantities[id] += static_cast<int>(quantity);
     }
+    QJsonArray shortages;
     if (!completed_) for (auto it = quantities.constBegin(); it != quantities.constEnd(); ++it) {
         bool found = false;
         for (int index = 0; index < updated_stock.size(); ++index) {
             auto record = updated_stock[index].toObject();
             if (record.value("_id").toString() != it.key() || record.value("BusinessID") != invoice_business_.value("_id")) continue;
-            if (record.value("Quantity").toDouble() < it.value())
-                throw std::runtime_error("Insufficient stock. Refresh stock and try again.");
-            record["Quantity"] = record.value("Quantity").toDouble() - it.value();
+            const auto available = record.value("Quantity").toDouble();
+            auto balance = available - it.value();
+            if (balance < 0) {
+                shortages.append(QJsonObject{{"_id", it.key()}, {"Name", record.value("Name")},
+                                              {"Available", available}, {"Requested", it.value()}});
+                if (shortage_policy == "zero") balance = 0;
+            }
+            record["Quantity"] = balance;
             updated_stock[index] = record;
             found = true;
             break;
         }
         if (!found) throw std::runtime_error("Stock item does not belong to this business.");
     }
+    if (!shortages.isEmpty() && shortage_policy == "reject")
+        throw Domain::Stock::StockShortage(shortages);
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::offline(), "OfflineInvoiceSession.generate_pdf");
     if (invoice_details_.isEmpty() || stock.isEmpty())
         throw std::runtime_error("Complete the invoice details and add at least one item.");

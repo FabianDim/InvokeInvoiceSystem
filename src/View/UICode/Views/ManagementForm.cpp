@@ -31,8 +31,16 @@ ManagementForm::ManagementForm(const QString& title,
     auto* heading = new QLabel(title, this);
     heading->setObjectName("titleLabel");
     heading->setProperty("role", "title");
-    heading->setAlignment(Qt::AlignCenter);
+    heading->setAlignment(Qt::AlignLeft);
+    layout->addWidget(UiStyle::label(resource_ == "account" ? "YOUR PROFILE" : "BUSINESS ESSENTIALS", content, "eyebrow"));
     layout->addWidget(heading);
+    const auto description = resource_ == "account" ? "Keep your personal details up to date."
+        : resource_ == "business" ? "The details behind every invoice you send."
+        : resource_ == "client" ? "Make room for your next working relationship."
+        : "Keep your products and pricing in one place.";
+    auto* subtitle = UiStyle::label(description, content, "subtitle");
+    subtitle->setWordWrap(true);
+    layout->addWidget(subtitle);
 
     form_layout_ = new QFormLayout;
     form_layout_->setFormAlignment(Qt::AlignCenter);
@@ -62,6 +70,8 @@ ManagementForm::ManagementForm(const QString& title,
         input->setObjectName("form_input");
         input->setProperty("role", "input");
         input->setPlaceholderText(field);
+        if (resource_ == "account" && field == "Password")
+            input->setEchoMode(QLineEdit::Password);
         const bool required = field_required(field);
         input->setProperty("required", required);
         auto label_text = resource_ == "stock" && field == "Quantity" ? QString("Stock on hand") : field;
@@ -221,6 +231,13 @@ void ManagementForm::clear_form() {
 
     for (auto* input : inputs_) input->clear();
     if (country_) country_->setCurrentIndex(0);
+}
+
+void ManagementForm::set_account_details(const QString& first_name, const QString& last_name, const QString& email) {
+    if (resource_ != "account" || saving_) return;
+    const QJsonObject details{{"First name", first_name}, {"Last name", last_name}, {"Email", email}};
+    for (int index = 0; index < inputs_.size(); ++index)
+        inputs_[index]->setText(details.value(field_names_[index]).toString());
 }
 
 void ManagementForm::set_saving(bool saving) {

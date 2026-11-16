@@ -38,6 +38,7 @@ struct SessionServer {
                        ++login_count;
                        const auto identity = QJsonObject{
                            {"_id", "65d000000000000000000003"},
+                           {"firstName", "Alex"}, {"lastName", "Taylor"},
                            {"email", QJsonDocument::fromJson(request.body()).object().value("email")}};
                        const auto body = login_body.isNull()
                            ? QJsonDocument(QJsonObject{{"ok", true}, {"token", QString("session-%1").arg(login_count)},
@@ -98,6 +99,8 @@ class FrontendSessionTests : public QObject {
         QTRY_COMPARE(logged_in.count(), 1);
         QVERIFY(account.is_logged_in());
         QCOMPARE(account.getAccount()->getEmail(), std::string("test@example.com"));
+        QCOMPARE(account.getAccount()->getFirstName(), std::string("Alex"));
+        QCOMPARE(account.getAccount()->getLastName(), std::string("Taylor"));
         QVERIFY(account.getAccount()->getPassword().empty());
         QVERIFY(failed.isEmpty());
         QCOMPARE(server.requests, QStringList{"login"});

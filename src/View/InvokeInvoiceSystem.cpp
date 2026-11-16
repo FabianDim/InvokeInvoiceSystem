@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
     auto api = new Infrastructure::Http::ApiClient(backendUrl, &accountManager, &app);
     App::Views::MainWindow window(accountManager);
     Application::Controllers::AppController controller(&window, accountManager, api);
-    window.resize(800, 800);
+    window.resize(1080, 860);
     window.show();
     qCInfo(Infrastructure::Logging::app) << "event=application.ready mode=" << (localBackend ? "local_backend" : "remote_backend");
     return app.exec();

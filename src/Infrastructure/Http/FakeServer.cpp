@@ -5,6 +5,7 @@
 #include <QUrlQuery>
 #include <QCryptographicHash>
 #include "Utils/BusinessLogo.h"
+#include "Domain/Stock/StockShortage.h"
 
 namespace {
 using Infrastructure::Security::RateLimitResult;
@@ -138,15 +139,22 @@ void Server::create_routes_invoices() {
                                                          QHttpServerResponse::StatusCode::BadRequest);
                           QJsonParseError err{};
                           const QJsonDocument doc = QJsonDocument::fromJson(request.body(), &err);
-                          if (err.error != QJsonParseError::NoError || !doc.isArray())
+                          const auto policy = doc.isArray() ? QString("reject") : doc.object().value("stockShortagePolicy").toString();
+                          const auto items = doc.isArray() ? doc : QJsonDocument(doc.object().value("items").toArray());
+                          if (err.error != QJsonParseError::NoError ||
+                              (!doc.isArray() && !doc.object().value("items").isArray()) ||
+                              !Domain::Stock::valid_shortage_policy(policy))
                               return QHttpServerResponse(QJsonObject{{"error", "Expected an invoice item list."}},
                                                          QHttpServerResponse::StatusCode::BadRequest);
                           try {
-                              QHttpServerResponse response("application/pdf", session->invoice->complete_pdf(doc, session->user_id));
+                              QHttpServerResponse response("application/pdf", session->invoice->complete_pdf(items, session->user_id, policy));
                               auto headers = response.headers();
                               headers.append("Cache-Control", "no-store");
                               response.setHeaders(std::move(headers));
                               return response;
+                          } catch (const Domain::Stock::StockShortage& error) {
+                              return QHttpServerResponse(QJsonObject{{"error", QString::fromUtf8(error.what())},
+                                  {"code", "stock_shortage"}, {"items", error.items}}, QHttpServerResponse::StatusCode::Conflict);
                           } catch (const std::invalid_argument& error) {
                               return QHttpServerResponse(QJsonObject{{"error", QString::fromUtf8(error.what())}},
                                                          QHttpServerResponse::StatusCode::BadRequest);
@@ -314,13 +322,28 @@ void Server::create_routes_auth() {
             if (!user_id)
                 return QHttpServerResponse(QJsonObject{{"error", "Invalid email or password"}},
                                            QHttpServerResponder::StatusCode::Unauthorized);
+            const auto account = db_manager_.findById("Users", *user_id);
+            if (!account)
+                return QHttpServerResponse(QJsonObject{{"error", "Account is no longer available"}},
+                                           QHttpServerResponder::StatusCode::Unauthorized);
+            const auto profile = account->view();
+            const auto text = [&profile](const char* field) {
+                const auto value = profile[field];
+                return value && value.type() == bsoncxx::type::k_string
+                    ? QString::fromUtf8(value.get_string().value) : QString{};
+            };
+            // Only public profile fields belong in the frontend session.
+            const QJsonObject identity{{"_id", QString::fromStdString(*user_id)},
+                                       {"email", text("UserEmail")},
+                                       {"firstName", text("FirstName")},
+                                       {"lastName", text("LastName")}};
             const auto token = sessions_.create(*user_id);
             if (token.isEmpty())
                 return QHttpServerResponse(QJsonObject{{"error", "Sign-in is busy. Please try again later."}},
                                            QHttpServerResponder::StatusCode::ServiceUnavailable);
             auto response = QHttpServerResponse(QJsonObject{
                 {"ok", true}, {"token", QString::fromLatin1(token)},
-                {"user", QJsonObject{{"_id", QString::fromStdString(*user_id)}, {"email", email}}}});
+                {"user", identity}});
             auto headers = response.headers();
             headers.append("Cache-Control", "no-store");
             response.setHeaders(std::move(headers));

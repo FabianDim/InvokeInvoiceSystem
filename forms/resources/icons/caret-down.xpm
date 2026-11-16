@@ -2,7 +2,7 @@
 static const char *caret_down[] = {
 "12 8 2 1",
 ". c None",
-"X c #EDF2F4",
+"X c #293A34",
 "............",
 ".XX......XX.",
 "..XX....XX..",

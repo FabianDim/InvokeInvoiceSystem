@@ -15,7 +15,7 @@ DefaultInvoiceSettings::DefaultInvoiceSettings(QWidget* parent) : QWidget(parent
     layout->setSpacing(16);
 
     auto* title = UiStyle::label("Business invoice settings", content, "title");
-    title->setAlignment(Qt::AlignCenter);
+    title->setAlignment(Qt::AlignLeft);
     layout->addWidget(title);
     auto* business_label = UiStyle::label("", content, "subtitle");
     business_label->setObjectName("invoice_settings_business");
