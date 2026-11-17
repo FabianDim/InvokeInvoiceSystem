@@ -80,6 +80,18 @@ AppController::AppController(App::Views::MainWindow* main,
                      &App::Views::Dashboard::business_chosen,
                      api_,
                      &Infrastructure::Http::ApiClient::business_selected);
+    connect(main_->dashboard_page(), &App::Views::Dashboard::business_chosen, main_->invoices_page(), &App::Views::InvoicesPage::business_selected);
+    connect(main_->invoices_page(), &App::Views::InvoicesPage::navigate_to, this, &AppController::page_navigation);
+    connect(main_->invoices_page(), &App::Views::InvoicesPage::invoices_requested, api_, &Infrastructure::Http::ApiClient::get_invoices);
+    connect(main_->invoices_page(), &App::Views::InvoicesPage::payment_requested, api_, &Infrastructure::Http::ApiClient::set_invoice_paid);
+    connect(main_->invoices_page(), &App::Views::InvoicesPage::export_requested, api_, &Infrastructure::Http::ApiClient::export_saved_invoice);
+    connect(api_, &Infrastructure::Http::ApiClient::invoices_received, main_->invoices_page(), &App::Views::InvoicesPage::populate_invoices);
+    connect(api_, &Infrastructure::Http::ApiClient::invoice_history_failed, main_->invoices_page(), &App::Views::InvoicesPage::set_error);
+    connect(api_, &Infrastructure::Http::ApiClient::invoice_payment_failed, main_->invoices_page(), &App::Views::InvoicesPage::set_error);
+    connect(api_, &Infrastructure::Http::ApiClient::invoice_export_failed, main_->invoices_page(), &App::Views::InvoicesPage::set_error);
+    connect(api_, &Infrastructure::Http::ApiClient::invoice_payment_updated, main_->invoices_page(), &App::Views::InvoicesPage::payment_updated);
+    connect(api_, &Infrastructure::Http::ApiClient::invoice_exported, main_->invoices_page(), &App::Views::InvoicesPage::export_finished);
+    connect(api_, &Infrastructure::Http::ApiClient::invoice_export_wait, main_->invoices_page(), &App::Views::InvoicesPage::export_wait);
     QObject::connect(main_->dashboard_page(), &App::Views::Dashboard::business_chosen,
                      main_->items_page(), &App::Views::ItemsPage::business_selected);
     QObject::connect(main_->items_page(), &App::Views::ItemsPage::navigate_to,
@@ -220,7 +232,7 @@ void AppController::page_navigation(Page page) {
         return;
     }
     if ((page == Page::NewInvoice || page == Page::NewClient || page == Page::StockSettings ||
-         page == Page::StockInput || page == Page::Items) && !main_->dashboard_page()->has_business()) {
+         page == Page::StockInput || page == Page::Items || page == Page::Invoices) && !main_->dashboard_page()->has_business()) {
         qCDebug(Infrastructure::Logging::ui) << "event=ui.navigation.redirected reason=missing_business";
         main_->show_page(main_->dashboard_page());
         return;
@@ -241,6 +253,10 @@ void AppController::page_navigation(Page page) {
     case Page::Items:
         main_->show_page(main_->items_page());
         main_->items_page()->load_items();
+        break;
+    case Page::Invoices:
+        main_->show_page(main_->invoices_page());
+        main_->invoices_page()->load_invoices();
         break;
     case Page::NewInvoice:
         main_->new_invoice_stock_page()->reset_invoice();

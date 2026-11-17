@@ -4,6 +4,10 @@
 #include "Infrastructure/Pdf/InvoicePdfGenerator.h"
 #include <QDebug>
 #include <QByteArray>
+#include <QFile>
+#include <QTemporaryDir>
+#include <QLocale>
+#include "Domain/Invoices/InvoiceRecord.h"
 jmp_buf env;
 using namespace Infrastructure::PDF;
 
@@ -11,7 +15,7 @@ namespace {
 constexpr float kTableRowHeight = 18.0f;
 constexpr float kDescriptionColumnWidth = 250.0f;
 constexpr float kFirstPageTableY = 650.0f;
-constexpr float kContinuationTableTopOffset = 145.0f;
+constexpr float kContinuationTableTopOffset = 205.0f;
 constexpr float kTableHeaderGap = 10.0f;
 constexpr float kFooterLimitY = 72.0f;
 constexpr float kFooterLineY = 54.0f;
@@ -20,6 +24,19 @@ constexpr int kContinuationTitleFontSize = 24;
 constexpr int kBodyFontSize = 12;
 constexpr int kFooterFontSize = 8;
 } // namespace
+
+QByteArray InvoicePdfGenerator::render_record(const QJsonObject& record) {
+    auto invoice = Domain::Invoices::restore(record);
+    QTemporaryDir directory;
+    if (!directory.isValid()) throw std::runtime_error("Could not create a PDF folder.");
+    const auto path = directory.filePath("invoice.pdf");
+    invoice->set_file_name(path.toStdString());
+    InvoicePdfGenerator generator(invoice);
+    if (!generator.peece_template()) throw std::runtime_error("Could not regenerate the invoice PDF.");
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) throw std::runtime_error("Could not read the invoice PDF.");
+    return file.readAll();
+}
 
 Infrastructure::PDF::InvoicePdfGenerator::InvoicePdfGenerator(std::shared_ptr<Invoice> invoice)
     : cur_invoice_(invoice) {}
@@ -320,13 +337,44 @@ void InvoicePdfGenerator::draw_invoice_page_header(HPDF_Doc pdf, HPDF_Page page,
             resize_and_place_image(page, img_width_max, img_height_max, x_placement, y_placement, logo);
     }
 
+    // Repeat the due date and payment state on every page, above the item table.
+    const float top = page_height - 90.0f;
+    HPDF_Page_SetRGBFill(page, 0.94f, 0.96f, 0.94f);
+    HPDF_Page_Rectangle(page, peece_margin, top - 68.0f, page_width - 2 * peece_margin, 68.0f);
+    HPDF_Page_Fill(page);
+    const auto date_text = [](const std::string& value) {
+        const auto date = QDate::fromString(QString::fromStdString(value), Qt::ISODate);
+        return date.isValid() ? QLocale::c().toString(date, "dd MMM yyyy") : QString("Not recorded");
+    };
+    const auto draw_detail = [&](float x, float y, const QString& text, bool strong, float width) {
+        HPDF_Page_BeginText(page);
+        HPDF_Page_SetRGBFill(page, 0.12f, 0.22f, 0.18f);
+        HPDF_Page_SetFontAndSize(page, strong ? bold : regular, strong ? 13 : 11);
+        auto bytes = text.toLatin1();
+        while (bytes.size() > 4 && HPDF_Page_TextWidth(page, bytes.constData()) > width) {
+            bytes.chop(bytes.endsWith("...") ? 4 : 1);
+            bytes.append("...");
+        }
+        HPDF_Page_TextOut(page, x, y, bytes.constData());
+        HPDF_Page_EndText(page);
+    };
+    const auto number = QString::fromStdString(cur_invoice_->getCliInvoiceID().empty()
+        ? cur_invoice_->getInvoiceID() : cur_invoice_->getCliInvoiceID());
+    const float column = (page_width - 2 * peece_margin) / 2;
+    draw_detail(peece_margin + 12, top - 22, "Invoice: " + number, false, column - 24);
+    draw_detail(peece_margin + column + 12, top - 22, "Issued: " + date_text(cur_invoice_->getCurrentDate()), false, column - 24);
+    draw_detail(peece_margin + 12, top - 49, "Due date: " + date_text(cur_invoice_->getDueDate()), true, column - 24);
+    draw_detail(peece_margin + column + 12, top - 49, cur_invoice_->getIsPaid() ? "Payment: PAID" : "Payment: UNPAID", true, column - 24);
+    if (!cur_invoice_->getNotes().empty())
+        draw_detail(peece_margin, top - 84, QString::fromStdString(cur_invoice_->getNotes()), false, page_width - 2 * peece_margin);
+
     HPDF_Page_SetRGBFill(page, 0.0f, 0.0f, 0.0f);
     HPDF_Page_SetRGBStroke(page, 0.0f, 0.0f, 0.0f);
 }
 
 float InvoicePdfGenerator::draw_invoice_client(HPDF_Doc pdf, HPDF_Page page) {
     const auto client = cur_invoice_->getClient();
-    float y = HPDF_Page_GetHeight(page) - 104.0f;
+    float y = HPDF_Page_GetHeight(page) - 196.0f;
     const float width = HPDF_Page_GetWidth(page) - peece_margin * 2.0f;
     HPDF_Page_BeginText(page);
     HPDF_Page_SetRGBFill(page, 0.0f, 0.0f, 0.0f);

@@ -315,8 +315,35 @@ a temporary backend folder and returns it over HTTPS. The desktop saves it to
 the folder selected in the invoice form and shows the saved path. Local paths
 are never sent to the backend. Failed exports show an error and can be retried;
 an unsuccessful download does not replace an existing PDF. The offline desktop
-workflow continues to generate and save PDFs locally. Exported invoices are not
-archived in MongoDB; keep the downloaded PDF for your records.
+workflow continues to generate and save PDFs locally. Completed account invoices
+are archived in MongoDB, including their original business/client details, logo,
+items, invoice number, dates, total, and payment status. The database transaction
+must succeed before the PDF is returned. An unsuccessful download does not lose
+the saved invoice.
+
+Select a business and choose **Browse invoices** to view completed invoices in
+pages of 50. **Already paid** on the creation form defaults to unchecked; history
+offers **Mark as paid / Mark as unpaid**. Unpaid invoices with a due date before
+today are labelled **OVERDUE**. Due today and missing dates are not overdue.
+PDFs show the invoice number, issue date, bold due date, and payment status on
+every page. **Save PDF** regenerates the original details with the current payment
+status without deducting stock again, even after signing out or restarting the
+backend. Demo history exists only for the current offline session.
+
+Authenticated history routes are `GET /invoices/list?BusinessID=...&offset=0`,
+`POST /invoices/payment` (`BusinessID`, `InvoiceID`, boolean `Paid`), and
+`GET /invoices/pdf?BusinessID=...&InvoiceID=...`. All are scoped to the signed-in
+account and selected business. The backend enforces a 10-second wait per account
+between regeneration attempts, across invoices and sessions, returning HTTP 429
+with `Retry-After`. Creation and regeneration also share a 30-request/minute
+quota; history and payment updates each allow 60 requests/minute. These limits
+are process-local and reset on restart; multiple backend instances would need a
+shared limiter. The desktop displays a matching countdown.
+
+Older stored invoices without snapshots start as unpaid when their history is
+opened. They are labelled as older records, with missing dates/totals shown as
+**Not recorded**. Their PDFs use saved items and current contact details and are
+labelled as legacy copies; original details cannot be recovered retroactively.
 
 ### 5. Create your first account invoice
 
