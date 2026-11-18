@@ -54,6 +54,7 @@ void InvoiceServices::add_business_to_invoice(const QJsonDocument& doc) {
     if (!obj["Phone"].isUndefined())
         biz->setPhone(obj["Phone"].toString().toStdString());
     biz->set_website_url(obj.value("Website").toString().toStdString());
+    biz->set_invoice_terms(obj.value("InvoiceTerms").toString().toStdString());
     biz->setAddress(obj.value("Address").toString().toStdString());
     // Ignore client-supplied and legacy persisted paths at the backend boundary.
     biz->set_business_logo_data(obj.value("LogoData").toString().toStdString());

@@ -675,6 +675,11 @@ void Infrastructure::Http::ApiClient::do_login(const QString& email, const QStri
 
 void ApiClient::save_invoice_settings(const QJsonObject& settings) {
     const auto business_id = settings.value("BusinessID").toString();
+    const auto terms = settings.value("InvoiceTerms");
+    if (!terms.isUndefined() && (!terms.isString() || terms.toString().size() > 4000)) {
+        emit invoice_settings_failed("Terms and conditions must be text of at most 4,000 characters.");
+        return;
+    }
     if (offline_) {
         if (!offline_session_.businesses.contains(business_id) || !settings.value("InvoicePrefix").isString() ||
             settings.value("InvoicePrefix").toString().size() > 40) {
@@ -683,6 +688,7 @@ void ApiClient::save_invoice_settings(const QJsonObject& settings) {
         }
         auto business = offline_session_.businesses.value(business_id).toObject();
         business["InvoicePrefix"] = settings.value("InvoicePrefix");
+        if (!terms.isUndefined()) business["InvoiceTerms"] = terms;
         offline_session_.businesses[business_id] = business;
         emit invoice_settings_saved();
         get_business_list();

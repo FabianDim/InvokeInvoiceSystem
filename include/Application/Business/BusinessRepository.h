@@ -53,6 +53,9 @@ class BusinessRepository {
     }
 
     // Setters
+    const std::string& get_invoice_terms() const { return invoice_terms_; }
+    void set_invoice_terms(const std::string& value) { invoice_terms_ = value; }
+
     void setBizID(const std::string& id) {
         biz_id = id;
     }
@@ -106,6 +109,7 @@ class BusinessRepository {
     std::string website_url_;
     std::string business_logo_path_;
     std::string business_logo_data_;
+    std::string invoice_terms_;
 
     std::shared_ptr<User> current_user_;
     std::string current_user_id_;

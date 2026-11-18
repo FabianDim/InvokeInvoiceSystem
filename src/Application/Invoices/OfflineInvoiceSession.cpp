@@ -172,6 +172,7 @@ QString OfflineInvoiceSession::generate_pdf(const QJsonArray& stock, const QStri
     business->setPhone(invoice_business_.value("Phone").toString().toStdString());
     business->setAddress(invoice_business_.value("Address").toString().toStdString());
     business->set_website_url(invoice_business_.value("Website").toString().toStdString());
+    business->set_invoice_terms(invoice_business_.value("InvoiceTerms").toString().toStdString());
     business->set_business_logo_data(invoice_business_.value("LogoData").toString().toStdString());
     invoice->setBusiness(business);
     auto client = std::make_shared<Client>();

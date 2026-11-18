@@ -18,11 +18,12 @@ void NewInvoiceStock::reset_invoice() {
     shortage_policy_ = "reject";
     if (shortage_dialog_) shortage_dialog_->reject();
     saving_pdf_ = false;
+    invoice_finalized_ = false;
     set_saving_stock(false);
     stock_items = QJsonArray{};
-    for (auto* label : item_labels_)
-        delete label;
-    item_labels_.clear();
+    for (auto* row : item_rows_)
+        delete row;
+    item_rows_.clear();
     for (auto* field : invoice_body_form_fields) {
         if (auto* selector = qobject_cast<QComboBox*>(field))
             selector->clear();
@@ -79,32 +80,54 @@ void NewInvoiceStock::create_page_layout() {
     scroll->setMinimumHeight(140);
     scroll->setMaximumHeight(200);
     auto* item_list = new QWidget(scroll);
-    auto* columns = new QHBoxLayout(item_list);
-    auto* names = new QVBoxLayout;
-    auto* quantities = new QVBoxLayout;
-    auto* prices = new QVBoxLayout;
-    names->addWidget(UiStyle::label("Item name", item_list));
-    quantities->addWidget(UiStyle::label("Quantity", item_list));
-    prices->addWidget(UiStyle::label("Price", item_list));
-    for (auto* column : {names, quantities, prices}) {
-        column->setAlignment(Qt::AlignTop);
-        column->setSpacing(10);
-    }
-    columns->addLayout(names, 2);
-    columns->addLayout(quantities, 1);
-    columns->addLayout(prices, 1);
+    auto* rows = new QVBoxLayout(item_list);
+    rows->setAlignment(Qt::AlignTop);
+    rows->setSpacing(10);
+    auto* header = new QHBoxLayout;
+    header->addWidget(UiStyle::label("Item name", item_list), 2);
+    header->addWidget(UiStyle::label("Quantity", item_list), 1);
+    header->addWidget(UiStyle::label("Price", item_list), 1);
+    header->addSpacing(88);
+    rows->addLayout(header);
     scroll->setWidget(item_list);
     group_layout->addWidget(scroll);
     layout->addWidget(group);
     connect(this, &NewInvoiceStock::add_item_to_invoice, this,
-            [this, names, quantities, prices, item_list](const QJsonObject& item) {
-                auto* name = UiStyle::label(item.value("Name").toString(), item_list, "body");
-                auto* quantity = UiStyle::label(QString::number(item.value("Quantity").toInt()), item_list, "body");
-                auto* price = UiStyle::label(QString::number(item.value("Price").toDouble(), 'f', 2), item_list, "body");
-                names->addWidget(name);
-                quantities->addWidget(quantity);
-                prices->addWidget(price);
-                item_labels_ << name << quantity << price;
+            [this, rows, item_list](const QJsonObject& item) {
+                auto* row = new QWidget(item_list);
+                auto* cells = new QHBoxLayout(row);
+                cells->setContentsMargins(0, 0, 0, 0);
+                auto* name = UiStyle::label(item.value("Name").toString(), row, "body");
+                name->setTextFormat(Qt::PlainText);
+                name->setWordWrap(true);
+                auto* quantity = UiStyle::label(QString::number(item.value("Quantity").toInt()), row, "body");
+                auto* price = UiStyle::label(QString::number(item.value("Price").toDouble(), 'f', 2), row, "body");
+                auto* remove = new QPushButton("Remove", row);
+                remove->setObjectName("invoice_remove_item");
+                remove->setAccessibleName("Remove " + item.value("Name").toString() + " from invoice");
+                remove->setToolTip("Remove this line from the invoice. Saved business stock is kept.");
+                UiStyle::button(remove);
+                remove->setFixedWidth(88);
+                remove->setMinimumHeight(32);
+                cells->addWidget(name, 2);
+                cells->addWidget(quantity, 1);
+                cells->addWidget(price, 1);
+                cells->addWidget(remove);
+                rows->addWidget(row);
+                item_rows_.append(row);
+                row->setEnabled(!saving_stock_ && !saving_pdf_ && !invoice_finalized_);
+                connect(remove, &QPushButton::clicked, this, [this, rows, row]() {
+                    if (saving_stock_ || saving_pdf_ || invoice_finalized_) return;
+                    const auto index = item_rows_.indexOf(row);
+                    if (index < 0 || index >= stock_items.size()) return;
+                    stock_items.removeAt(index);
+                    item_rows_.removeAt(index);
+                    rows->removeWidget(row);
+                    row->hide();
+                    row->deleteLater();
+                    shortage_policy_ = "reject";
+                    status_label_->setText("Item removed from this invoice. Saved business stock is unchanged.");
+                });
             });
 
     create_invoice_pdf = new QPushButton("Finish invoice", content);
@@ -269,7 +292,9 @@ void NewInvoiceStock::update_item_source() {
 
 void NewInvoiceStock::set_saving_stock(bool saving) {
     saving_stock_ = saving;
-    entry_widget_->setEnabled(!saving && !saving_pdf_);
+    entry_widget_->setEnabled(!saving && !saving_pdf_ && !invoice_finalized_);
+    for (auto* row : item_rows_)
+        row->setEnabled(!saving && !saving_pdf_ && !invoice_finalized_);
     back_button_->setEnabled(!saving && !saving_pdf_);
     create_invoice_pdf->setEnabled(!saving && !saving_pdf_);
 }
@@ -319,6 +344,7 @@ void NewInvoiceStock::set_offline(bool offline) {
 void NewInvoiceStock::pdf_generated(const QString& path) {
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "NewInvoiceStock.pdf_generated");
     saving_pdf_ = false;
+    invoice_finalized_ = true;
     set_saving_stock(false);
     status_label_->setText("PDF saved to " + path);
     entry_widget_->setEnabled(false);

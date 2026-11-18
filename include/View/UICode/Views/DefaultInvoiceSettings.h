@@ -7,6 +7,7 @@ class QPushButton;
 #include "Infrastructure/Enums/RouteEnums.h"
 
 class QLineEdit;
+class QPlainTextEdit;
 
 namespace App::Views {
 class DefaultInvoiceSettings : public QWidget {
@@ -33,5 +34,6 @@ class DefaultInvoiceSettings : public QWidget {
     QPushButton* save_;
     QLineEdit* invoice_prefix_;
     QLineEdit* file_out_path_;
+    QPlainTextEdit* invoice_terms_;
 };
 } // namespace App::Views

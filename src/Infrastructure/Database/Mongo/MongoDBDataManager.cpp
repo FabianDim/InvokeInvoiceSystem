@@ -39,9 +39,16 @@ bool MongoDBDataManager::save_invoice_settings(const std::string& user_id, const
     const auto business = Infrastructure::Database::parse_object_id(settings.value("BusinessID").toString().toStdString());
     if (!owner || !business || !settings.value("InvoicePrefix").isString() ||
         settings.value("InvoicePrefix").toString().size() > 40) return false;
+    const auto terms = settings.value("InvoiceTerms");
+    if (!terms.isUndefined() && (!terms.isString() || terms.toString().size() > 4000)) return false;
+    auto fields = make_document(kvp("InvoicePrefix", settings.value("InvoicePrefix").toString().toStdString()));
+    // Older clients can still update the prefix without erasing saved terms.
+    if (!terms.isUndefined())
+        fields = make_document(kvp("InvoicePrefix", settings.value("InvoicePrefix").toString().toStdString()),
+                               kvp("InvoiceTerms", terms.toString().toStdString()));
     const auto result = database()["Business"].update_one(
         make_document(kvp("_id", *business), kvp("UserID", *owner)),
-        make_document(kvp("$set", make_document(kvp("InvoicePrefix", settings.value("InvoicePrefix").toString().toStdString())))));
+        make_document(kvp("$set", fields.view())));
     return result && result->matched_count() == 1;
 }
 
@@ -431,7 +438,7 @@ QJsonDocument MongoDBDataManager::list_resources(const std::string& resource,
             QJsonObject item{{"_id", QString::fromStdString(business_id.to_string())}};
             // Legacy LogoPath values must never leave the database for rendering.
             for (const auto* field :
-                 {"BusinessName", "ABN", "ACN", "Phone", "BusinessAddress", "Website", "LogoData", "InvoicePrefix"}) {
+                 {"BusinessName", "ABN", "ACN", "Phone", "BusinessAddress", "Website", "LogoData", "InvoicePrefix", "InvoiceTerms"}) {
                 const auto value = business[field];
                 if (value && value.type() == bsoncxx::type::k_string)
                     item[field] = QString::fromUtf8(value.get_string().value);

@@ -3,6 +3,7 @@
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QLineEdit>
+#include <QPlainTextEdit>
 #include <QSettings>
 
 
@@ -33,6 +34,19 @@ DefaultInvoiceSettings::DefaultInvoiceSettings(QWidget* parent) : QWidget(parent
     auto* prefix_label = UiStyle::label("Invoice prefix (saved with this business)", content);
     prefix_label->setBuddy(invoice_prefix_);
     form->addRow(prefix_label, invoice_prefix_);
+
+    invoice_terms_ = new QPlainTextEdit(content);
+    invoice_terms_->setObjectName("default_invoice_terms");
+    invoice_terms_->setPlaceholderText("e.g. Payment is due within 14 days. Thank you for your business.");
+    invoice_terms_->setProperty("role", "input");
+    invoice_terms_->setMinimumHeight(110);
+    invoice_terms_->setTabChangesFocus(true);
+    auto* terms_label = UiStyle::label("Terms and conditions (optional)", content);
+    terms_label->setBuddy(invoice_terms_);
+    form->addRow(terms_label, invoice_terms_);
+    auto* terms_help = UiStyle::label("Printed at the end of this business's invoices. Leave blank to omit. Maximum 4,000 characters.", content);
+    terms_help->setWordWrap(true);
+    form->addRow(QString{}, terms_help);
 
     file_out_path_ = new QLineEdit(content);
     file_out_path_->setObjectName("default_invoice_file_out_path");
@@ -72,11 +86,18 @@ DefaultInvoiceSettings::DefaultInvoiceSettings(QWidget* parent) : QWidget(parent
     layout->addWidget(status_);
     connect(save_, &QPushButton::clicked, this, [this]() {
         if (business_id_.isEmpty()) return;
+        if (invoice_terms_->toPlainText().size() > 4000) {
+            status_->setText("Terms and conditions must be at most 4,000 characters.");
+            invoice_terms_->setFocus();
+            return;
+        }
         for (auto* button : findChildren<QPushButton*>()) button->setEnabled(false);
         invoice_prefix_->setEnabled(false);
+        invoice_terms_->setEnabled(false);
         file_out_path_->setEnabled(false);
         status_->setText("Saving business invoice settings...");
-        emit save_requested(QJsonObject{{"BusinessID", business_id_}, {"InvoicePrefix", invoice_prefix_->text()}});
+        emit save_requested(QJsonObject{{"BusinessID", business_id_}, {"InvoicePrefix", invoice_prefix_->text()},
+                                        {"InvoiceTerms", invoice_terms_->toPlainText()}});
     });
 }
 
@@ -93,6 +114,8 @@ void DefaultInvoiceSettings::reset_form() {
     saved_prefix_.clear();
     saved_folder_.clear();
     invoice_prefix_->clear();
+    invoice_terms_->clear();
+    invoice_terms_->setEnabled(true);
     file_out_path_->clear();
     status_->clear();
     for (auto* button : findChildren<QPushButton*>()) button->setEnabled(true);
@@ -106,6 +129,7 @@ void DefaultInvoiceSettings::set_business(const QJsonObject& business, bool offl
     business_id_ = id;
     offline_ = offline;
     invoice_prefix_->setText(business.value("InvoicePrefix").toString("INV-"));
+    invoice_terms_->setPlainText(business.value("InvoiceTerms").toString());
     if (changed) {
         QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, "Invoke", "InvokeInvoiceSystem");
         file_out_path_->setText(offline ? QString{} : settings.value("businesses/" + id + "/pdfFolder").toString());
@@ -114,6 +138,7 @@ void DefaultInvoiceSettings::set_business(const QJsonObject& business, bool offl
     saved_folder_ = file_out_path_->text();
     save_->setEnabled(!id.isEmpty());
     invoice_prefix_->setEnabled(true);
+    invoice_terms_->setEnabled(true);
     file_out_path_->setEnabled(true);
     status_->clear();
 }
@@ -125,12 +150,13 @@ void DefaultInvoiceSettings::save_succeeded() {
         settings.setValue("businesses/" + business_id_ + "/pdfFolder", file_out_path_->text());
         settings.sync();
         if (settings.status() != QSettings::NoError) {
-            save_failed("Business prefix saved, but the PDF folder could not be saved on this computer.");
+            save_failed("Business invoice settings saved, but the PDF folder could not be saved on this computer.");
             return;
         }
     }
     for (auto* button : findChildren<QPushButton*>()) button->setEnabled(true);
     invoice_prefix_->setEnabled(true);
+    invoice_terms_->setEnabled(true);
     file_out_path_->setEnabled(true);
     status_->setText("Business invoice settings saved.");
 }
@@ -138,6 +164,7 @@ void DefaultInvoiceSettings::save_failed(const QString& message) {
     for (auto* button : findChildren<QPushButton*>()) button->setEnabled(true);
     save_->setEnabled(!business_id_.isEmpty());
     invoice_prefix_->setEnabled(true);
+    invoice_terms_->setEnabled(true);
     file_out_path_->setEnabled(true);
     status_->setText(message);
 }

@@ -351,7 +351,7 @@ labelled as legacy copies; original details cannot be recovered retroactively.
 2. Select **Configure business** on the dashboard and save your business details. You can include a website and a PNG or JPEG logo up to 5 MB.
 3. Choose the business on the dashboard, then use **Create new client** to save a client for it. You can also add reusable stock with **Create stock item**.
 4. Select **Create new invoice** and choose a saved client. Enter the invoice number, file name, output folder, creation date and due date. The available theme is **PEECE**.
-5. Select **Next**, then choose **New item** or **Saved stock**. Enter a positive whole invoice quantity and a non-negative price, then select **Add item**. New items can be used just for this invoice, or saved with **Save this item to business stock** for reuse. Select **Finish invoice** once you have added all items.
+5. Select **Next**, then choose **New item** or **Saved stock**. Enter a positive whole invoice quantity and a non-negative price, then select **Add item**. New items can be used just for this invoice, or saved with **Save this item to business stock** for reuse. Use **Remove** beside an added item to remove that line from the invoice; saved business stock is kept. Select **Finish invoice** once you have added all items. Items cannot be removed while saving or after the PDF has been saved.
 6. Open the PDF in your chosen output folder. File-name spaces are replaced with underscores, and `.pdf` is appended if needed.
 
 ## Debug logs

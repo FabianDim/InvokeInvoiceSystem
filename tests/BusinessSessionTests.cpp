@@ -20,6 +20,7 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QMessageBox>
+#include <QPlainTextEdit>
 #include "Domain/Stock/StockShortage.h"
 #include "View/UICode/Views/InvoicesPage.h"
 #include "Infrastructure/Pdf/InvoicePdfGenerator.h"
@@ -683,6 +684,62 @@ class BusinessSessionTests : public QObject {
         QVERIFY(!menu->actions().at(1)->isVisible());
     }
 
+    void invoice_terms_save_clear_validate_and_switch_business() {
+        ApiClient api(QUrl("http://127.0.0.1:1"), nullptr);
+        api.set_offline(true);
+        QSignalSpy businesses(&api, &ApiClient::business_list_received);
+        api.save_resource("business", QJsonDocument(QJsonObject{{"Business name", "Terms business"}}));
+        api.get_business_list();
+        auto records = qvariant_cast<QJsonDocument>(businesses.last().first()).object();
+        auto business = records.begin().value().toObject();
+        const auto id = business.value("_id").toString();
+        App::Views::DefaultInvoiceSettings settings;
+        settings.set_business(business, true);
+        auto* terms = settings.findChild<QPlainTextEdit*>("default_invoice_terms");
+        QVERIFY(terms);
+        QVERIFY(terms->toPlainText().isEmpty());
+        const QString text = "Payment within 14 days.\nPlease quote your invoice number.";
+        terms->setPlainText(text);
+        connect(&settings, &App::Views::DefaultInvoiceSettings::save_requested, &api, &ApiClient::save_invoice_settings);
+        connect(&api, &ApiClient::invoice_settings_saved, &settings, &App::Views::DefaultInvoiceSettings::save_succeeded);
+        QSignalSpy saved(&api, &ApiClient::invoice_settings_saved);
+        QSignalSpy failed(&api, &ApiClient::invoice_settings_failed);
+        auto* save = settings.findChild<QPushButton*>("save_invoice_defaults");
+        save->click();
+        QCOMPARE(saved.count(), 1);
+        business = qvariant_cast<QJsonDocument>(businesses.last().first()).object().value(id).toObject();
+        QCOMPARE(business.value("InvoiceTerms").toString(), text);
+        settings.set_business(QJsonObject{{"_id", "other-business"}}, true);
+        QVERIFY(terms->toPlainText().isEmpty());
+        settings.set_business(business, true);
+        QCOMPARE(terms->toPlainText(), text);
+        settings.resize(850, 700);
+        settings.show();
+        QTest::qWait(30);
+        QVERIFY(settings.grab().save("business-invoice-terms.png"));
+        terms->setPlainText(QString(4001, 'x'));
+        save->click();
+        QCOMPARE(saved.count(), 1);
+        QVERIFY(terms->isEnabled());
+        QVERIFY(settings.findChild<QLabel*>("invoice_defaults_status")->text().contains("4,000"));
+        for (const auto& invalid : {QJsonValue(123), QJsonValue(QString(4001, 'x')), QJsonValue(QJsonValue::Null)})
+            api.save_invoice_settings({{"BusinessID", id}, {"InvoicePrefix", "INV-"}, {"InvoiceTerms", invalid}});
+        QCOMPARE(failed.count(), 3);
+        api.save_invoice_settings({{"BusinessID", id}, {"InvoicePrefix", "JOB-"}});
+        business = qvariant_cast<QJsonDocument>(businesses.last().first()).object().value(id).toObject();
+        QCOMPARE(business.value("InvoiceTerms").toString(), text);
+        terms->clear();
+        save->click();
+        business = qvariant_cast<QJsonDocument>(businesses.last().first()).object().value(id).toObject();
+        QCOMPARE(business.value("InvoiceTerms").toString(), QString{});
+        terms->setPlainText(text);
+        settings.save_failed("Try again");
+        QCOMPARE(terms->toPlainText(), text);
+        QVERIFY(terms->isEnabled());
+        settings.reset_form();
+        QVERIFY(terms->toPlainText().isEmpty());
+    }
+
     void business_invoice_defaults_persist_and_apply() {
         const QJsonObject business{{"_id", "defaults-test-business"}, {"BusinessName", "Example business"}, {"InvoicePrefix", "JOB-"}};
         App::Views::DefaultInvoiceSettings settings;
@@ -1245,6 +1302,75 @@ class BusinessSessionTests : public QObject {
         QCOMPARE(page.stock_items.size(), 3);
         QCOMPARE(page.stock_items.last().toObject().value("Price").toDouble(), 12.5);
         QCOMPARE(server.saves.size(), 1);
+    }
+
+    void invoice_lines_can_be_removed_data() {
+        QTest::addColumn<bool>("offline");
+        QTest::newRow("account") << false;
+        QTest::newRow("offline") << true;
+    }
+
+    void invoice_lines_can_be_removed() {
+        QFETCH(bool, offline);
+        App::Views::NewInvoiceStock page;
+        page.set_offline(offline);
+        const QJsonObject saved{{"_id", "65c000000000000000000001"}, {"Name", "Copper pipe"},
+                                {"Quantity", 10}, {"Price", 12.5}};
+        page.populate_stock_list(QJsonDocument(QJsonArray{saved}));
+        page.findChild<QComboBox*>("invoice_item_source")->setCurrentIndex(1);
+        auto* quantity = qobject_cast<QLineEdit*>(page.invoice_body_form_fields.value("quantity"));
+        auto* add = page.findChild<QPushButton*>("invoice_add_item");
+        auto* finish = page.findChild<QPushButton*>("invoice_finish");
+        auto* selector = page.findChild<QComboBox*>("invoice_saved_stock");
+        QSignalSpy submitted(&page, &App::Views::NewInvoiceStock::add_item_list_to_invoice);
+        QSignalSpy stock_saves(&page, &App::Views::NewInvoiceStock::save_invoice_stock);
+        for (int count : {1, 2, 3}) {
+            quantity->setText(QString::number(count));
+            add->click();
+        }
+        const auto buttons = page.findChildren<QPushButton*>("invoice_remove_item");
+        QCOMPARE(buttons.size(), 3);
+        // Duplicate stock lines must be removed by row, not by stock ID or name.
+        buttons[1]->click();
+        QCOMPARE(page.stock_items.size(), 2);
+        QCOMPARE(page.stock_items[0].toObject().value("Quantity").toInt(), 1);
+        QCOMPARE(page.stock_items[1].toObject().value("Quantity").toInt(), 3);
+        buttons[0]->click();
+        QCOMPARE(page.stock_items.size(), 1);
+        QCOMPARE(page.stock_items[0].toObject().value("Quantity").toInt(), 3);
+        QCOMPARE(selector->count(), 1);
+        QCOMPARE(selector->currentData().toJsonObject(), saved);
+        QVERIFY(stock_saves.isEmpty());
+
+        finish->click();
+        QCOMPARE(submitted.count(), 1);
+        QCOMPARE(qvariant_cast<QJsonDocument>(submitted[0][0]).array(), page.stock_items);
+        QVERIFY(!buttons[2]->isEnabled());
+        buttons[2]->click();
+        QCOMPARE(page.stock_items.size(), 1);
+        page.pdf_failed("Try again");
+        QVERIFY(buttons[2]->isEnabled());
+        buttons[2]->click();
+        QVERIFY(page.stock_items.isEmpty());
+        finish->click();
+        QCOMPARE(submitted.count(), 1); // An empty invoice cannot be submitted.
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(page.findChildren<QPushButton*>("invoice_remove_item").isEmpty());
+
+        quantity->setText("1");
+        add->click();
+        auto* remove = page.findChild<QPushButton*>("invoice_remove_item");
+        QVERIFY(remove);
+        finish->click();
+        page.pdf_generated("invoice.pdf");
+        QVERIFY(!remove->isEnabled());
+        finish->click();
+        page.pdf_failed("Could not save another copy");
+        QVERIFY(!remove->isEnabled()); // Finalized invoices remain immutable on retry failure.
+        page.reset_invoice();
+        QVERIFY(page.stock_items.isEmpty());
+        QVERIFY(page.findChildren<QPushButton*>("invoice_remove_item").isEmpty());
+        QVERIFY(add->isEnabled());
     }
 
     void invoice_stock_save_failure_and_late_reply_preserve_invoice() {

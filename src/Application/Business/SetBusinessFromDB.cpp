@@ -44,6 +44,9 @@ std::shared_ptr<BusinessRepository> SetBusiness::setUpBusiness(const std::string
         business->setAcn(acn);
         business->setAddress(address);
         const auto website = view["Website"];
+        const auto terms = view["InvoiceTerms"];
+        if (terms && terms.type() == bsoncxx::type::k_string)
+            business->set_invoice_terms(std::string(terms.get_string().value));
         if (website && website.type() == bsoncxx::type::k_string)
             business->set_website_url(std::string(website.get_string().value));
         const auto logo_data = view["LogoData"];

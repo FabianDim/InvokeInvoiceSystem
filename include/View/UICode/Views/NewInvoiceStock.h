@@ -41,7 +41,7 @@ class NewInvoiceStock : public QWidget {
     void create_page_layout();
     QLayout* create_item_entry_form();
     QPushButton* create_invoice_pdf;
-    QVector<QLabel*> item_labels_;
+    QVector<QWidget*> item_rows_;
     QWidget* entry_widget_;
     QWidget* saved_fields_;
     QComboBox* item_source_;
@@ -55,6 +55,7 @@ class NewInvoiceStock : public QWidget {
     QPushButton* back_button_;
     bool saving_stock_ = false;
     bool saving_pdf_ = false;
+    bool invoice_finalized_ = false;
     bool offline_ = false;
     quint64 stock_request_ = 0;
     QString business_id_;

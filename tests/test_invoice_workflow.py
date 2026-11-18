@@ -254,7 +254,8 @@ class InvoiceWorkflowTests(unittest.TestCase):
 
     def test_prefix_and_sequence_survive_restart_and_blank_prefix(self):
         self.assertEqual(self.begin(), "INV-000001")
-        settings = {"BusinessID": self.business, "InvoicePrefix": "JOB-"}
+        terms = "Payment within 14 days.\nPlease quote your invoice number."
+        settings = {"BusinessID": self.business, "InvoicePrefix": "JOB-", "InvoiceTerms": terms}
         self.assertEqual(self.request("/business/invoice-settings", settings, self.other)[0], 400)
         self.assertEqual(self.request("/business/invoice-settings", settings, self.token)[0], 200)
         self.assertEqual(self.begin(), "JOB-000002")
@@ -264,10 +265,17 @@ class InvoiceWorkflowTests(unittest.TestCase):
         status, businesses = self.request("/business/list", token=self.token)
         self.assertEqual(status, 200)
         self.assertEqual(businesses[self.business]["InvoicePrefix"], "JOB-")
+        self.assertEqual(businesses[self.business]["InvoiceTerms"], terms)
+        for invalid in [123, None, "x" * 4001]:
+            self.assertEqual(self.request("/business/invoice-settings", dict(settings, InvoiceTerms=invalid), self.token)[0], 400)
+        self.assertEqual(self.request("/business/invoice-settings", {"BusinessID": self.business, "InvoicePrefix": "JOB-"}, self.token)[0], 200)
+        self.assertEqual(self.db.Business.find_one({"_id": ObjectId(self.business)})["InvoiceTerms"], terms)
         self.assertEqual(self.begin(), "JOB-000003")
         settings["InvoicePrefix"] = ""
+        settings["InvoiceTerms"] = ""
         self.assertEqual(self.request("/business/invoice-settings", settings, self.token)[0], 200)
         self.assertEqual(self.begin(), "000004")
+        self.assertEqual(self.db.Business.find_one({"_id": ObjectId(self.business)})["InvoiceTerms"], "")
         another_business = self.save("business", {"Business name": "Independent sequence"})
         another_client = self.save("client", {"BusinessID": another_business, "Name": "Second customer"})
         self.business, self.client = another_business, another_client
