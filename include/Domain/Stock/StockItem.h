@@ -6,7 +6,7 @@ class StockItem {
     std::string stockId;
     std::string bizID;
     std::string name;
-    float stdPrice;
+    double stdPrice = 0;
     int stockOnHand;
     float profitMargin;
     int invoice_stock;
@@ -22,7 +22,7 @@ class StockItem {
     std::string getName() const {
         return name;
     }
-    float getStdPrice() const {
+    double getStdPrice() const {
         return stdPrice;
     }
     int getStockOnHand() const {
@@ -45,7 +45,7 @@ class StockItem {
     void set_description(const std::string& n) {
         name = n;
     }
-    void setStdPrice(float price) {
+    void setStdPrice(double price) {
         stdPrice = price;
     }
     void setStockOnHand(int onHand) {

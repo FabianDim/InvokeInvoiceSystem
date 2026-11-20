@@ -32,7 +32,7 @@ def pdf_page_streams(body):
             content = zlib.decompress(match[1])
         except zlib.error:
             continue
-        if b"(Tax Invoice)" in content:
+        if b"(Tax Invoice)" in content or b"(Invoice)" in content:
             pages.append(content)
     return pages
 
@@ -128,6 +128,7 @@ class InvoiceWorkflowTests(unittest.TestCase):
 
     def test_archive_survives_restart_and_regeneration_preserves_original_details(self):
         stock = self.save("stock", {"BusinessID": self.business, "Name": "Widget", "Price": 10, "Quantity": 8})
+        self.db.Business.update_one({"_id": ObjectId(self.business)}, {"$set": {"PaymentTerms": "14"}})
         number = self.begin(date_created="2026-01-01", date_due="2026-01-15", paid=True)
         lines = [{"_id": stock, "Name": "Widget", "Quantity": 2, "Price": 10}]
         status, original = self.request("/invoices/stock-list", lines, self.token)
@@ -241,6 +242,7 @@ class InvoiceWorkflowTests(unittest.TestCase):
         self.assertIn(b"Legacy copy:", pdf_page_streams(pdf)[0])
 
     def test_pdf_due_date_and_status_on_every_page(self):
+        self.db.Business.update_one({"_id": ObjectId(self.business)}, {"$set": {"PaymentTerms": "30"}})
         self.begin(date_created="2026-11-01", date_due="2026-11-30", paid=False)
         lines = [{"Name": f"Service {index}", "Quantity": 1, "Price": 25} for index in range(60)]
         status, pdf = self.request("/invoices/stock-list", lines, self.token)
@@ -248,14 +250,67 @@ class InvoiceWorkflowTests(unittest.TestCase):
         pages = pdf_page_streams(pdf)
         self.assertGreater(len(pages), 1)
         for page in pages:
-            self.assertIn(b"(Due date: 30 Nov 2026)", page)
+            self.assertIn(b"(Due date: 01 Dec 2026)", page)
             self.assertIn(b"(Issued: 01 Nov 2026)", page)
             self.assertIn(b"(Payment: UNPAID)", page)
+
+    def test_gst_terms_and_bank_details_persist_and_snapshot(self):
+        preferences = {"GSTRegistered": True, "PaymentTerms": "30", "BankName": "Example Bank",
+                       "BankAccountName": "Test business", "BankBSB": "012-345", "BankAccountNumber": "00123456"}
+        settings = dict(preferences, BusinessID=self.business, InvoicePrefix="INV-")
+        self.assertEqual(self.request("/business/invoice-settings", settings, self.token)[0], 200)
+        # A partial update must not erase preferences.
+        self.assertEqual(self.request("/business/invoice-settings",
+                         {"BusinessID": self.business, "InvoicePrefix": "INV-"}, self.token)[0], 200)
+        self.stop_backend()
+        self.start_backend(os.environ["INVOICE_TEST_MONGODB_URI"])
+        self.token = self.login("owner@example.invalid")
+        status, businesses = self.request("/business/list", token=self.token)
+        self.assertEqual(status, 200)
+        for key, value in preferences.items():
+            self.assertEqual(businesses[self.business][key], value)
+        for invalid in [{"GSTRegistered": "yes"}, {"PaymentTerms": "7"}, {"BankBSB": 123},
+                        {"BankName": "x" * 121}]:
+            self.assertEqual(self.request("/business/invoice-settings", dict(settings, **invalid), self.token)[0], 400)
+        self.begin(date_created="2026-12-20", date_due="2026-12-21")
+        lines = [{"Name": "Service", "Quantity": 2, "Price": 19.99},
+                 {"Name": "Small line", "Quantity": 1, "Price": 0.05},
+                 {"Name": "Second small line", "Quantity": 1, "Price": 0.05}]
+        status, pdf = self.request("/invoices/stock-list", lines, self.token)
+        self.assertEqual(status, 200)
+        saved = self.db.Invoices.find_one()
+        snapshot = json.loads(saved["SnapshotJson"])
+        self.assertEqual(snapshot["DateDue"], "2027-01-19")
+        self.assertEqual(snapshot["Subtotal"], 40.08)
+        self.assertEqual(snapshot["GST"], 4.02)
+        self.assertEqual(snapshot["Total"], 44.10)
+        self.assertEqual(saved["Total"], 44.10)
+        text = b" ".join(pdf_page_streams(pdf))
+        self.assertIn(b"(Tax Invoice)", text)
+        self.assertIn(b"(BSB: 012-345)", text)
+        self.assertIn(b"(Account number: 00123456)", text)
+        self.assertIn(b"(Total: $44.10)", text)
+        self.assertEqual(self.request("/business/invoice-settings",
+                         dict(settings, GSTRegistered=False, PaymentTerms="COD", BankBSB="999-999"), self.token)[0], 200)
+        status, archived = self.request(f"/invoices/pdf?BusinessID={self.business}&InvoiceID={saved['_id']}", token=self.token)
+        self.assertEqual(status, 200)
+        archived_text = b" ".join(pdf_page_streams(archived))
+        self.assertIn(b"(BSB: 012-345)", archived_text)
+        self.assertIn(b"(Total: $44.10)", archived_text)
+        self.assertIn(b"(Due date: 19 Jan 2027)", archived_text)
+        self.begin(date_created="2026-12-20")
+        status, untaxed = self.request("/invoices/stock-list", lines, self.token)
+        self.assertEqual(status, 200)
+        untaxed_text = b" ".join(pdf_page_streams(untaxed))
+        self.assertNotIn(b"(Tax Invoice)", untaxed_text)
+        self.assertIn(b"(Total: $40.08)", untaxed_text)
+        self.assertIn(b"(Due date: 20 Dec 2026)", untaxed_text)
 
     def test_prefix_and_sequence_survive_restart_and_blank_prefix(self):
         self.assertEqual(self.begin(), "INV-000001")
         terms = "Payment within 14 days.\nPlease quote your invoice number."
-        settings = {"BusinessID": self.business, "InvoicePrefix": "JOB-", "InvoiceTerms": terms}
+        settings = {"BusinessID": self.business, "InvoicePrefix": "JOB-", "InvoiceTerms": terms,
+                    "InvoiceFilenameTemplate": "{business_name}_{invoice_number}"}
         self.assertEqual(self.request("/business/invoice-settings", settings, self.other)[0], 400)
         self.assertEqual(self.request("/business/invoice-settings", settings, self.token)[0], 200)
         self.assertEqual(self.begin(), "JOB-000002")
@@ -266,6 +321,9 @@ class InvoiceWorkflowTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(businesses[self.business]["InvoicePrefix"], "JOB-")
         self.assertEqual(businesses[self.business]["InvoiceTerms"], terms)
+        self.assertEqual(businesses[self.business]["InvoiceFilenameTemplate"], "{business_name}_{invoice_number}")
+        for invalid in [123, "{unknown}", "../file", "x" * 201]:
+            self.assertEqual(self.request("/business/invoice-settings", dict(settings, InvoiceFilenameTemplate=invalid), self.token)[0], 400)
         for invalid in [123, None, "x" * 4001]:
             self.assertEqual(self.request("/business/invoice-settings", dict(settings, InvoiceTerms=invalid), self.token)[0], 400)
         self.assertEqual(self.request("/business/invoice-settings", {"BusinessID": self.business, "InvoicePrefix": "JOB-"}, self.token)[0], 200)

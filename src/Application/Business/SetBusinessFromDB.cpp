@@ -1,3 +1,6 @@
+#include "Domain/Business/InvoicePreferences.h"
+#include <QJsonDocument>
+#include <bsoncxx/json.hpp>
 #include "Infrastructure/Logging/Logging.h"
 #include "Application/Business/SetBusinessFromDB.h"
 #include "Application/Accounts/AccountManager.h"
@@ -52,6 +55,8 @@ std::shared_ptr<BusinessRepository> SetBusiness::setUpBusiness(const std::string
         const auto logo_data = view["LogoData"];
         if (logo_data && logo_data.type() == bsoncxx::type::k_string)
             business->set_business_logo_data(std::string(logo_data.get_string().value));
+        Domain::Business::load_preferences(*business, QJsonDocument::fromJson(
+            QByteArray::fromStdString(bsoncxx::to_json(view))).object());
         business->setClients(clients);
         business->setStock(stock);
 

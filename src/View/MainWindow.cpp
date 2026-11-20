@@ -151,17 +151,17 @@ void App::Views::MainWindow::set_offline(bool offline) {
 }
 
 void App::Views::MainWindow::show_page(QWidget* widget) {
-    qCDebug(Infrastructure::Logging::ui) << "event=ui.page.shown page=" << (widget ? widget->metaObject()->className() : "null");
+    qCDebug(Infrastructure::Logging::ui) << "event=ui.page.shown page="
+                                         << (widget ? widget->metaObject()->className() : "null");
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "MainWindow.show_page");
     dashboard_page()->set_logged_in(acctMgr.is_logged_in());
     loginAct->setVisible(!offline_ && !acctMgr.is_logged_in());
     logoutAct->setVisible(!offline_ && acctMgr.is_logged_in());
     if (widget == account_settings_page_) {
         const auto user = !offline_ && acctMgr.is_logged_in() ? acctMgr.getAccount() : nullptr;
-        account_settings_page_->set_account_details(
-            user ? QString::fromStdString(user->getFirstName()) : QString{},
-            user ? QString::fromStdString(user->getLastName()) : QString{},
-            user ? QString::fromStdString(user->getEmail()) : QString{});
+        account_settings_page_->set_account_details(user ? QString::fromStdString(user->getFirstName()) : QString{},
+                                                    user ? QString::fromStdString(user->getLastName()) : QString{},
+                                                    user ? QString::fromStdString(user->getEmail()) : QString{});
     }
     pagesStack->setCurrentWidget(widget);
 }
@@ -254,6 +254,7 @@ App::Views::ManagementForm* App::Views::MainWindow::business_settings_page() {
                                                       "City",
                                                       "Street address",
                                                       "Postcode",
+                                                      "Are You Registered for GST",
                                                       "ACN",
                                                       "Website"},
                                                      this);
@@ -265,7 +266,7 @@ App::Views::ManagementForm* App::Views::MainWindow::business_settings_page() {
 App::Views::ManagementForm* App::Views::MainWindow::stock_settings_page() {
     if (!stock_settings_page_) {
         stock_settings_page_ = new ManagementForm(
-            "Create Stock Item", "stock", {"Name", "Quantity", "Price", "Margin", "Keywords", "Unit"}, this);
+            "Create Stock Item", "stock", {"Product ID" ,"Name", "Quantity", "Price", "Margin", "Keywords", "Unit"}, this);
         pagesStack->addWidget(stock_settings_page_);
     }
     return stock_settings_page_;

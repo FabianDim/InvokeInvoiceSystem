@@ -1,3 +1,5 @@
+#include "Domain/Invoices/InvoiceFilename.h"
+#include "Domain/Invoices/InvoiceRecord.h"
 #include "Application/Accounts/FrontendAccountSession.h"
 #include <QtTest>
 #include <QHttpServer>
@@ -88,6 +90,7 @@ struct RecordingServer {
     QByteArray pdf_type = "application/pdf";
     int pdf_status = 200;
     int pdf_requests = 0;
+    QString assigned_number;
     QList<QJsonDocument> pdf_payloads;
 
     bool start() {
@@ -117,7 +120,7 @@ struct RecordingServer {
         http.route("/invoices/invoice_start", QHttpServerRequest::Method::Post,
                    [this](const QHttpServerRequest& request) {
                        invoices.append(QJsonDocument::fromJson(request.body()).object());
-                       return QHttpServerResponse(QJsonObject{{"ok", true}});
+                       return QHttpServerResponse(QJsonObject{{"ok", true}, {"invoice_number", assigned_number}});
                    });
         http.route("/stock/list", QHttpServerRequest::Method::Get,
                    [this](const QHttpServerRequest& request) {
@@ -140,6 +143,239 @@ class BusinessSessionTests : public QObject {
     Q_OBJECT
     QTemporaryDir settings_directory_;
   private slots:
+
+    void filename_template_pills_edit_drop_and_copy() {
+        App::Views::DefaultInvoiceSettings settings;
+        settings.set_business({{"_id", "filename-test"}, {"BusinessName", "Acme Plumbing"},
+            {"InvoiceFilenameTemplate", "{business_name}_{invoice_number}"}});
+        auto* editor = settings.findChild<QTextEdit*>("default_invoice_filename_template");
+        auto* field = static_cast<App::Views::FilenameTemplateEdit*>(editor);
+        QCOMPARE(field->pattern(), "{business_name}_{invoice_number}");
+        QVERIFY(settings.findChild<QLabel*>("invoice_filename_preview")->text().contains("Acme_Plumbing_INV-000001.pdf"));
+        field->set_pattern("");
+        settings.findChild<QPushButton*>("filename_token_business_name")->click();
+        QTest::keyClicks(field, "_");
+        settings.findChild<QPushButton*>("filename_token_invoice_number")->click();
+        QCOMPARE(field->pattern(), "{business_name}_{invoice_number}");
+        QTest::keyClick(field, Qt::Key_Backspace);
+        QCOMPARE(field->pattern(), "{business_name}_");
+        field->undo();
+        QCOMPARE(field->pattern(), "{business_name}_{invoice_number}");
+        field->selectAll();
+        field->copy();
+        field->set_pattern("");
+        field->paste();
+        QCOMPARE(field->pattern(), "{business_name}_{invoice_number}");
+        // A drop inserts at its position, rather than replacing the entire template.
+        field->set_pattern("_suffix");
+        field->resize(600, 68);
+        field->show();
+        QMimeData mime;
+        mime.setData(App::Views::FilenameTemplateEdit::token_mime, "invoice_number");
+        QDragEnterEvent enter(QPoint(2, 10), Qt::CopyAction, &mime, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(field->viewport(), &enter);
+        QVERIFY(enter.isAccepted());
+        QDropEvent drop(QPointF(2, 10), Qt::CopyAction, &mime, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(field->viewport(), &drop);
+        QVERIFY(drop.isAccepted());
+        QCOMPARE(field->pattern(), "{invoice_number}_suffix");
+        field->set_pattern("{business_name}_{invoice_number}");
+        const auto preview = qEnvironmentVariable("INVOICE_FILENAME_PREVIEW_DIR");
+        if (!preview.isEmpty()) {
+            QDir().mkpath(preview);
+            settings.resize(900, 1000); settings.show(); QTest::qWait(40);
+            QVERIFY(settings.grab().save(preview + "/filename-settings.png"));
+        }
+    }
+
+    void filename_templates_persist_and_generate_offline() {
+        ApiClient api(QUrl("http://127.0.0.1:1"), nullptr);
+        api.set_offline(true);
+        QSignalSpy lists(&api, &ApiClient::business_list_received);
+        api.save_resource("business", QJsonDocument(QJsonObject{{"Business name", "Acme Plumbing"}}));
+        api.get_business_list();
+        const auto records = qvariant_cast<QJsonDocument>(lists.last().first()).object();
+        auto business = records.begin().value().toObject();
+        const auto id = business.value("_id").toString();
+        QJsonObject settings{{"BusinessID", id}, {"InvoicePrefix", "JOB-"},
+            {"InvoiceFilenameTemplate", "{business_name}_{invoice_number}"}};
+        api.save_invoice_settings(settings);
+        api.save_invoice_settings({{"BusinessID", id}, {"InvoicePrefix", "JOB-"}});
+        business = qvariant_cast<QJsonDocument>(lists.last().first()).object().value(id).toObject();
+        QCOMPARE(business.value("InvoiceFilenameTemplate").toString(), "{business_name}_{invoice_number}");
+        App::Views::DefaultInvoiceSettings page;
+        page.set_business(business, true);
+        QSignalSpy saved(&page, &App::Views::DefaultInvoiceSettings::save_requested);
+        page.findChild<QPushButton*>("save_invoice_defaults")->click();
+        QCOMPARE(saved.size(), 1);
+        QCOMPARE(saved.first().first().toJsonObject().value("InvoiceFilenameTemplate"), business.value("InvoiceFilenameTemplate"));
+        page.save_failed("Retry");
+        QVERIFY(page.findChild<QTextEdit*>("default_invoice_filename_template")->isEnabled());
+        page.set_business({{"_id", "other"}}, true);
+        QCOMPARE(static_cast<App::Views::FilenameTemplateEdit*>(page.findChild<QTextEdit*>("default_invoice_filename_template"))->pattern(), "{invoice_number}");
+        QSignalSpy failed(&api, &ApiClient::invoice_settings_failed);
+        for (const auto& invalid : {QJsonValue(12), QJsonValue("../file"), QJsonValue("{unknown}"), QJsonValue(QString(201, 'x'))}) {
+            settings["InvoiceFilenameTemplate"] = invalid;
+            api.save_invoice_settings(settings);
+        }
+        QCOMPARE(failed.size(), 4);
+        Application::Invoices::OfflineInvoiceSession session;
+        const auto biz = session.save("business", {{"Business name", "Acme Plumbing"}}, {});
+        auto record = session.businesses[biz].toObject();
+        record["InvoiceFilenameTemplate"] = "{business_name}_{invoice_number}.pdf";
+        session.businesses[biz] = record;
+        const auto client = session.save("client", {{"Name", "Customer"}}, biz);
+        QTemporaryDir output;
+        QJsonObject details{{"ClientID", client}, {"file_dir", output.path()}};
+        const QJsonArray lines{QJsonObject{{"Name", "Service"}, {"Quantity", 1}, {"Price", 10}}};
+        session.begin_invoice(details, biz);
+        QCOMPARE(QFileInfo(session.generate_pdf(lines)).fileName(), "Acme_Plumbing_INV-000001.pdf");
+        session.begin_invoice(details, biz);
+        QCOMPARE(QFileInfo(session.generate_pdf(lines)).fileName(), "Acme_Plumbing_INV-000002.pdf");
+        details["file_name"] = "my override";
+        session.begin_invoice(details, biz);
+        QCOMPARE(QFileInfo(session.generate_pdf(lines)).fileName(), "my_override.pdf");
+        using namespace Domain::Invoices;
+        QCOMPARE(invoice_filename("{business_name}_{invoice_number}", "Acme / Sydney", "INV:42"), "Acme_Sydney_INV_42");
+        QCOMPARE(invoice_filename("", "Acme", "INV-42"), "INV-42");
+        QCOMPARE(invoice_filename("CON.pdf", "", ""), "_CON");
+        QVERIFY(!invoice_filename("{business_name}", QString(300, 'x'), "").isEmpty());
+        QVERIFY(invoice_filename("{business_name}", QString(300, 'x'), "").size() <= 180);
+    }
+
+    void online_filename_uses_assigned_number_and_allows_override() {
+        RecordingServer server; server.assigned_number = "JOB-000042";
+        QVERIFY(server.start());
+        TestAccountManager account;
+        ApiClient api(server.url(), &account);
+        const QJsonObject business{{"_id", "65a000000000000000000001"}, {"BusinessName", "Acme Plumbing"},
+            {"InvoiceFilenameTemplate", "{business_name}_{invoice_number}"}};
+        api.business_selected(business);
+        App::Views::InvoiceDetailsInput page;
+        page.business_selected(business);
+        connect(&api, &ApiClient::invoice_number_assigned, &page, &App::Views::InvoiceDetailsInput::number_assigned);
+        QTemporaryDir output;
+        QSignalSpy started(&api, &ApiClient::invoice_started);
+        QSignalSpy saved(&api, &ApiClient::pdf_generated);
+        QJsonObject details{{"ClientID", "65b000000000000000000001"}, {"file_dir", output.path()}};
+        const QJsonDocument lines(QJsonArray{QJsonObject{{"Name", "Service"}, {"Quantity", 1}, {"Price", 10}}});
+        api.invoice_details(QJsonDocument(details));
+        QTRY_COMPARE(started.size(), 1);
+        QCOMPARE(page.findChild<QLineEdit*>("invoice_file_name")->text(), "Acme_Plumbing_JOB-000042");
+        api.stock_list(lines);
+        QTRY_COMPARE(saved.size(), 1);
+        QCOMPARE(QFileInfo(saved.first().first().toString()).fileName(), "Acme_Plumbing_JOB-000042.pdf");
+        details["file_name"] = "custom";
+        api.invoice_details(QJsonDocument(details)); QTRY_COMPARE(started.size(), 2);
+        api.stock_list(lines); QTRY_COMPARE(saved.size(), 2);
+        QCOMPARE(QFileInfo(saved.last().first().toString()).fileName(), "custom.pdf");
+        QVERIFY(!server.invoices.first().contains("file_name"));
+        QVERIFY(!server.invoices.first().contains("file_dir"));
+    }
+
+    void business_gst_payment_preferences_and_rounding() {
+        Application::Invoices::OfflineInvoiceSession session;
+        const auto business = session.save("business", {{"Business name", "GST business"},
+            {"Are You Registered for GST", true}, {"PaymentTerms", "30"},
+            {"BankName", "Example bank"}, {"BankAccountName", "Example business"},
+            {"BankBSB", "012-345"}, {"BankAccountNumber", "00123456"}, {"InvoiceTerms", "Original terms"}}, {});
+        const auto client = session.save("client", {{"Name", "Customer"}}, business);
+        QTemporaryDir output;
+        session.begin_invoice({{"ClientID", client}, {"file_dir", output.path()},
+            {"date_created", "2026-12-20"}, {"date_due", "2026-12-21"}}, business);
+        const QJsonArray lines{QJsonObject{{"Name", "Service"}, {"Quantity", 2}, {"Price", 19.99}},
+            QJsonObject{{"Name", "Small line"}, {"Quantity", 1}, {"Price", 0.05}},
+            QJsonObject{{"Name", "Another small line"}, {"Quantity", 1}, {"Price", 0.05}}};
+        QVERIFY(QFile::exists(session.generate_pdf(lines)));
+        auto record = session.invoices.first().toObject();
+        QCOMPARE(record.value("DateDue").toString(), "2027-01-19");
+        QCOMPARE(record.value("Subtotal").toDouble(), 40.08);
+        QCOMPARE(record.value("GST").toDouble(), 4.02);
+        QCOMPARE(record.value("Total").toDouble(), 44.10);
+        QCOMPARE(record.value("Items").toArray(), lines);
+        auto changed = session.businesses[business].toObject();
+        changed["GSTRegistered"] = false;
+        changed["BankBSB"] = "999-999";
+        changed["PaymentTerms"] = "COD";
+        session.businesses[business] = changed;
+        const auto restored = Domain::Invoices::restore(record);
+        QVERIFY(restored->getBusiness()->get_gst_registered());
+        QCOMPARE(restored->getBusiness()->get_bank_bsb(), std::string("012-345"));
+        QCOMPARE(restored->getBusiness()->get_bank_account_number(), std::string("00123456"));
+        QCOMPARE(restored->getBusiness()->get_invoice_terms(), std::string("Original terms"));
+        QVERIFY(Infrastructure::PDF::InvoicePdfGenerator::render_record(record).startsWith("%PDF-"));
+        session.begin_invoice({{"ClientID", client}, {"file_dir", output.path()}, {"date_created", "2026-12-20"}}, business);
+        session.generate_pdf(lines);
+        record = session.invoices.last().toObject();
+        QCOMPARE(record.value("GST").toDouble(), 0.0);
+        QCOMPARE(record.value("Total").toDouble(), 40.08);
+        QCOMPARE(record.value("DateDue").toString(), "2026-12-20");
+        Domain::Invoices::Amounts large;
+        large.add(123456.78, 3, true);
+        QCOMPARE(large.subtotal, 370370.34);
+        QCOMPARE(large.gst, 37037.03);
+        Domain::Invoices::Amounts half_cent;
+        half_cent.add(1.15, 1, true);
+        QCOMPARE(half_cent.gst, 0.12);
+    }
+
+    void payment_dates_follow_business_and_issue_date() {
+        App::Views::InvoiceDetailsInput page;
+        auto* issued = page.findChild<QDateEdit*>("date_created");
+        auto* due = page.findChild<QDateEdit*>("date_due");
+        QVERIFY(issued && due && due->isReadOnly());
+        issued->setDate(QDate(2028, 2, 20));
+        page.business_selected({{"_id", "A"}, {"PaymentTerms", "14"}});
+        QCOMPARE(due->date(), QDate(2028, 3, 5));
+        issued->setDate(QDate(2026, 12, 20));
+        QCOMPARE(due->date(), QDate(2027, 1, 3));
+        page.business_selected({{"_id", "B"}, {"PaymentTerms", "30"}});
+        QCOMPARE(due->date(), QDate(2027, 1, 19));
+        page.business_selected({{"_id", "C"}});
+        QCOMPARE(due->date(), issued->date());
+    }
+
+    void invoice_preferences_save_reload_and_validate() {
+        ApiClient api(QUrl("http://127.0.0.1:1"), nullptr);
+        api.set_offline(true);
+        QSignalSpy businesses(&api, &ApiClient::business_list_received);
+        api.save_resource("business", QJsonDocument(QJsonObject{{"Business name", "Preferences"}}));
+        api.get_business_list();
+        const auto records = qvariant_cast<QJsonDocument>(businesses.last().first()).object();
+        auto business = records.begin().value().toObject();
+        const auto id = business.value("_id").toString();
+        App::Views::DefaultInvoiceSettings settings;
+        settings.set_business(business, true);
+        settings.findChild<QCheckBox*>("settings_gst_registered")->setChecked(true);
+        settings.findChild<QComboBox*>("business_payment_terms")->setCurrentIndex(2);
+        settings.findChild<QLineEdit*>("BankBSB")->setText("012-345");
+        settings.findChild<QLineEdit*>("BankAccountNumber")->setText("00123456");
+        connect(&settings, &App::Views::DefaultInvoiceSettings::save_requested, &api, &ApiClient::save_invoice_settings);
+        connect(&api, &ApiClient::invoice_settings_saved, &settings, &App::Views::DefaultInvoiceSettings::save_succeeded);
+        settings.findChild<QPushButton*>("save_invoice_defaults")->click();
+        business = qvariant_cast<QJsonDocument>(businesses.last().first()).object().value(id).toObject();
+        QVERIFY(business.value("GSTRegistered").toBool());
+        QCOMPARE(business.value("PaymentTerms").toString(), "30");
+        QCOMPARE(business.value("BankAccountNumber").toString(), "00123456");
+        api.save_invoice_settings({{"BusinessID", id}, {"InvoicePrefix", "INV-"}});
+        QCOMPARE(qvariant_cast<QJsonDocument>(businesses.last().first()).object().value(id).toObject().value("BankBSB").toString(), "012-345");
+        settings.set_business({{"_id", "Other"}}, true);
+        QVERIFY(!settings.findChild<QCheckBox*>("settings_gst_registered")->isChecked());
+        QVERIFY(settings.findChild<QLineEdit*>("BankBSB")->text().isEmpty());
+        settings.set_business(business, true);
+        QCOMPARE(settings.findChild<QComboBox*>("business_payment_terms")->currentData().toString(), "30");
+        QSignalSpy failed(&api, &ApiClient::invoice_settings_failed);
+        for (const auto& bad : {QJsonObject{{"PaymentTerms", "7"}}, QJsonObject{{"PaymentTerms", 14}},
+             QJsonObject{{"GSTRegistered", "yes"}}, QJsonObject{{"BankBSB", 123}},
+             QJsonObject{{"BankName", QString(121, 'x')}}}) {
+            auto invalid = bad; invalid["BusinessID"] = id; invalid["InvoicePrefix"] = "INV-";
+            api.save_invoice_settings(invalid);
+        }
+        QCOMPARE(failed.size(), 5);
+        settings.findChild<QLineEdit*>("BankBSB")->clear();
+        settings.findChild<QPushButton*>("save_invoice_defaults")->click();
+        QVERIFY(qvariant_cast<QJsonDocument>(businesses.last().first()).object().value(id).toObject().value("BankBSB").toString().isEmpty());
+    }
     void account_settings_populates_current_identity_on_each_visit() {
         TestAccountManager account;
         App::Views::MainWindow window(account);
@@ -875,7 +1111,7 @@ class BusinessSessionTests : public QObject {
 
     void offline_archive_preserves_details_and_stock() {
         Application::Invoices::OfflineInvoiceSession session;
-        const auto business = session.save("business", {{"Business name", "Original business"}}, {});
+        const auto business = session.save("business", {{"Business name", "Original business"}, {"PaymentTerms", "14"}}, {});
         const auto client = session.save("client", {{"Name", "Original client"}}, business);
         const auto stock = session.save("stock", {{"Name", "Widget"}, {"Quantity", 5}, {"Price", 10}}, business);
         QTemporaryDir output;

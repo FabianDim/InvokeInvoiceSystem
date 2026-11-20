@@ -1,6 +1,8 @@
 #pragma once
 #include "Domain/Invoices/Invoice.h"
 #include <QDate>
+#include "Domain/Business/InvoicePreferences.h"
+#include "Domain/Invoices/InvoiceAmounts.h"
 #include <QJsonArray>
 #include <QJsonObject>
 #include <cmath>
@@ -20,15 +22,15 @@ inline void validate_details(const QJsonObject& details) {
 inline QJsonObject record(const Invoice& invoice, const QJsonArray& items) {
     const auto business = invoice.getBusiness();
     const auto client = invoice.getClient();
-    double total = 0;
+    Amounts amounts;
     for (const auto& item : items) {
         const auto line = item.toObject();
-        total += line.value("Quantity").toDouble() * line.value("Price").toDouble();
+        amounts.add(line.value("Price").toDouble(), line.value("Quantity").toInt(), business->get_gst_registered());
     }
-    return {{"Version", 1}, {"InvoiceNumber", QString::fromStdString(invoice.getCliInvoiceID())},
+    QJsonObject snapshot{{"Version", 2}, {"InvoiceNumber", QString::fromStdString(invoice.getCliInvoiceID())},
         {"DateCreated", QString::fromStdString(invoice.getCurrentDate())},
         {"DateDue", QString::fromStdString(invoice.getDueDate())}, {"Paid", invoice.getIsPaid()},
-        {"Total", total}, {"Items", items},
+        {"Subtotal", amounts.subtotal}, {"GST", amounts.gst}, {"Total", amounts.total()}, {"Items", items},
         {"Business", QJsonObject{{"_id", QString::fromStdString(business->getBizID())},
             {"BusinessName", QString::fromStdString(business->getBizName())},
             {"ABN", QString::fromStdString(business->getAbn())},
@@ -42,12 +44,23 @@ inline QJsonObject record(const Invoice& invoice, const QJsonArray& items) {
             {"Address", QString::fromStdString(client->getAddress())},
             {"Email", QString::fromStdString(client->getEmail())},
             {"Phone", QString::fromStdString(client->getPhoneNumber())}}}};
+    auto biz = snapshot.value("Business").toObject();
+    const auto prefs = Domain::Business::preferences(*business);
+    for (auto it = prefs.begin(); it != prefs.end(); ++it) biz[it.key()] = it.value();
+    biz["InvoiceTerms"] = QString::fromStdString(business->get_invoice_terms());
+    snapshot["Business"] = biz;
+    return snapshot;
 }
 
 inline std::shared_ptr<Invoice> restore(const QJsonObject& data) {
     auto invoice = std::make_shared<Invoice>();
     auto business = std::make_shared<BusinessRepository>();
     const auto biz = data.value("Business").toObject();
+    // Legacy snapshots did not charge GST; never infer it from current settings.
+    Domain::Business::load_preferences(*business, data.value("LegacyCopy").toBool() ? QJsonObject{} : biz);
+    if (!biz.contains("PaymentTerms") || data.value("LegacyCopy").toBool())
+        business->set_payment_terms("");
+    business->set_invoice_terms(data.value("LegacyCopy").toBool() ? "" : biz.value("InvoiceTerms").toString().toStdString());
     business->setBizID(biz.value("_id").toString().toStdString());
     business->setBizName(biz.value("BusinessName").toString().toStdString());
     business->setAbn(biz.value("ABN").toString().toStdString());

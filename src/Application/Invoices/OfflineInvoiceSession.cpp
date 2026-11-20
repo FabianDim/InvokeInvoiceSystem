@@ -9,6 +9,7 @@
 #include <QMap>
 #include "Domain/Stock/StockShortage.h"
 #include "Domain/Invoices/InvoiceRecord.h"
+#include "Domain/Invoices/InvoiceFilename.h"
 
 using namespace Application::Invoices;
 
@@ -41,6 +42,9 @@ QString OfflineInvoiceSession::save(const QString& resource, QJsonObject data, c
 
     const auto id = "DEMO-" + QString::number(++next_id_);
     if (resource == "business") {
+        if (!Domain::Business::valid_preferences(data))
+            throw std::invalid_argument("Invalid GST, payment terms or bank details.");
+        data["GSTRegistered"] = Domain::Business::gst_registered(data);
         data["_id"] = id;
         data["BusinessName"] = data.value("Business name");
         data["Phone"] = data.value("Business phone");
@@ -98,13 +102,17 @@ void OfflineInvoiceSession::begin_invoice(QJsonObject details, const QString& bu
         throw std::runtime_error("Create and select a client for this offline business first.");
     const auto directory = details.value("file_dir").toString();
     auto business_record = businesses.value(business_id).toObject();
+    details["date_created"] = details.value("date_created").toString(QDate::currentDate().toString(Qt::ISODate));
+    details["date_due"] = Domain::Business::due_date(details.value("date_created").toString(),
+        business_record.value("PaymentTerms").toString("COD"));
     const auto sequence = business_record.value("InvoiceSequence").toInteger() + 1;
     if (details.value("invoice_number").toString().trimmed().isEmpty()) {
         const auto prefix = details.value("invoice_prefix").toString(business_record.value("InvoicePrefix").toString("INV-"));
         details["invoice_number"] = prefix + QString::number(sequence).rightJustified(6, '0');
     }
     auto name = details.value("file_name").toString().trimmed();
-    if (name.isEmpty()) name = details.value("invoice_number").toString();
+    if (name.isEmpty()) name = Domain::Invoices::invoice_filename(business_record.value("InvoiceFilenameTemplate").toString(),
+        business_record.value("BusinessName").toString(), details.value("invoice_number").toString());
     if (name.isEmpty() || name.contains(QRegularExpression("[<>:\"/\\\\|?*]")) || name == "." || name == "..")
         throw std::runtime_error("Enter a file name without path separators or reserved characters.");
     if (directory.isEmpty() || !QFileInfo(directory).isDir() || !QFileInfo(directory).isWritable())
@@ -174,6 +182,7 @@ QString OfflineInvoiceSession::generate_pdf(const QJsonArray& stock, const QStri
     business->set_website_url(invoice_business_.value("Website").toString().toStdString());
     business->set_invoice_terms(invoice_business_.value("InvoiceTerms").toString().toStdString());
     business->set_business_logo_data(invoice_business_.value("LogoData").toString().toStdString());
+    Domain::Business::load_preferences(*business, invoice_business_);
     invoice->setBusiness(business);
     auto client = std::make_shared<Client>();
     client->setClientID(invoice_client_.value("_id").toString().toStdString());

@@ -10,6 +10,8 @@
 #include <QJsonArray>
 #include <QSignalBlocker>
 #include <QCheckBox>
+#include "Domain/Business/InvoicePreferences.h"
+#include "Domain/Invoices/InvoiceFilename.h"
 
 using namespace App::Views;
 
@@ -64,7 +66,7 @@ void InvoiceDetailsInput::create_page_layout() {
         {"invoice_theme", "Invoice theme", FormField::Type::ComboBox, {}},
         {"invoice_prefix", "Business invoice prefix", FormField::Type::LineEdit, {.placeholder = "Blank for numbers only"}},
         {"invoice_number", "Invoice number", FormField::Type::LineEdit, {.placeholder = "Assigned automatically when you continue"}},
-        {"invoice_file_name", "File name", FormField::Type::LineEdit, {.placeholder = "Name"}},
+        {"invoice_file_name", "File name", FormField::Type::LineEdit, {.placeholder = "Automatic from business filename settings (optional override)"}},
         {"invoice_file_dir", "Save PDF to", FormField::Type::DirBrowse, {}},
         {"date_created", "Date created", FormField::Type::DateEdit, {.defaultToday = true}},
         {"date_due", "Date due", FormField::Type::DateEdit, {.defaultToday = true}}};
@@ -118,6 +120,12 @@ void InvoiceDetailsInput::create_page_layout() {
         }
         ++row;
     }
+    auto* payment_terms = UiStyle::label("", content);
+    payment_terms->setObjectName("invoice_payment_terms");
+    form->addWidget(UiStyle::label("Payment terms", content), row, 0);
+    form->addWidget(payment_terms, row++, 1);
+    findChild<QDateEdit*>("date_due")->setReadOnly(true);
+    connect(findChild<QDateEdit*>("date_created"), &QDateEdit::dateChanged, this, &InvoiceDetailsInput::update_due_date);
     auto* paid = new QCheckBox("Already paid", content);
     paid->setObjectName("invoice_paid");
     base_invoice_form_fields_["paid"] = paid;
@@ -162,6 +170,7 @@ void InvoiceDetailsInput::create_page_layout() {
 
 void InvoiceDetailsInput::business_selected(const QJsonObject& business) {
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "InvoiceDetailsInput.business_selected");
+    filename_business_ = business;
     const auto id = business.value("_id").toString();
     if (id != business_id_ || id.isEmpty()) {
         business_id_ = id;
@@ -171,7 +180,15 @@ void InvoiceDetailsInput::business_selected(const QJsonObject& business) {
         client_status_->setText(id.isEmpty() ? "Choose a business on the dashboard first." : "");
         update_client_selection();
     }
+    payment_terms_ = business.value("PaymentTerms").toString("COD");
+    update_due_date();
     refresh_clients_->setEnabled(!id.isEmpty());
+}
+
+void InvoiceDetailsInput::update_due_date() {
+    const auto issued = findChild<QDateEdit*>("date_created")->date();
+    findChild<QDateEdit*>("date_due")->setDate(issued.addDays(payment_terms_ == "14" ? 14 : payment_terms_ == "30" ? 30 : 0));
+    findChild<QLabel*>("invoice_payment_terms")->setText(payment_terms_ == "COD" ? "COD (due on invoice date)" : payment_terms_ + " days");
 }
 
 void InvoiceDetailsInput::load_clients(bool refresh) {
@@ -264,5 +281,7 @@ void InvoiceDetailsInput::prepare_invoice(const QString& prefix, const QString& 
 void InvoiceDetailsInput::number_assigned(const QString& number) {
     findChild<QLineEdit*>("invoice_number")->setText(number);
     if (findChild<QLineEdit*>("invoice_file_name")->text().trimmed().isEmpty())
-        findChild<QLineEdit*>("invoice_file_name")->setText(number);
+        findChild<QLineEdit*>("invoice_file_name")->setText(Domain::Invoices::invoice_filename(
+            filename_business_.value("InvoiceFilenameTemplate").toString(),
+            filename_business_.value("BusinessName").toString(), number));
 }

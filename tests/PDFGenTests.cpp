@@ -8,6 +8,7 @@ namespace fs = std::filesystem;
 class TestPDFGen : public QObject {
     Q_OBJECT
   private slots:
+    void pdf_gst_payment_details();
     void initTestCase() { QVERIFY(output_.isValid()); }
     void pdf_creation_test();
     void pdf_multiple_page_creation_test();
@@ -262,3 +263,44 @@ void TestPDFGen::pdf_creation_test() {
 
 QTEST_MAIN(TestPDFGen)
 #include "PDFGenTests.moc"
+
+void TestPDFGen::pdf_gst_payment_details() {
+    const auto artifacts = qEnvironmentVariable("INVOICE_PDF_TEST_OUTPUT");
+    for (bool registered : {false, true}) {
+        auto invoice = std::make_shared<Invoice>();
+        auto business = std::make_shared<BusinessRepository>();
+        business->setBizName("Example Plumbing");
+        business->setAbn("12 345 678 901");
+        business->set_gst_registered(registered);
+        business->set_payment_terms("14");
+        business->set_bank_name("Example Bank");
+        business->set_bank_account_name("Example Plumbing Pty Ltd");
+        business->set_bank_bsb("012-345");
+        business->set_bank_account_number("001234567");
+        business->set_invoice_terms("Please quote your invoice number when making payment.");
+        invoice->setBusiness(business);
+        auto client = std::make_shared<Client>();
+        client->setName("Example Customer");
+        client->setAddress("10 Example Street, Sydney NSW 2000");
+        invoice->setClient(client);
+        invoice->setCliInvoiceID("INV-000042");
+        invoice->setCurrentDate("2026-11-20");
+        invoice->setDueDate("2026-12-04");
+        for (int i = 0; i < 3; ++i) {
+            auto item = std::make_shared<StockItem>();
+            item->set_description("Plumbing service " + std::to_string(i + 1));
+            item->setStockID("STK-000001");
+            item->setStdPrice(i == 0 ? 19.99 : 0.05);
+            invoice->addStockItem(item, i == 0 ? 2 : 1);
+        }
+        const auto filename = registered ? "gst-payment.pdf" : "no-gst-payment.pdf";
+        const auto path = output_.filePath(filename);
+        invoice->set_file_name(path.toStdString());
+        Infrastructure::PDF::InvoicePdfGenerator generator(invoice);
+        QVERIFY(generator.peece_template());
+        if (!artifacts.isEmpty()) {
+            QDir().mkpath(artifacts);
+            QVERIFY(QFile::copy(path, QDir(artifacts).filePath(filename)));
+        }
+    }
+}

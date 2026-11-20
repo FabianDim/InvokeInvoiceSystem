@@ -52,6 +52,9 @@ class NewInvoiceStock : public QWidget {
     QLineEdit* unit_;
     QLineEdit* keywords_;
     QLabel* status_label_;
+    QLabel* totals_label_;
+    bool gst_registered_ = false;
+    void update_totals();
     QPushButton* back_button_;
     bool saving_stock_ = false;
     bool saving_pdf_ = false;

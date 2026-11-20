@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QWidget>
+#include "View/UICode/Views/FilenameTemplateEdit.h"
+#include "View/UICode/Views/InvoicePreferencesForm.h"
 #include <QJsonObject>
 class QLabel;
 class QPushButton;
@@ -26,6 +28,10 @@ class DefaultInvoiceSettings : public QWidget {
     void save_requested(const QJsonObject& settings);
 
   private:
+    void update_filename_preview();
+    FilenameTemplateEdit* filename_template_;
+    QLabel* filename_preview_;
+    QString business_name_;
     QString business_id_;
     QString saved_prefix_ = "INV-";
     QString saved_folder_;
@@ -35,5 +41,7 @@ class DefaultInvoiceSettings : public QWidget {
     QLineEdit* invoice_prefix_;
     QLineEdit* file_out_path_;
     QPlainTextEdit* invoice_terms_;
+
+    InvoicePreferencesForm* preferences_;
 };
 } // namespace App::Views

@@ -12,14 +12,14 @@ class InvoicePdfGenerator {
         float x;
         float y;
         float rowHeight;
-        float colWidths[5];
+        float colWidths[6];
     };
     struct TableHeader {
         float x;
         float y;
         float rowHeight;
-        float colWidths[5];
-        std::string strings[5];
+        float colWidths[6];
+        std::string strings[6];
     };
 
   public:
