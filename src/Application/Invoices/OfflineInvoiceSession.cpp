@@ -1,3 +1,4 @@
+#include "Domain/Stock/StockEdit.h"
 #include "Infrastructure/Logging/Logging.h"
 #include "Application/Invoices/OfflineInvoiceSession.h"
 #include "Infrastructure/Pdf/InvoicePdfGenerator.h"
@@ -71,6 +72,21 @@ QString OfflineInvoiceSession::save(const QString& resource, QJsonObject data, c
     return id;
 }
 
+void OfflineInvoiceSession::update_stock(const QString& business_id, const QJsonObject& data) {
+    const auto values = Domain::Stock::stock_edit_values(data);
+    if (!businesses.contains(business_id)) throw std::invalid_argument("Choose a business first.");
+    for (int index = 0; index < stocks.size(); ++index) {
+        auto record = stocks[index].toObject();
+        if (record.value("BusinessID").toString() != business_id || record.value("_id") != data.value("_id")) continue;
+        if (record.value("Quantity").toDouble() != data.value("ExpectedQuantity").toDouble())
+            throw std::invalid_argument("Stock on hand changed. Cancel, refresh records and reopen the item before saving.");
+        for (auto it = values.begin(); it != values.end(); ++it) record[it.key()] = it.value();
+        stocks[index] = record;
+        return;
+    }
+    throw std::invalid_argument("This stock item is no longer available for this business.");
+}
+
 QJsonObject OfflineInvoiceSession::items(const QString& business_id) const {
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::offline(), "OfflineInvoiceSession.items");
     return {{"BusinessID", business_id},
@@ -110,11 +126,12 @@ void OfflineInvoiceSession::begin_invoice(QJsonObject details, const QString& bu
         const auto prefix = details.value("invoice_prefix").toString(business_record.value("InvoicePrefix").toString("INV-"));
         details["invoice_number"] = prefix + QString::number(sequence).rightJustified(6, '0');
     }
-    auto name = details.value("file_name").toString().trimmed();
+    auto name = details.value("file_name").toString();
     if (name.isEmpty()) name = Domain::Invoices::invoice_filename(business_record.value("InvoiceFilenameTemplate").toString(),
-        business_record.value("BusinessName").toString(), details.value("invoice_number").toString());
-    if (name.isEmpty() || name.contains(QRegularExpression("[<>:\"/\\\\|?*]")) || name == "." || name == "..")
-        throw std::runtime_error("Enter a file name without path separators or reserved characters.");
+        business_record.value("BusinessName").toString(), details.value("invoice_number").toString(),
+        details.value("invoice_prefix").toString(business_record.value("InvoicePrefix").toString("INV-")));
+    const auto filename_error = Domain::Invoices::filename_error(name);
+    if (!filename_error.isEmpty()) throw std::runtime_error(filename_error.toStdString());
     if (directory.isEmpty() || !QFileInfo(directory).isDir() || !QFileInfo(directory).isWritable())
         throw std::runtime_error("Choose an existing, writable folder for the PDF.");
     if (details.value("invoice_number").toString().trimmed().isEmpty())

@@ -1,3 +1,4 @@
+#include "Domain/Stock/StockEdit.h"
 #include "Infrastructure/Logging/HttpLogging.h"
 #include "Infrastructure/Http/FakeServer.h"
 #include "Infrastructure/Database/Mongo/MongoDBDataManager.h"
@@ -431,6 +432,24 @@ void Server::create_routes_auth() {
 }
 
 void Server::create_routes_data() {
+    httpServer_.route("/stock/update", QHttpServerRequest::Method::Post,
+        Infrastructure::Logging::tracedRoute("/stock/update", [this](const QHttpServerRequest& request) {
+            const auto session = session_for(request);
+            if (!session) return QHttpServerResponse(QJsonObject{{"error", "Unauthorized"}}, QHttpServerResponse::StatusCode::Unauthorized);
+            const auto doc = QJsonDocument::fromJson(request.body());
+            if (!doc.isObject() || !Infrastructure::Database::parse_object_id(doc.object().value("BusinessID").toString().toStdString()) ||
+                !Infrastructure::Database::parse_object_id(doc.object().value("_id").toString().toStdString()))
+                return QHttpServerResponse(QJsonObject{{"error", "Invalid stock or business ID."}}, QHttpServerResponse::StatusCode::BadRequest);
+            try {
+                if (!db_manager_.update_stock(session->user_id, doc.object()))
+                    return QHttpServerResponse(QJsonObject{{"error", "Stock changed or is no longer available. Cancel, refresh records and reopen the item."}}, QHttpServerResponse::StatusCode::Conflict);
+                return QHttpServerResponse(QJsonObject{{"ok", true}});
+            } catch (const std::invalid_argument& error) {
+                return QHttpServerResponse(QJsonObject{{"error", QString::fromUtf8(error.what())}}, QHttpServerResponse::StatusCode::BadRequest);
+            } catch (const std::exception&) {
+                return QHttpServerResponse(QJsonObject{{"error", "Could not save stock. Please try again."}}, QHttpServerResponse::StatusCode::InternalServerError);
+            }
+        }));
     const auto save = [this](const QString& resource, const QHttpServerRequest& request) {
         const auto session = session_for(request);
         if (!session)

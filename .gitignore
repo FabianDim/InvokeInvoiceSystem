@@ -115,3 +115,6 @@ vcpkg/installed/
 #Documents
 SECURITY_REVIEW.md
 *.pdf
+# Update signing private keys must never be committed.
+*signing-key*.pem
+*.private.pem

@@ -1,3 +1,5 @@
+#include "Infrastructure/Updates/UpdateController.h"
+#include "Infrastructure/Updates/UpdateStore.h"
 #include "Infrastructure/Logging/Logging.h"
 #include <QApplication>
 #include <QCommandLineParser>
@@ -10,6 +12,13 @@
 #include "View/MainWindow.h"
 
 int main(int argc, char* argv[]) {
+    for (int index = 1; index + 1 < argc; ++index) {
+        if (QString::fromLocal8Bit(argv[index]) == "--update-wait-pid") {
+            bool valid = false;
+            const auto pid = QString::fromLocal8Bit(argv[index + 1]).toLongLong(&valid);
+            if (!valid || !Infrastructure::Updates::wait_for_launcher(pid)) return EXIT_FAILURE;
+        }
+    }
     QApplication app(argc, argv);
     QCoreApplication::setOrganizationName("Invoke");
     QCoreApplication::setApplicationName("InvokeInvoiceSystem");
@@ -17,7 +26,12 @@ int main(int argc, char* argv[]) {
     QCommandLineParser commandLine;
     commandLine.addHelpOption();
     commandLine.addVersionOption();
+    QCommandLineOption waitOption("update-wait-pid", "Wait for the previous application instance to exit.", "pid");
+    waitOption.setFlags(QCommandLineOption::HiddenFromHelp);
+    commandLine.addOption(waitOption);
+    commandLine.addOption({"no-update-handoff", "Run this executable directly, bypassing the cached update (recovery)."});
     commandLine.process(app);
+    if (!commandLine.isSet("no-update-handoff") && Infrastructure::Updates::launch_cached_update()) return EXIT_SUCCESS;
     Infrastructure::Logging::initialize(true);
     qCInfo(Infrastructure::Logging::app) << "event=application.starting qt_version=" << qVersion();
     QObject::connect(&app, &QCoreApplication::aboutToQuit, []() {
@@ -53,6 +67,7 @@ int main(int argc, char* argv[]) {
     Application::Controllers::AppController controller(&window, accountManager, api);
     window.resize(1080, 860);
     window.show();
+    Infrastructure::Updates::UpdateController updates(&window);
     qCInfo(Infrastructure::Logging::app) << "event=application.ready mode=" << (localBackend ? "local_backend" : "remote_backend");
     return app.exec();
 }

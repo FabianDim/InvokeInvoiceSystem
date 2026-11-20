@@ -108,6 +108,14 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
+      - name: Require update signing configuration
+        shell: pwsh
+        env:
+          UPDATE_SIGNING_CONFIGURED: ${{ secrets.INVOICE_UPDATE_SIGNING_KEY != '' }}
+        run: |
+          if ($env:UPDATE_SIGNING_CONFIGURED -ne 'true') {
+            throw 'Configure INVOICE_UPDATE_SIGNING_KEY before publishing an update-enabled frontend.'
+          }
       - name: Set dependency directories
         shell: pwsh
         run: |
@@ -265,6 +273,11 @@ jobs:
         with:
           name: frontend-windows
           path: release-assets
+      - name: Sign and verify update manifest
+        env:
+          INVOICE_UPDATE_SIGNING_KEY: ${{ secrets.INVOICE_UPDATE_SIGNING_KEY }}
+        run: |
+          python3 .github/scripts/sign-update.py --version "$APP_VERSION"             --asset "release-assets/InvokeInvoiceSystem-$APP_VERSION-windows-x64.exe"             --output-dir release-assets
       # GitHub adds separate source-code ZIP/tar.gz downloads for the release tag.
       - name: Publish standalone EXE, notices and checksum
         run: |
@@ -281,6 +294,6 @@ jobs:
           fi
           # Published releases are immutable on reruns; only finish an incomplete draft.
           if [ "$(gh release view "$tag" --json isDraft --jq .isDraft)" = true ]; then
-            gh release upload "$tag" release-assets/*.exe release-assets/*-licenses.txt release-assets/*.sha256 --clobber
+            gh release upload "$tag" release-assets/*.exe release-assets/*-licenses.txt release-assets/*.sha256 release-assets/update-windows-x64.json release-assets/update-windows-x64.sig --clobber
             gh release edit "$tag" --draft=false --latest
           fi

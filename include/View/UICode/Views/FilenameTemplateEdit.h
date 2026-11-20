@@ -25,11 +25,14 @@ class FilenameTemplateEdit : public QTextEdit {
         setAccessibleName("Automatic PDF filename template");
         setAcceptRichText(false);
         setTabChangesFocus(true);
+        setCursorWidth(1);
+        viewport()->setCursor(Qt::IBeamCursor);
         setFixedHeight(68);
         setPlaceholderText("Drag a pill here, or type your own filename");
         setStyleSheet("QTextEdit { background: #f8f9f4; color: #20382e; border: 1px solid #c7d4bd; border-radius: 8px; padding: 7px; }");
         register_pill("business_name", "Business name");
         register_pill("invoice_number", "Invoice number");
+        register_pill("invoice_number_only", "Invoice number only");
     }
     QString pattern() const {
         QString result;
@@ -49,15 +52,14 @@ class FilenameTemplateEdit : public QTextEdit {
         clear();
         register_pill("business_name", "Business name");
         register_pill("invoice_number", "Invoice number");
+        register_pill("invoice_number_only", "Invoice number only");
         insert_pattern(pattern);
         document()->clearUndoRedoStacks();
     }
     void insert_token(const QString& token) {
         if (!known_token(token) || !isEnabled()) return;
         auto cursor = textCursor();
-        QTextImageFormat image;
-        image.setName(token);
-        image.setProperty(QTextFormat::ImageAltText, token == "business_name" ? "Business name" : "Invoice number");
+        const auto image = pill_format(token);
         cursor.insertImage(image);
         cursor.setCharFormat(QTextCharFormat{});
         setTextCursor(cursor);
@@ -93,7 +95,19 @@ class FilenameTemplateEdit : public QTextEdit {
         QTextEdit::keyPressEvent(event);
     }
   private:
-    static bool known_token(const QString& token) { return token == "business_name" || token == "invoice_number"; }
+    static bool known_token(const QString& token) { return token == "business_name" || token == "invoice_number" || token == "invoice_number_only"; }
+    QTextImageFormat pill_format(const QString& token) const {
+        QTextImageFormat format;
+        format.setName(token);
+        format.setProperty(QTextFormat::ImageAltText, token == "business_name" ? "Business name" :
+            token == "invoice_number_only" ? "Invoice number only" : "Invoice number");
+        const auto image = document()->resource(QTextDocument::ImageResource, QUrl(token)).value<QImage>();
+        const auto size = image.deviceIndependentSize();
+        format.setWidth(size.width());
+        format.setHeight(size.height());
+        format.setVerticalAlignment(QTextCharFormat::AlignMiddle);
+        return format;
+    }
     void register_pill(const QString& token, const QString& label) {
         QFont font = this->font();
         font.setPointSize(10);
@@ -118,15 +132,13 @@ class FilenameTemplateEdit : public QTextEdit {
         auto cursor = textCursor();
         cursor.beginEditBlock();
         cursor.removeSelectedText();
-        static const QRegularExpression tokens("\\{(business_name|invoice_number)\\}");
+        static const QRegularExpression tokens("\\{(business_name|invoice_number|invoice_number_only)\\}");
         qsizetype previous = 0;
         auto matches = tokens.globalMatch(pattern);
         while (matches.hasNext()) {
             const auto match = matches.next();
             cursor.insertText(pattern.mid(previous, match.capturedStart() - previous), QTextCharFormat{});
-            QTextImageFormat image;
-            image.setName(match.captured(1));
-            image.setProperty(QTextFormat::ImageAltText, match.captured(1) == "business_name" ? "Business name" : "Invoice number");
+            const auto image = pill_format(match.captured(1));
             cursor.insertImage(image);
             previous = match.capturedEnd();
         }
@@ -142,7 +154,7 @@ class FilenameTokenPill : public QPushButton {
     FilenameTokenPill(const QString& label, const QString& token, FilenameTemplateEdit* editor, QWidget* parent)
         : QPushButton(label, parent), token_(token) {
         setObjectName("filename_token_" + token);
-        setCursor(Qt::OpenHandCursor);
+        setCursor(Qt::PointingHandCursor);
         setToolTip("Drag into the filename, or click to insert at the cursor.");
         setStyleSheet("QPushButton { background: #e0ecde; color: #264b39; border: 1px solid #abc2ae; border-radius: 14px; padding: 5px 12px; min-height: 18px; } QPushButton:hover { background: #cddfc9; } QPushButton:focus { border: 2px solid #376f50; }");
         connect(this, &QPushButton::clicked, editor, [editor, token]() { editor->insert_token(token); });

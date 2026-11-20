@@ -21,6 +21,9 @@
     set(CMAKE_CONFIGURATION_TYPES "Release;RelWithDebInfo" CACHE STRING "" FORCE)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
     # ---------- Dependencies ----------
+    find_package(OpenSSL REQUIRED)
+    file(READ "${CMAKE_SOURCE_DIR}/config/update-public-key.pem" INVOICE_UPDATE_PUBLIC_KEY)
+    configure_file(config/UpdateTrust.h.in generated/UpdateTrust.h @ONLY)
     find_package(fmt                CONFIG REQUIRED)
     find_package(bsoncxx            CONFIG REQUIRED)
     find_package(mongocxx           CONFIG REQUIRED)
@@ -121,9 +124,10 @@
     endif()
 
     # Public include root
-    target_include_directories(InvokeInvoiceSystem PUBLIC ${CMAKE_SOURCE_DIR}/include)
+    target_include_directories(InvokeInvoiceSystem PUBLIC ${CMAKE_SOURCE_DIR}/include PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
 
     target_link_libraries(InvokeInvoiceSystem PRIVATE
+        OpenSSL::Crypto
         passlib
         Qt6::Widgets
         # Qt6::Pdf
@@ -284,10 +288,17 @@
     )
     qt_import_plugins(BusinessSessionTests INCLUDE Qt6::QOffscreenIntegrationPlugin)
 
+    qt_add_executable(UpdateTests tests/UpdateTests.cpp
+        src/Infrastructure/Updates/UpdateSecurity.cpp
+        src/Infrastructure/Updates/UpdateDownload.cpp
+        src/Infrastructure/Updates/UpdateStore.cpp)
+    target_include_directories(UpdateTests PRIVATE ${CMAKE_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR}/generated)
+    target_link_libraries(UpdateTests PRIVATE Qt6::Test Qt6::Network OpenSSL::Crypto)
+
     # Build every executable with one command. Discovery starts each Qt Test runner
     # without executing test bodies or contacting the database.
     set(INVOICE_TEST_TARGETS InvokeInvoiceSystemTests DatabaseTests LoggingTests
-        BusinessSessionTests FrontendSessionTests BackendServerTests LocalRateLimiterTests)
+        BusinessSessionTests FrontendSessionTests BackendServerTests LocalRateLimiterTests UpdateTests)
     add_custom_target(all-tests DEPENDS ${INVOICE_TEST_TARGETS})
     function(register_invoice_test name target label)
         set_target_properties(${target} PROPERTIES WIN32_EXECUTABLE OFF MACOSX_BUNDLE OFF)
@@ -301,6 +312,7 @@
     register_invoice_test(PDFGen InvokeInvoiceSystemTests local)
     register_invoice_test(DatabaseHealth DatabaseTests integration)
     register_invoice_test(Logging LoggingTests local)
+    register_invoice_test(Updates UpdateTests local)
     register_invoice_test(BusinessSession BusinessSessionTests local)
     register_invoice_test(FrontendSession FrontendSessionTests local)
     register_invoice_test(BackendServer BackendServerTests local)

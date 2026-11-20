@@ -45,9 +45,10 @@ DefaultInvoiceSettings::DefaultInvoiceSettings(QWidget* parent) : QWidget(parent
     pills->setSpacing(8);
     pills->addWidget(new FilenameTokenPill("Business name", "business_name", filename_template_, content));
     pills->addWidget(new FilenameTokenPill("Invoice number", "invoice_number", filename_template_, content));
+    pills->addWidget(new FilenameTokenPill("Invoice number only", "invoice_number_only", filename_template_, content));
     pills->addStretch();
     form->addRow(pills);
-    auto* filename_help = UiStyle::label("Drag or click a pill to insert it. Type text and separators such as _ between pills. Spaces become underscores; .pdf is added automatically. Leave blank to use the invoice number.", content);
+    auto* filename_help = UiStyle::label("Drag or click a pill to insert it. Type text and separators such as _ between pills. Invoice number only omits the prefix (000001). Spaces become underscores; .pdf is added automatically. Leave blank to use the invoice number.", content);
     filename_help->setWordWrap(true);
     form->addRow(filename_help);
     filename_preview_ = UiStyle::label("", content);
@@ -226,6 +227,6 @@ void DefaultInvoiceSettings::update_filename_preview() {
     const auto error = Domain::Invoices::filename_template_error(pattern);
     filename_preview_->setText(error.isEmpty()
         ? "Example: " + Domain::Invoices::invoice_filename(pattern, business_name_.isEmpty() ? "Your Business" : business_name_,
-                                                          invoice_prefix_->text() + "000001") + ".pdf"
+                                                          invoice_prefix_->text() + "000001", invoice_prefix_->text()) + ".pdf"
         : error);
 }

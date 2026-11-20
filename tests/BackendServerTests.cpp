@@ -106,6 +106,7 @@ class BackendServerTests : public QObject {
         QCOMPARE(request(port_, "/invoices/invoice_start", "{}", true).status, 401);
         QCOMPARE(request(port_, "/business/list").status, 401);
         QCOMPARE(request(port_, "/stock/list").status, 401);
+        QCOMPARE(request(port_, "/stock/update", "{}", true).status, 401);
         QCOMPARE(request(port_, "/data/business", "{}", true).status, 401);
         QCOMPARE(request(port_, "/auth/logout", "{}", true).status, 200);
         QCOMPARE(request(port_, "/auth/logout", "{}", true).status, 200);
