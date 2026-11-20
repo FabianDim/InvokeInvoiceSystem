@@ -126,6 +126,34 @@ class InvoiceWorkflowTests(unittest.TestCase):
     def quantity(self, stock):
         return self.db.Stock.find_one({"_id": ObjectId(stock)})["Quantity"]
 
+    def test_stock_edits_persist_and_enforce_ownership_and_quantity_conflicts(self):
+        stock = self.save("stock", {"BusinessID": self.business, "Name": "Original", "Price": 10, "Quantity": 8})
+        update = dict(_id=stock, BusinessID=self.business, Name="Edited", Quantity=12,
+                      ExpectedQuantity=8, Price=14.5, Margin=0.25, Unit="box", Keywords="Copper, pipe")
+        self.assertEqual(self.request("/stock/update", update)[0], 401)
+        self.assertEqual(self.request("/stock/update", update, self.other)[0], 409)
+        second = self.save("business", {"Business name": "Second"})
+        self.assertEqual(self.request("/stock/update", dict(update, BusinessID=second), self.token)[0], 409)
+        for invalid in (dict(Price=-1), dict(Quantity=1.5), dict(Name=""), dict(ExpectedQuantity="8")):
+            self.assertEqual(self.request("/stock/update", dict(update, **invalid), self.token)[0], 400)
+        self.assertEqual(self.quantity(stock), 8)
+        self.assertEqual(self.request("/stock/update", update, self.token)[0], 200)
+        self.assertEqual(self.request("/stock/update", update, self.token)[0], 409)
+        saved = self.db.Stock.find_one({"_id": ObjectId(stock)})
+        self.assertEqual(saved["Name"], "Edited")
+        self.assertEqual(saved["Quantity"], 12)
+        self.assertEqual(saved["StdPrice"], 14.5)
+        self.assertEqual(saved["ProfitMargin"], 0.25)
+        self.assertEqual(saved["ProductKeywords"], ["copper", "pipe"])
+        self.assertEqual(saved["BusinessID"], ObjectId(self.business))
+        self.assertEqual(self.db.Stock.count_documents({"BusinessID": ObjectId(self.business)}), 1)
+        self.stop_backend()
+        self.start_backend(os.environ["INVOICE_TEST_MONGODB_URI"])
+        self.token = self.login("owner@example.invalid")
+        status, records = self.request("/business/items?BusinessID=" + self.business, token=self.token)
+        self.assertEqual(status, 200)
+        self.assertEqual(records["stocks"][0]["Name"], "Edited")
+
     def test_archive_survives_restart_and_regeneration_preserves_original_details(self):
         stock = self.save("stock", {"BusinessID": self.business, "Name": "Widget", "Price": 10, "Quantity": 8})
         self.db.Business.update_one({"_id": ObjectId(self.business)}, {"$set": {"PaymentTerms": "14"}})

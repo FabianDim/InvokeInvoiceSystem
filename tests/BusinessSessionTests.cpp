@@ -144,6 +144,146 @@ class BusinessSessionTests : public QObject {
     QTemporaryDir settings_directory_;
   private slots:
 
+    void stock_records_popup_edits_offline_and_refreshes() {
+        ApiClient api(QUrl("http://127.0.0.1:1"), nullptr);
+        api.set_offline(true);
+        QSignalSpy businesses(&api, &ApiClient::business_list_received);
+        api.save_resource("business", QJsonDocument(QJsonObject{{"Business name", "Stock test"}}));
+        api.get_business_list();
+        const auto list = qvariant_cast<QJsonDocument>(businesses.last().first()).object();
+        const auto business = list.begin().value().toObject();
+        api.business_selected(business);
+        api.save_resource("stock", QJsonDocument(QJsonObject{{"Name", "Original"}, {"Quantity", 10},
+            {"Price", 12.5}, {"Margin", 0.25}, {"Unit", "box"}, {"Keywords", "one, two"}}));
+        App::Views::ItemsPage page;
+        page.business_selected(business);
+        connect(&page, &App::Views::ItemsPage::items_requested, &api, &ApiClient::get_business_items);
+        connect(&api, &ApiClient::business_items_received, &page, &App::Views::ItemsPage::populate_items);
+        connect(&page, &App::Views::ItemsPage::stock_update_requested, &api, &ApiClient::update_stock);
+        connect(&api, &ApiClient::stock_updated, &page, &App::Views::ItemsPage::stock_updated);
+        connect(&api, &ApiClient::stock_update_failed, &page, &App::Views::ItemsPage::stock_update_failed);
+        QSignalSpy updates(&api, &ApiClient::stock_updated);
+        QSignalSpy requests(&page, &App::Views::ItemsPage::stock_update_requested);
+        page.load_items();
+        page.resize(900, 650); page.show();
+        auto* table = page.findChild<QTableWidget*>("stock_records");
+        page.findChild<QTabWidget*>("business_items_tabs")->setCurrentIndex(2);
+        table->selectRow(0);
+        const auto id = table->item(0, 0)->data(Qt::UserRole);
+        page.findChild<QPushButton*>("edit_stock_item")->click();
+        QPointer<QDialog> popup = page.findChild<QDialog*>("stock_edit_dialog");
+        QVERIFY(popup);
+        QCOMPARE(popup->findChild<QLineEdit*>("stock_edit_name")->text(), "Original");
+        QCOMPARE(popup->findChild<QLineEdit*>("stock_edit_margin")->text(), "25");
+        popup->findChild<QLineEdit*>("stock_edit_name")->setText("Changed");
+        popup->findChild<QLineEdit*>("stock_edit_quantity")->setText("2.5");
+        popup->findChild<QPushButton*>("stock_edit_save")->click();
+        QCOMPARE(requests.size(), 0);
+        QVERIFY(!popup->findChild<QLabel*>("stock_edit_status")->text().isEmpty());
+        popup->findChild<QLineEdit*>("stock_edit_quantity")->setText("14");
+        popup->findChild<QLineEdit*>("stock_edit_price")->setText("18.5");
+        popup->findChild<QLineEdit*>("stock_edit_margin")->setText("30");
+        popup->findChild<QLineEdit*>("stock_edit_keywords")->setText("Copper, pipe");
+        const auto preview = qEnvironmentVariable("INVOICE_STOCK_PREVIEW_DIR");
+        if (!preview.isEmpty()) {
+            QDir().mkpath(preview); QTest::qWait(50);
+            QVERIFY(popup->grab().save(preview + "/stock-edit.png"));
+        }
+        popup->findChild<QPushButton*>("stock_edit_save")->click();
+        QCOMPARE(updates.size(), 1);
+        QTRY_VERIFY(popup.isNull());
+        QCOMPARE(table->rowCount(), 1);
+        QCOMPARE(table->item(0, 0)->data(Qt::UserRole), id);
+        QCOMPARE(table->item(0, 0)->text(), "Changed");
+        QCOMPARE(table->item(0, 1)->text(), "14");
+        QCOMPARE(table->item(0, 3)->text(), "30%");
+        QCOMPARE(table->item(0, 5)->text(), "copper, pipe");
+        table->selectRow(0);
+        page.findChild<QPushButton*>("edit_stock_item")->click();
+        popup = page.findChild<QDialog*>("stock_edit_dialog");
+        popup->findChild<QLineEdit*>("stock_edit_name")->setText("Cancelled");
+        popup->findChild<QPushButton*>("stock_edit_cancel")->click();
+        QTRY_VERIFY(popup.isNull());
+        QCOMPARE(updates.size(), 1);
+        QCOMPARE(table->item(0, 0)->text(), "Changed");
+    }
+
+    void stock_popup_retry_and_business_switch() {
+        App::Views::ItemsPage page;
+        const QString business = "65a000000000000000000001";
+        page.business_selected({{"_id", business}});
+        page.populate_items(business_items(business));
+        page.findChild<QTabWidget*>("business_items_tabs")->setCurrentIndex(2);
+        auto* table = page.findChild<QTableWidget*>("stock_records");
+        table->selectRow(0);
+        page.findChild<QPushButton*>("edit_stock_item")->click();
+        QPointer<QDialog> popup = page.findChild<QDialog*>("stock_edit_dialog");
+        QSignalSpy saves(&page, &App::Views::ItemsPage::stock_update_requested);
+        popup->findChild<QLineEdit*>("stock_edit_name")->setText("Retry name");
+        popup->findChild<QPushButton*>("stock_edit_save")->click();
+        QCOMPARE(saves.size(), 1);
+        const auto request = saves.last()[1].toULongLong();
+        page.stock_update_failed("Connection failed", request);
+        QVERIFY(popup->isEnabled());
+        QCOMPARE(popup->findChild<QLineEdit*>("stock_edit_name")->text(), "Retry name");
+        popup->findChild<QPushButton*>("stock_edit_save")->click();
+        QCOMPARE(saves.size(), 2);
+        page.business_selected({{"_id", "different"}});
+        QTRY_VERIFY(popup.isNull());
+        page.stock_updated(saves.last()[1].toULongLong());
+        QCOMPARE(table->rowCount(), 0);
+    }
+
+    void stock_update_rejects_stale_quantity_and_other_business() {
+        Application::Invoices::OfflineInvoiceSession session;
+        const auto biz = session.save("business", {{"Business name", "Owner"}}, {});
+        const auto other = session.save("business", {{"Business name", "Other"}}, {});
+        const auto stock = session.save("stock", {{"Name", "Original"}, {"Price", 1}, {"Quantity", 4}}, biz);
+        QJsonObject changes{{"_id", stock}, {"Name", "Updated"}, {"Quantity", -2}, {"ExpectedQuantity", 4},
+            {"Price", 2}, {"Margin", 0.15}, {"Unit", ""}, {"Keywords", "A, B"}};
+        QVERIFY_EXCEPTION_THROWN(session.update_stock(other, changes), std::invalid_argument);
+        session.update_stock(biz, changes);
+        QCOMPARE(session.stocks.size(), 1);
+        QCOMPARE(session.stocks.first().toObject().value("Quantity").toInt(), -2);
+        QCOMPARE(session.stocks.first().toObject().value("Unit").toString(), "each");
+        QVERIFY_EXCEPTION_THROWN(session.update_stock(biz, changes), std::invalid_argument);
+        changes["ExpectedQuantity"] = -2;
+        changes["Price"] = -1;
+        QVERIFY_EXCEPTION_THROWN(session.update_stock(biz, changes), std::invalid_argument);
+        QCOMPARE(session.stocks.first().toObject().value("Price").toDouble(), 2.0);
+    }
+
+    void stock_update_http_success_failure_and_cache_refresh() {
+        RecordingServer server; QVERIFY(server.start());
+        QJsonObject received;
+        bool fail = true;
+        server.http.route("/stock/update", QHttpServerRequest::Method::Post, [&](const QHttpServerRequest& request) {
+            received = QJsonDocument::fromJson(request.body()).object();
+            return fail ? QHttpServerResponse(QJsonObject{{"error", "Conflict"}}, QHttpServerResponse::StatusCode::Conflict)
+                        : QHttpServerResponse(QJsonObject{{"ok", true}});
+        });
+        ApiClient api(server.url(), nullptr);
+        const QString biz = "65a000000000000000000001";
+        api.business_selected({{"_id", biz}});
+        QSignalSpy items(&api, &ApiClient::business_items_received);
+        QSignalSpy saved(&api, &ApiClient::stock_updated);
+        QSignalSpy failed(&api, &ApiClient::stock_update_failed);
+        api.get_business_items(); QTRY_COMPARE(items.size(), 1);
+        const QJsonObject changes{{"_id", "65c000000000000000000001"}, {"BusinessID", biz}, {"Name", "Updated"},
+            {"Quantity", 8}, {"ExpectedQuantity", 10}, {"Price", 10}, {"Margin", 0.2}, {"Unit", "each"}, {"Keywords", "a"}};
+        api.update_stock(changes, 1); QTRY_COMPARE(failed.size(), 1);
+        QCOMPARE(received, changes); QCOMPARE(saved.size(), 0);
+        fail = false;
+        api.update_stock(changes, 2); QTRY_COMPARE(saved.size(), 1);
+        QCOMPARE(saved.first().first().toULongLong(), 2);
+        api.get_business_items(); QTRY_COMPARE(items.size(), 2);
+        QCOMPARE(server.items_businesses.size(), 2);
+        api.update_stock(changes, 3);
+        api.business_selected({{"_id", "different"}});
+        QTest::qWait(80);
+        QCOMPARE(saved.size(), 1);
+    }
+
     void filename_template_pills_edit_drop_and_copy() {
         App::Views::DefaultInvoiceSettings settings;
         settings.set_business({{"_id", "filename-test"}, {"BusinessName", "Acme Plumbing"},
@@ -179,7 +319,14 @@ class BusinessSessionTests : public QObject {
         QApplication::sendEvent(field->viewport(), &drop);
         QVERIFY(drop.isAccepted());
         QCOMPARE(field->pattern(), "{invoice_number}_suffix");
-        field->set_pattern("{business_name}_{invoice_number}");
+        field->set_pattern("");
+        settings.findChild<QPushButton*>("filename_token_invoice_number_only")->click();
+        QCOMPARE(field->pattern(), "{invoice_number_only}");
+        QVERIFY(settings.findChild<QLabel*>("invoice_filename_preview")->text().contains("000001.pdf"));
+        QVERIFY(!settings.findChild<QLabel*>("invoice_filename_preview")->text().contains("INV-"));
+        field->selectAll(); field->copy(); field->set_pattern(""); field->paste();
+        QCOMPARE(field->pattern(), "{invoice_number_only}");
+        field->set_pattern("{business_name}_{invoice_number_only}");
         const auto preview = qEnvironmentVariable("INVOICE_FILENAME_PREVIEW_DIR");
         if (!preview.isEmpty()) {
             QDir().mkpath(preview);
@@ -235,7 +382,17 @@ class BusinessSessionTests : public QObject {
         details["file_name"] = "my override";
         session.begin_invoice(details, biz);
         QCOMPARE(QFileInfo(session.generate_pdf(lines)).fileName(), "my_override.pdf");
+        record = session.businesses[biz].toObject();
+        record["InvoiceFilenameTemplate"] = "{business_name}_{invoice_number_only}";
+        record["InvoicePrefix"] = "2026-";
+        session.businesses[biz] = record;
+        details.remove("file_name");
+        session.begin_invoice(details, biz);
+        QCOMPARE(session.invoice_number(), "2026-000004");
+        QCOMPARE(QFileInfo(session.generate_pdf(lines)).fileName(), "Acme_Plumbing_000004.pdf");
         using namespace Domain::Invoices;
+        QCOMPARE(invoice_filename("{invoice_number_only}", "", "2026000042", "2026"), "000042");
+        QCOMPARE(invoice_filename("{invoice_number_only}", "", "000042", ""), "000042");
         QCOMPARE(invoice_filename("{business_name}_{invoice_number}", "Acme / Sydney", "INV:42"), "Acme_Sydney_INV_42");
         QCOMPARE(invoice_filename("", "Acme", "INV-42"), "INV-42");
         QCOMPARE(invoice_filename("CON.pdf", "", ""), "_CON");
@@ -269,8 +426,51 @@ class BusinessSessionTests : public QObject {
         api.invoice_details(QJsonDocument(details)); QTRY_COMPARE(started.size(), 2);
         api.stock_list(lines); QTRY_COMPARE(saved.size(), 2);
         QCOMPARE(QFileInfo(saved.last().first().toString()).fileName(), "custom.pdf");
+        auto numbers_only = business;
+        numbers_only["InvoicePrefix"] = "JOB-";
+        numbers_only["InvoiceFilenameTemplate"] = "{invoice_number_only}";
+        api.business_selected(numbers_only);
+        page.business_selected(numbers_only);
+        page.prepare_invoice("JOB-", output.path());
+        details.remove("file_name");
+        api.invoice_details(QJsonDocument(details)); QTRY_COMPARE(started.size(), 3);
+        QCOMPARE(page.findChild<QLineEdit*>("invoice_file_name")->text(), "000042");
+        api.stock_list(lines); QTRY_COMPARE(saved.size(), 3);
+        QCOMPARE(QFileInfo(saved.last().first().toString()).fileName(), "000042.pdf");
         QVERIFY(!server.invoices.first().contains("file_name"));
         QVERIFY(!server.invoices.first().contains("file_dir"));
+    }
+
+    void illegal_filenames_are_rejected_before_starting_invoices() {
+        using namespace Domain::Invoices;
+        RecordingServer server;
+        QVERIFY(server.start());
+        TestAccountManager account;
+        ApiClient api(server.url(), &account);
+        api.business_selected({{"_id", "65a000000000000000000001"}});
+        QSignalSpy failed(&api, &ApiClient::invoice_failed);
+        Application::Invoices::OfflineInvoiceSession session;
+        const auto biz = session.save("business", {{"Business name", "Acme"}}, {});
+        const auto client = session.save("client", {{"Name", "Customer"}}, biz);
+        QTemporaryDir output;
+        const QStringList invalid{"CON", "nul.pdf", "COM1.extra.pdf", "LPT9", QString::fromUtf8("COM\xc2\xb9.pdf"),
+            "../file", "a/b", "a\\b", "a:b", "a<b", "a>b", "a\"b", "a|b", "a?b", "a*b",
+            "a\nb", QString("a") + QChar(0) + "b", ".", "..", ".pdf", "invoice.", "invoice ", "   ",
+            QString(181, 'x'), QString(100, QChar(0x4e00))};
+        for (const auto& name : invalid) {
+            QVERIFY2(!filename_error(name).isEmpty(), qPrintable(name));
+            QVERIFY2(!filename_template_error(name).isEmpty(), qPrintable(name));
+            QJsonObject details{{"ClientID", client}, {"file_dir", output.path()}, {"file_name", name}};
+            QVERIFY_EXCEPTION_THROWN(session.begin_invoice(details, biz), std::runtime_error);
+            api.invoice_details(QJsonDocument(details));
+        }
+        QCOMPARE(failed.size(), invalid.size());
+        QVERIFY(server.invoices.isEmpty());
+        QCOMPARE(session.businesses[biz].toObject().value("InvoiceSequence").toInteger(), 0);
+        for (const auto& name : {QString("invoice"), QString("my invoice.PDF"), QString("CON_report"), QString("COM10")})
+            QVERIFY2(filename_error(name).isEmpty(), qPrintable(name));
+        for (const auto& name : {QString("CON"), QString("a/b"), QString(300, QChar(0x4e00)), QString(300, 'x')})
+            QVERIFY(filename_error(invoice_filename("{business_name}", name, "")).isEmpty());
     }
 
     void business_gst_payment_preferences_and_rounding() {
@@ -484,18 +684,22 @@ class BusinessSessionTests : public QObject {
         QVERIFY(finish->isEnabled());
         QVERIFY(failed.last().first().toString().contains("Could not save PDF"));
 
+        // Invalid names now fail before reserving a number or reaching the export step.
         details["file_name"] = "../escape";
+        QSignalSpy start_failed(&api, &ApiClient::invoice_failed);
+        QTimer::singleShot(0, &window, []() {
+            if (auto* dialog = qobject_cast<QMessageBox*>(QApplication::activeModalWidget())) dialog->accept();
+        });
         api.invoice_details(QJsonDocument(details));
-        QTRY_COMPARE(started.count(), 3);
+        QCOMPARE(start_failed.count(), 1);
+        QCOMPARE(started.count(), 2);
+        QCOMPARE(server.invoices.size(), 2);
         const auto requests = server.pdf_requests;
-        api.stock_list(QJsonDocument(page->stock_items));
-        QCOMPARE(failed.count(), 4);
-        QCOMPARE(server.pdf_requests, requests);
 
         // Switching business while a download is pending must not save the old invoice.
         details["file_name"] = "stale";
         api.invoice_details(QJsonDocument(details));
-        QTRY_COMPARE(started.count(), 4);
+        QTRY_COMPARE(started.count(), 3);
         api.stock_list(QJsonDocument(page->stock_items));
         api.business_selected(QJsonObject{{"_id", "65a000000000000000000002"}});
         QTRY_COMPARE(server.pdf_requests, requests + 1);

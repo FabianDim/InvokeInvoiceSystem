@@ -2,6 +2,68 @@
 
 A C++20 and Qt 6 desktop application for managing businesses, clients and stock, and generating PDF invoices. The desktop frontend and local backend run as separate executables on the same computer. Account records are stored in MongoDB; the offline demo keeps records in memory. Invoices are saved to a folder you choose.
 
+## Safe application updates
+
+The Windows desktop app checks the public GitHub Releases feed on startup without
+blocking invoice work. **Updates ? Check for updates** runs a manual check;
+**Check on startup** can be turned off. Users can defer or skip a version.
+Only stable, strictly newer `vMAJOR.MINOR.PATCH` releases from
+`FabianDim/InvokeInvoiceSystem` are eligible. No Git checkout or account credentials
+are involved in the update request.
+
+A release must include `update-windows-x64.json` and its Ed25519 signature
+`update-windows-x64.sig`. The app verifies the signature against its embedded
+public key, repository, platform, version, size, expiry and SHA-256 digest before
+running the downloaded standalone EXE. Downloads use validated HTTPS, a restricted
+GitHub/CDN host list, bounded redirects, size limits and timeouts. Missing or
+invalid signatures, HTTP errors, failed startup checks and insufficient disk
+space leave the current app usable. The signed manifest expires after 180 days;
+publish a new release to renew update availability.
+
+**Download update** stages the release under
+`%LOCALAPPDATA%/Invoke/InvokeInvoiceSystem/updates`. A separate **Restart and update**
+confirmation warns about unsaved forms and temporary offline demo data. Saved
+PDFs, account records and application settings are not replaced. The new process
+waits for the old process to exit; it never terminates the old app or requests
+administrator access. Updates run side by side: the original EXE/shortcut remains
+the launcher and fallback, and retained releases remain in the update directory.
+On subsequent launches the original app verifies the selected cached release
+again before handing off, including while offline. If that verification or launch
+fails, the original app opens instead. The startup check confirms the reported
+version and that the executable/Qt runtime can start; it cannot guarantee every
+feature in a new release is bug-free.
+
+For recovery, run the original executable with `--no-update-handoff` to bypass
+the cached release. Old app versions that predate this updater need one manual
+upgrade to an updater-enabled release. Source builds on other operating systems
+keep using their normal installation process.
+
+### Release signing setup
+
+The tracked `config/update-public-key.pem` is the trust anchor. Its private key
+must stay outside the repository. Configure the **INVOICE_UPDATE_SIGNING_KEY**
+GitHub Actions repository secret with the matching private PEM key before pushing
+a release. The release job signs the exact standalone EXE's metadata and verifies
+that the secret matches the committed public key; publishing fails closed without
+it. Limit release/signing access to trusted maintainers, protect the release
+branch, and keep a secure backup of the private key. Never place the private key
+in release assets, workflow logs, or the repository. Application-level update
+signatures are separate from Windows Authenticode/SmartScreen signing.
+
+For a local package, use Python 3.11+ and OpenSSL 3:
+
+```powershell
+python .github/scripts/sign-update.py --version 0.1.1 `
+  --asset out/release/InvokeInvoiceSystem-0.1.1-windows-x64.exe `
+  --output-dir out/release `
+  --key-file "$env:USERPROFILE/.invoke-invoice-release/update-signing-key.pem"
+```
+
+Publish the EXE, signed JSON, signature, checksum and license notices together in
+a draft release, then publish it. Do not replace the public key casually: existing
+clients trust the key built into their executable. Key rotation needs a planned
+transition release signed with the existing key or a manual verified reinstall.
+
 ## Run it on your machine
 
 To try the app without an account, backend process or MongoDB, build and launch the frontend using steps 1, 2 and 4, then follow the [offline invoice demo](#try-the-offline-invoice-demo). Demo records exist only in memory and are discarded when you select **Exit demo** or close the frontend. Existing account records and account settings are unavailable in this mode; only the exported PDF is saved.
@@ -256,7 +318,7 @@ The Python Object ID migration suite is currently unavailable because
 `scripts/migrate_object_ids.py` is absent; CMake does not register it. Restoring
 that suite also requires its Python dependencies and a local MongoDB replica set
 for transactional integration tests. `InvoiceMenuTests.cpp` contains only a
-commented-out test, so it has no executable test cases. All six active C++ suites
+commented-out test, so it has no executable test cases. All eight active C++ suites
 run in this workflow.
 
 #### GitHub Actions deployment setup
@@ -337,14 +399,19 @@ do not change re-exported invoices. Existing businesses default to no GST and CO
 until their settings are updated. The offline demo supports the same features.
 
 **Business invoice settings** also includes an **Automatic PDF filename** box.
-Drag the **Business name** and **Invoice number** pills into the box (or click
+Drag the **Business name**, **Invoice number** or **Invoice number only** pills into the box (or click
 them to insert at the cursor), then type separators or other text between them.
 For example, `[Business name]_[Invoice number]` produces
-`Acme_Plumbing_INV-000001.pdf`. The preview uses a sample number; export uses the
+`Acme_Plumbing_INV-000001.pdf`. **Invoice number only** omits the prefix and keeps
+leading zeros: `[Business name]_[Invoice number only]` produces
+`Acme_Plumbing_000001.pdf`. The preview uses a sample number; export uses the
 actual assigned invoice number. Spaces become underscores and the `.pdf` suffix
 is added once. Templates are saved per business in both account and demo mode.
 Leave the template blank to use the invoice number, or enter a filename on a
-particular invoice to override the template for that export.
+particular invoice to override the template for that export. Invalid templates
+and overrides are rejected, including reserved Windows device names, path
+separators, control characters, trailing dots/spaces and excessive length.
+Values inserted by pills are made safe for filenames automatically.
 
 Select a business and choose **Browse invoices** to view completed invoices in
 pages of 50. **Already paid** on the creation form defaults to unchecked; history
@@ -502,8 +569,14 @@ do not affect stock. Account invoice completion requires MongoDB Atlas or a
 replica set; standalone MongoDB cannot perform these transactions. Offline demo
 invoices apply the same inventory rules to their temporary records.
 
-Business records show names and details. Right-click a row to view or copy its
-record ID.
+Business records show names and details. In the Stock tab, select a row and click
+**Edit stock item**, double-click it, or use its right-click menu. The popup edits
+name, stock on hand, price (excluding GST), margin (%), unit and keywords. Save
+updates the existing item and refreshes records; Cancel discards changes. Failed
+saves keep your edits available to retry. If stock on hand changed while the popup
+was open, cancel and refresh before editing again. Account edits persist in the
+database; offline edits last for the demo session. Right-click any record to view
+or copy its record ID.
 
 To run the HTTP/database regression tests, start an isolated local MongoDB replica
 set, install `pymongo` in your test Python environment, then run:
@@ -616,6 +689,8 @@ plugins beside the runners.
 | `BusinessSession` | `BusinessSessionTests` | Local; offscreen UI. |
 | `FrontendSession` | `FrontendSessionTests` | Local test HTTP server. |
 | `BackendServer` | `BackendServerTests` | Local HTTP server; no MongoDB. |
+| `Updates` | `UpdateTests` | Local; Ed25519 manifests, URL allowlist, download and staging checks. |
+| `LocalRateLimiter` | `LocalRateLimiterTests` | Local. |
 | `DatabaseHealth` | `DatabaseTests` | Live MongoDB credentials for actual test execution. |
 
 Run the local test bodies, or list all registered checks:

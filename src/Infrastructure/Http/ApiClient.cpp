@@ -1,3 +1,4 @@
+#include "Domain/Stock/StockEdit.h"
 #include "Domain/Business/InvoicePreferences.h"
 #include "Domain/Invoices/InvoiceFilename.h"
 #include "Infrastructure/Logging/HttpLogging.h"
@@ -403,6 +404,10 @@ void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoi
     payload["BusinessID"] = current_business_id_;
     const auto directory = payload.take("file_dir").toString();
     const auto filename = payload.take("file_name").toString();
+    if (!filename.isEmpty()) {
+        const auto error = Domain::Invoices::filename_error(filename);
+        if (!error.isEmpty()) { emit invoice_failed(error); return; }
+    }
     const auto business = current_business_;
     QUrl url = baseUrl_;
     url.setPath("/invoices/invoice_start");
@@ -425,7 +430,7 @@ void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoi
                     const auto assigned = QJsonDocument::fromJson(reply->readAll()).object().value("invoice_number").toString();
                     invoice_filename_ = filename.trimmed().isEmpty()
                         ? Domain::Invoices::invoice_filename(business.value("InvoiceFilenameTemplate").toString(),
-                            business.value("BusinessName").toString(), assigned) : filename;
+                            business.value("BusinessName").toString(), assigned, business.value("InvoicePrefix").toString("INV-")) : filename;
                     emit invoice_number_assigned(assigned);
                     emit invoice_started();
                 } else {
@@ -464,10 +469,11 @@ void Infrastructure::Http::ApiClient::finish_stock_list(const QJsonDocument& sto
         return;
     }
     qCDebug(Infrastructure::Logging::pdf) << "event=pdf.download.requested item_count=" << stock.array().size();
-    auto filename = invoice_filename_.trimmed();
-    if (filename.isEmpty() || filename.contains(QRegularExpression("[<>:\"/\\\\|?*]")) || filename == "." || filename == "..") {
+    auto filename = invoice_filename_;
+    const auto filename_error = Domain::Invoices::filename_error(filename);
+    if (!filename_error.isEmpty()) {
         qCWarning(Infrastructure::Logging::pdf) << "event=pdf.export.rejected reason=invalid_filename";
-        emit pdf_failed("Enter a file name without path separators or reserved characters in the invoice details.");
+        emit pdf_failed(filename_error);
         return;
     }
     if (invoice_directory_.isEmpty() || !QFileInfo(invoice_directory_).isDir() || !QFileInfo(invoice_directory_).isWritable()) {
@@ -726,5 +732,38 @@ void ApiClient::save_invoice_settings(const QJsonObject& settings) {
         invalidate_business_items();
         emit invoice_settings_saved();
         get_business_list();
+    });
+}
+
+void Infrastructure::Http::ApiClient::update_stock(const QJsonObject& data, quint64 request_id) {
+    const auto business = current_business_id_;
+    if (business.isEmpty() || data.value("BusinessID").toString() != business || data.value("_id").toString().isEmpty()) {
+        emit stock_update_failed("Choose a stock item from the selected business.", request_id); return;
+    }
+    try { Domain::Stock::stock_edit_values(data); }
+    catch (const std::exception& error) { emit stock_update_failed(QString::fromUtf8(error.what()), request_id); return; }
+    if (offline_) {
+        try {
+            offline_session_.update_stock(business, data);
+            invalidate_business_items();
+            emit stock_updated(request_id);
+        } catch (const std::exception& error) { emit stock_update_failed(QString::fromUtf8(error.what()), request_id); }
+        return;
+    }
+    const auto session = session_generation_;
+    auto url = baseUrl_; url.setPath("/stock/update");
+    auto request = make_request(url);
+    request.setTransferTimeout(30000);
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    auto* reply = networkManager_->post(request, QJsonDocument(data).toJson(QJsonDocument::Compact));
+    Infrastructure::Logging::traceReply(reply);
+    connect(reply, &QNetworkReply::finished, this, [=, this]() {
+        reply->deleteLater();
+        if (session != session_generation_ || business != current_business_id_) return;
+        const auto response = QJsonDocument::fromJson(reply->readAll()).object();
+        if (reply->error() == QNetworkReply::NoError && response.value("ok").toBool()) {
+            invalidate_business_items();
+            emit stock_updated(request_id);
+        } else emit stock_update_failed(response.value("error").toString("Could not save stock. Please try again."), request_id);
     });
 }
