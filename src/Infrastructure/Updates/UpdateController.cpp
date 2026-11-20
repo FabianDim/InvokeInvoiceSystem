@@ -130,7 +130,9 @@ void UpdateController::download(const Manifest& manifest, const QByteArray& json
 void UpdateController::check_startup(const Manifest& manifest) {
     status_->setText("Verifying that the new version starts correctly...");
     auto* process = new QProcess(dialog_);
-    process->setProgram(stage_->path() + "/application.exe"); process->setArguments({"--version"});
+    // The self-check writes its version to stdout and never starts the UI or a cached handoff.
+    process->setProgram(stage_->path() + "/application.exe");
+    process->setArguments({"--update-self-check", "--no-update-handoff"});
     process->setWorkingDirectory(stage_->path());
     auto env = QProcessEnvironment::systemEnvironment(); env.remove("QT_PLUGIN_PATH"); env.remove("QT_QPA_PLATFORM_PLUGIN_PATH");
     env.insert("QT_QPA_PLATFORM", "windows"); env.insert("QT_ASSUME_STDERR_HAS_CONSOLE", "1"); process->setProcessEnvironment(env);

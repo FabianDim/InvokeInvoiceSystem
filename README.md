@@ -318,7 +318,7 @@ The Python Object ID migration suite is currently unavailable because
 `scripts/migrate_object_ids.py` is absent; CMake does not register it. Restoring
 that suite also requires its Python dependencies and a local MongoDB replica set
 for transactional integration tests. `InvoiceMenuTests.cpp` contains only a
-commented-out test, so it has no executable test cases. All six active C++ suites
+commented-out test, so it has no executable test cases. All eight active C++ suites
 run in this workflow.
 
 #### GitHub Actions deployment setup
@@ -689,6 +689,8 @@ plugins beside the runners.
 | `BusinessSession` | `BusinessSessionTests` | Local; offscreen UI. |
 | `FrontendSession` | `FrontendSessionTests` | Local test HTTP server. |
 | `BackendServer` | `BackendServerTests` | Local HTTP server; no MongoDB. |
+| `Updates` | `UpdateTests` | Local; Ed25519 manifests, URL allowlist, download and staging checks. |
+| `LocalRateLimiter` | `LocalRateLimiterTests` | Local. |
 | `DatabaseHealth` | `DatabaseTests` | Live MongoDB credentials for actual test execution. |
 
 Run the local test bodies, or list all registered checks:

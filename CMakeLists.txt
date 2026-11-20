@@ -352,6 +352,12 @@
         set_tests_properties(WindowsDesktopStartup PROPERTIES
             ENVIRONMENT "QT_QPA_PLATFORM=windows;QT_PLUGIN_PATH=;QT_QPA_PLATFORM_PLUGIN_PATH=;QT_ASSUME_STDERR_HAS_CONSOLE=1"
             TIMEOUT 30 LABELS "local;smoke")
+        # The updater hands off only after this exact handshake succeeds.
+        add_test(NAME WindowsUpdateSelfCheck COMMAND InvokeInvoiceSystem --update-self-check)
+        set_tests_properties(WindowsUpdateSelfCheck PROPERTIES
+            ENVIRONMENT "QT_QPA_PLATFORM=windows;QT_PLUGIN_PATH=;QT_QPA_PLATFORM_PLUGIN_PATH=;QT_ASSUME_STDERR_HAS_CONSOLE=1"
+            TIMEOUT 30 LABELS "local;smoke"
+            PASS_REGULAR_EXPRESSION "InvokeInvoiceSystem [0-9]+\\.[0-9]+\\.[0-9]+")
     endif()
 
     # Only shared Qt builds need DLL/plugin deployment. Static vcpkg packages
