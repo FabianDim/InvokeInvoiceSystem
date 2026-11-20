@@ -12,14 +12,14 @@ class InvoicePdfGenerator {
         float x;
         float y;
         float rowHeight;
-        float colWidths[5];
+        float colWidths[6];
     };
     struct TableHeader {
         float x;
         float y;
         float rowHeight;
-        float colWidths[5];
-        std::string strings[5];
+        float colWidths[6];
+        std::string strings[6];
     };
 
   public:
@@ -62,6 +62,7 @@ class InvoicePdfGenerator {
     void draw_invoice_page_header(HPDF_Doc pdf, HPDF_Page page, bool first_page);
     float draw_invoice_client(HPDF_Doc pdf, HPDF_Page page);
     void draw_invoice_footer(HPDF_Doc pdf, HPDF_Page page, int page_number);
+    void draw_invoice_terms(HPDF_Doc pdf, HPDF_Page page, int& page_number, float content_bottom);
     bool row_fits_on_page(const TableLayout& table, int rowIndex) const;
     const float peece_margin = 25.0f;
     std::shared_ptr<Invoice> cur_invoice_;

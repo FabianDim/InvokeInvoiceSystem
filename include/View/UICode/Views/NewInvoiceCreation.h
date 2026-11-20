@@ -1,4 +1,5 @@
 #pragma once
+#include <QJsonObject>
 
 #include <QWidget>
 #include <QVBoxLayout>
@@ -38,6 +39,9 @@ class InvoiceDetailsInput : public QWidget {
     QPushButton* refresh_clients_;
     QPushButton* next_button_;
     QString business_id_;
+    QJsonObject filename_business_;
+    QString payment_terms_ = "COD";
+    void update_due_date();
 
     QMap<QString, QWidget*> base_invoice_form_fields_;
 };

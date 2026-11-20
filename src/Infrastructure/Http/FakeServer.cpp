@@ -241,7 +241,7 @@ void Server::create_routes_business() {
             try {
                 const auto doc = QJsonDocument::fromJson(request.body());
                 if (!doc.isObject() || !db_manager_.save_invoice_settings(session->user_id, doc.object()))
-                    return QHttpServerResponse(QJsonObject{{"error", "Choose your business and a prefix of at most 40 characters."}}, QHttpServerResponse::StatusCode::BadRequest);
+                    return QHttpServerResponse(QJsonObject{{"error", "Choose your business, a prefix of at most 40 characters, and terms of at most 4,000 characters."}}, QHttpServerResponse::StatusCode::BadRequest);
                 return QHttpServerResponse(QJsonObject{{"ok", true}});
             } catch (const std::exception&) {
                 return QHttpServerResponse(QJsonObject{{"error", "Could not save business invoice settings."}}, QHttpServerResponse::StatusCode::InternalServerError);

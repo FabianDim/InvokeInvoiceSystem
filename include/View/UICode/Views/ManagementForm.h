@@ -1,4 +1,5 @@
 #pragma once
+#include "View/UICode/Views/InvoicePreferencesForm.h"
 
 #include <QWidget>
 #include <QVector>
@@ -10,6 +11,7 @@ class QFormLayout;
 class QLineEdit;
 class QLabel;
 class QComboBox;
+class QCheckBox;
 
 namespace App::Views {
 class ManagementForm : public QWidget {
@@ -44,6 +46,8 @@ class ManagementForm : public QWidget {
     QLineEdit* logo_path_ = nullptr;
     QByteArray logo_data_;
     QComboBox* country_ = nullptr;
+    QCheckBox* gst_registered_ = nullptr;
+    InvoicePreferencesForm* invoice_preferences_ = nullptr;
     bool saving_ = false;
     bool add_another_ = false;
     void set_saving(bool saving);

@@ -1,3 +1,5 @@
+#include "Domain/Business/InvoicePreferences.h"
+#include "Domain/Invoices/InvoiceFilename.h"
 #include "Infrastructure/Logging/HttpLogging.h"
 #include "Infrastructure/Http/ApiClient.h"
 #include "Domain/Accounts/User.h"
@@ -86,6 +88,7 @@ void ApiClient::clear_session() {
     business_items_reply_ = nullptr;
     ++session_generation_;
     current_business_id_.clear();
+    current_business_ = {};
     invalidate_business_items();
     if (!old_token.isEmpty()) {
         QUrl url = baseUrl_;
@@ -359,6 +362,7 @@ void Infrastructure::Http::ApiClient::get_stock_list() {
 
 void Infrastructure::Http::ApiClient::business_selected(const QJsonObject& biz) {
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::http(), "ApiClient.business_selected");
+    current_business_ = biz;
     const auto id = biz.value("_id").toString();
     if (id != current_business_id_) {
         ++invoice_generation_;
@@ -399,6 +403,7 @@ void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoi
     payload["BusinessID"] = current_business_id_;
     const auto directory = payload.take("file_dir").toString();
     const auto filename = payload.take("file_name").toString();
+    const auto business = current_business_;
     QUrl url = baseUrl_;
     url.setPath("/invoices/invoice_start");
     auto request = make_request(url);
@@ -418,7 +423,9 @@ void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoi
                 if (reply->error() == QNetworkReply::NoError) {
                     invoice_directory_ = directory;
                     const auto assigned = QJsonDocument::fromJson(reply->readAll()).object().value("invoice_number").toString();
-                    invoice_filename_ = filename.trimmed().isEmpty() ? assigned : filename;
+                    invoice_filename_ = filename.trimmed().isEmpty()
+                        ? Domain::Invoices::invoice_filename(business.value("InvoiceFilenameTemplate").toString(),
+                            business.value("BusinessName").toString(), assigned) : filename;
                     emit invoice_number_assigned(assigned);
                     emit invoice_started();
                 } else {
@@ -674,7 +681,20 @@ void Infrastructure::Http::ApiClient::do_login(const QString& email, const QStri
 // Sending login reques "http://127.0.0.1:1234/auth/login"
 
 void ApiClient::save_invoice_settings(const QJsonObject& settings) {
+    if (!Domain::Invoices::valid_filename_setting(settings)) {
+        emit invoice_settings_failed("Enter a valid filename template of at most 200 characters using the available pills.");
+        return;
+    }
+    if (!Domain::Business::valid_preferences(settings)) {
+        emit invoice_settings_failed("Choose COD, 14 or 30 days and bank details of at most 120 characters per field.");
+        return;
+    }
     const auto business_id = settings.value("BusinessID").toString();
+    const auto terms = settings.value("InvoiceTerms");
+    if (!terms.isUndefined() && (!terms.isString() || terms.toString().size() > 4000)) {
+        emit invoice_settings_failed("Terms and conditions must be text of at most 4,000 characters.");
+        return;
+    }
     if (offline_) {
         if (!offline_session_.businesses.contains(business_id) || !settings.value("InvoicePrefix").isString() ||
             settings.value("InvoicePrefix").toString().size() > 40) {
@@ -683,6 +703,9 @@ void ApiClient::save_invoice_settings(const QJsonObject& settings) {
         }
         auto business = offline_session_.businesses.value(business_id).toObject();
         business["InvoicePrefix"] = settings.value("InvoicePrefix");
+        if (!terms.isUndefined()) business["InvoiceTerms"] = terms;
+        for (const auto* key : {"GSTRegistered", "PaymentTerms", "BankName", "BankAccountName", "BankBSB", "BankAccountNumber", "InvoiceFilenameTemplate"})
+            if (settings.contains(key)) business[key] = settings.value(key);
         offline_session_.businesses[business_id] = business;
         emit invoice_settings_saved();
         get_business_list();

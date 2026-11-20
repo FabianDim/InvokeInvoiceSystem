@@ -54,10 +54,12 @@ void InvoiceServices::add_business_to_invoice(const QJsonDocument& doc) {
     if (!obj["Phone"].isUndefined())
         biz->setPhone(obj["Phone"].toString().toStdString());
     biz->set_website_url(obj.value("Website").toString().toStdString());
+    biz->set_invoice_terms(obj.value("InvoiceTerms").toString().toStdString());
     biz->setAddress(obj.value("Address").toString().toStdString());
     // Ignore client-supplied and legacy persisted paths at the backend boundary.
     biz->set_business_logo_data(obj.value("LogoData").toString().toStdString());
 
+    Domain::Business::load_preferences(*biz, obj);
     invoice_.setBusiness(biz);
     qCDebug(Infrastructure::Logging::pdf) << "event=invoice.business.attached";
 }
@@ -86,9 +88,11 @@ void Infrastructure::Services::InvoiceServices::begin_invoice_details(const QJso
         return InvoiceTemplateEnum::PEECE;
     };
     invoice_.setCliInvoiceID(doc.object().value("invoice_number").toString().toStdString());
-    invoice_.setDueDate(doc.object().value("date_due").toString().toStdString());
+    const auto issued = doc.object().value("date_created").toString(QDate::currentDate().toString(Qt::ISODate));
+    invoice_.setDueDate(Domain::Business::due_date(issued, invoice_.getBusiness()
+        ? QString::fromStdString(invoice_.getBusiness()->get_payment_terms()) : QString("COD")).toStdString());
     invoice_.setIsPaid(doc.object().value("paid").toBool(false));
-    invoice_.setCurrentDate(doc.object().value("date_created").toString().toStdString());
+    invoice_.setCurrentDate(issued.toStdString());
     invoice_.setTemplate(template_converter(doc.object().value("invoice_theme").toString().toStdString()));
 }
 
