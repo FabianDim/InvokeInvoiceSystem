@@ -1,3 +1,4 @@
+#include "Domain/Stock/StockEdit.h"
 #include "Infrastructure/Logging/Logging.h"
 #include "Infrastructure/Database/Mongo/MongoDBDataManager.h"
 #include <bsoncxx/json.hpp>
@@ -487,6 +488,25 @@ QJsonDocument MongoDBDataManager::list_resources(const std::string& resource,
         }
     }
     return QJsonDocument(result);
+}
+
+bool MongoDBDataManager::update_stock(const std::string& user_id, const QJsonObject& data) {
+    const auto values = Domain::Stock::stock_edit_values(data);
+    const auto owner = Infrastructure::Database::parse_object_id(user_id);
+    const auto business = Infrastructure::Database::parse_object_id(data.value("BusinessID").toString().toStdString());
+    const auto stock = Infrastructure::Database::parse_object_id(data.value("_id").toString().toStdString());
+    if (!owner || !business || !stock) return false;
+    if (!database()["Business"].find_one(make_document(kvp("_id", *business), kvp("UserID", *owner)))) return false;
+    bsoncxx::builder::basic::array keywords;
+    for (const auto& word : values.value("Keywords").toArray()) keywords.append(word.toString().toStdString());
+    const auto fields = make_document(kvp("Name", values.value("Name").toString().toStdString()),
+        kvp("Quantity", values.value("Quantity").toInt()), kvp("StdPrice", values.value("Price").toDouble()),
+        kvp("ProfitMargin", values.value("Margin").toDouble()), kvp("Unit Type", values.value("Unit").toString().toStdString()),
+        kvp("ProductKeywords", keywords));
+    const auto result = database()["Stock"].update_one(
+        make_document(kvp("_id", *stock), kvp("BusinessID", *business), kvp("Quantity", data.value("ExpectedQuantity").toInt())),
+        make_document(kvp("$set", fields.view())));
+    return result && result->matched_count() == 1;
 }
 
 bool MongoDBDataManager::save_resource(const std::string& resource,

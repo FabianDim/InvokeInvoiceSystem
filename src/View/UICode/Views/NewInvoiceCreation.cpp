@@ -283,5 +283,5 @@ void InvoiceDetailsInput::number_assigned(const QString& number) {
     if (findChild<QLineEdit*>("invoice_file_name")->text().trimmed().isEmpty())
         findChild<QLineEdit*>("invoice_file_name")->setText(Domain::Invoices::invoice_filename(
             filename_business_.value("InvoiceFilenameTemplate").toString(),
-            filename_business_.value("BusinessName").toString(), number));
+            filename_business_.value("BusinessName").toString(), number, filename_business_.value("InvoicePrefix").toString("INV-")));
 }
