@@ -321,6 +321,31 @@ items, invoice number, dates, total, and payment status. The database transactio
 must succeed before the PDF is returned. An unsuccessful download does not lose
 the saved invoice.
 
+GST registration, payment terms and bank details are saved per business. Set them
+when creating a business or change them in **Business invoice settings**. Enter
+stock and invoice item prices **excluding GST**. Registered businesses add 10%
+GST to every extended line, rounded to cents per line; invoices show each line's
+GST, subtotal, GST total and amount due. Businesses without GST registration add
+no GST and use the title **Invoice** instead of **Tax Invoice**.
+
+Payment terms are **COD**, **14 days** or **30 days**. COD defaults to the invoice
+date; the other options add calendar days to that date. Changing the invoice date
+updates the due date automatically. Bank name, account name, BSB and account
+number are optional and print with the payment instructions. Completed invoices
+retain these settings and terms in their saved snapshot, so later business edits
+do not change re-exported invoices. Existing businesses default to no GST and COD
+until their settings are updated. The offline demo supports the same features.
+
+**Business invoice settings** also includes an **Automatic PDF filename** box.
+Drag the **Business name** and **Invoice number** pills into the box (or click
+them to insert at the cursor), then type separators or other text between them.
+For example, `[Business name]_[Invoice number]` produces
+`Acme_Plumbing_INV-000001.pdf`. The preview uses a sample number; export uses the
+actual assigned invoice number. Spaces become underscores and the `.pdf` suffix
+is added once. Templates are saved per business in both account and demo mode.
+Leave the template blank to use the invoice number, or enter a filename on a
+particular invoice to override the template for that export.
+
 Select a business and choose **Browse invoices** to view completed invoices in
 pages of 50. **Already paid** on the creation form defaults to unchecked; history
 offers **Mark as paid / Mark as unpaid**. Unpaid invoices with a due date before
@@ -351,7 +376,7 @@ labelled as legacy copies; original details cannot be recovered retroactively.
 2. Select **Configure business** on the dashboard and save your business details. You can include a website and a PNG or JPEG logo up to 5 MB.
 3. Choose the business on the dashboard, then use **Create new client** to save a client for it. You can also add reusable stock with **Create stock item**.
 4. Select **Create new invoice** and choose a saved client. Enter the invoice number, file name, output folder, creation date and due date. The available theme is **PEECE**.
-5. Select **Next**, then choose **New item** or **Saved stock**. Enter a positive whole invoice quantity and a non-negative price, then select **Add item**. New items can be used just for this invoice, or saved with **Save this item to business stock** for reuse. Select **Finish invoice** once you have added all items.
+5. Select **Next**, then choose **New item** or **Saved stock**. Enter a positive whole invoice quantity and a non-negative price, then select **Add item**. New items can be used just for this invoice, or saved with **Save this item to business stock** for reuse. Use **Remove** beside an added item to remove that line from the invoice; saved business stock is kept. Select **Finish invoice** once you have added all items. Items cannot be removed while saving or after the PDF has been saved.
 6. Open the PDF in your chosen output folder. File-name spaces are replaced with underscores, and `.pdf` is appended if needed.
 
 ## Debug logs

@@ -53,6 +53,21 @@ class BusinessRepository {
     }
 
     // Setters
+    const std::string& get_invoice_terms() const { return invoice_terms_; }
+    void set_invoice_terms(const std::string& value) { invoice_terms_ = value; }
+    bool get_gst_registered() const { return gst_registered_; }
+    void set_gst_registered(bool value) { gst_registered_ = value; }
+    const std::string& get_payment_terms() const { return payment_terms_; }
+    void set_payment_terms(const std::string& value) { payment_terms_ = value; }
+    const std::string& get_bank_name() const { return bank_name_; }
+    void set_bank_name(const std::string& value) { bank_name_ = value; }
+    const std::string& get_bank_account_name() const { return bank_account_name_; }
+    void set_bank_account_name(const std::string& value) { bank_account_name_ = value; }
+    const std::string& get_bank_bsb() const { return bank_bsb_; }
+    void set_bank_bsb(const std::string& value) { bank_bsb_ = value; }
+    const std::string& get_bank_account_number() const { return bank_account_number_; }
+    void set_bank_account_number(const std::string& value) { bank_account_number_ = value; }
+
     void setBizID(const std::string& id) {
         biz_id = id;
     }
@@ -106,6 +121,10 @@ class BusinessRepository {
     std::string website_url_;
     std::string business_logo_path_;
     std::string business_logo_data_;
+    std::string invoice_terms_;
+    bool gst_registered_ = false;
+    std::string payment_terms_ = "COD";
+    std::string bank_name_, bank_account_name_, bank_bsb_, bank_account_number_;
 
     std::shared_ptr<User> current_user_;
     std::string current_user_id_;

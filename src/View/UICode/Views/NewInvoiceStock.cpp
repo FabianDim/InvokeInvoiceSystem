@@ -1,3 +1,4 @@
+#include "Domain/Invoices/InvoiceRecord.h"
 #include "Infrastructure/Logging/Logging.h"
 #include "View/UICode/Views/NewInvoiceStock.h"
 #include "View/UiStyle.h"
@@ -18,11 +19,12 @@ void NewInvoiceStock::reset_invoice() {
     shortage_policy_ = "reject";
     if (shortage_dialog_) shortage_dialog_->reject();
     saving_pdf_ = false;
+    invoice_finalized_ = false;
     set_saving_stock(false);
     stock_items = QJsonArray{};
-    for (auto* label : item_labels_)
-        delete label;
-    item_labels_.clear();
+    for (auto* row : item_rows_)
+        delete row;
+    item_rows_.clear();
     for (auto* field : invoice_body_form_fields) {
         if (auto* selector = qobject_cast<QComboBox*>(field))
             selector->clear();
@@ -39,16 +41,21 @@ void NewInvoiceStock::reset_invoice() {
     save_stock_->setChecked(false);
     item_source_->setCurrentIndex(0);
     status_label_->clear();
+    update_totals();
     update_item_source();
 }
 
 void NewInvoiceStock::business_selected(const QJsonObject& business) {
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "NewInvoiceStock.business_selected");
+    const auto registered = Domain::Business::gst_registered(business);
+    const bool changed = registered != gst_registered_;
+    gst_registered_ = registered;
     const auto id = business.value("_id").toString();
-    if (id != business_id_ || id.isEmpty()) {
+    if (id != business_id_ || id.isEmpty() || changed) {
         business_id_ = id;
         reset_invoice();
     }
+    update_totals();
 }
 
 void NewInvoiceStock::populate_stock_list(const QJsonDocument& list) {
@@ -79,32 +86,63 @@ void NewInvoiceStock::create_page_layout() {
     scroll->setMinimumHeight(140);
     scroll->setMaximumHeight(200);
     auto* item_list = new QWidget(scroll);
-    auto* columns = new QHBoxLayout(item_list);
-    auto* names = new QVBoxLayout;
-    auto* quantities = new QVBoxLayout;
-    auto* prices = new QVBoxLayout;
-    names->addWidget(UiStyle::label("Item name", item_list));
-    quantities->addWidget(UiStyle::label("Quantity", item_list));
-    prices->addWidget(UiStyle::label("Price", item_list));
-    for (auto* column : {names, quantities, prices}) {
-        column->setAlignment(Qt::AlignTop);
-        column->setSpacing(10);
-    }
-    columns->addLayout(names, 2);
-    columns->addLayout(quantities, 1);
-    columns->addLayout(prices, 1);
+    auto* rows = new QVBoxLayout(item_list);
+    rows->setAlignment(Qt::AlignTop);
+    rows->setSpacing(10);
+    auto* header = new QHBoxLayout;
+    header->addWidget(UiStyle::label("Item name", item_list), 2);
+    header->addWidget(UiStyle::label("Quantity", item_list), 1);
+    header->addWidget(UiStyle::label("Price ex GST", item_list), 1);
+    header->addWidget(UiStyle::label("GST / total", item_list), 1);
+    header->addSpacing(88);
+    rows->addLayout(header);
     scroll->setWidget(item_list);
     group_layout->addWidget(scroll);
     layout->addWidget(group);
+    totals_label_ = UiStyle::label("", content);
+    totals_label_->setObjectName("invoice_totals");
+    totals_label_->setWordWrap(true);
+    layout->addWidget(totals_label_);
     connect(this, &NewInvoiceStock::add_item_to_invoice, this,
-            [this, names, quantities, prices, item_list](const QJsonObject& item) {
-                auto* name = UiStyle::label(item.value("Name").toString(), item_list, "body");
-                auto* quantity = UiStyle::label(QString::number(item.value("Quantity").toInt()), item_list, "body");
-                auto* price = UiStyle::label(QString::number(item.value("Price").toDouble(), 'f', 2), item_list, "body");
-                names->addWidget(name);
-                quantities->addWidget(quantity);
-                prices->addWidget(price);
-                item_labels_ << name << quantity << price;
+            [this, rows, item_list](const QJsonObject& item) {
+                auto* row = new QWidget(item_list);
+                auto* cells = new QHBoxLayout(row);
+                cells->setContentsMargins(0, 0, 0, 0);
+                auto* name = UiStyle::label(item.value("Name").toString(), row, "body");
+                name->setTextFormat(Qt::PlainText);
+                name->setWordWrap(true);
+                auto* quantity = UiStyle::label(QString::number(item.value("Quantity").toInt()), row, "body");
+                auto* price = UiStyle::label(QString::number(item.value("Price").toDouble(), 'f', 2), row, "body");
+                auto* remove = new QPushButton("Remove", row);
+                remove->setObjectName("invoice_remove_item");
+                remove->setAccessibleName("Remove " + item.value("Name").toString() + " from invoice");
+                remove->setToolTip("Remove this line from the invoice. Saved business stock is kept.");
+                UiStyle::button(remove);
+                remove->setFixedWidth(88);
+                remove->setMinimumHeight(32);
+                cells->addWidget(name, 2);
+                cells->addWidget(quantity, 1);
+                cells->addWidget(price, 1);
+                Domain::Invoices::Amounts line;
+                line.add(item.value("Price").toDouble(), item.value("Quantity").toInt(), gst_registered_);
+                cells->addWidget(UiStyle::label(QString("$%1 / $%2").arg(line.gst, 0, 'f', 2).arg(line.total(), 0, 'f', 2), row), 1);
+                cells->addWidget(remove);
+                rows->addWidget(row);
+                item_rows_.append(row);
+                row->setEnabled(!saving_stock_ && !saving_pdf_ && !invoice_finalized_);
+                connect(remove, &QPushButton::clicked, this, [this, rows, row]() {
+                    if (saving_stock_ || saving_pdf_ || invoice_finalized_) return;
+                    const auto index = item_rows_.indexOf(row);
+                    if (index < 0 || index >= stock_items.size()) return;
+                    stock_items.removeAt(index);
+                    update_totals();
+                    item_rows_.removeAt(index);
+                    rows->removeWidget(row);
+                    row->hide();
+                    row->deleteLater();
+                    shortage_policy_ = "reject";
+                    status_label_->setText("Item removed from this invoice. Saved business stock is unchanged.");
+                });
             });
 
     create_invoice_pdf = new QPushButton("Finish invoice", content);
@@ -169,7 +207,7 @@ QLayout* NewInvoiceStock::create_item_entry_form() {
     name->setProperty("role", "input");
     form->addWidget(name, 1, 1);
     add_field("Invoice quantity", quantity, 2, 0);
-    add_field("Price each", price, 2, 1);
+    add_field("Price each (excluding GST)", price, 2, 1);
     add_field("Notes (optional)", notes, 4, 0);
     save_stock_ = new QCheckBox("Save this item to business stock", this);
     save_stock_->setObjectName("save_invoice_stock");
@@ -269,7 +307,9 @@ void NewInvoiceStock::update_item_source() {
 
 void NewInvoiceStock::set_saving_stock(bool saving) {
     saving_stock_ = saving;
-    entry_widget_->setEnabled(!saving && !saving_pdf_);
+    entry_widget_->setEnabled(!saving && !saving_pdf_ && !invoice_finalized_);
+    for (auto* row : item_rows_)
+        row->setEnabled(!saving && !saving_pdf_ && !invoice_finalized_);
     back_button_->setEnabled(!saving && !saving_pdf_);
     create_invoice_pdf->setEnabled(!saving && !saving_pdf_);
 }
@@ -277,6 +317,7 @@ void NewInvoiceStock::set_saving_stock(bool saving) {
 void NewInvoiceStock::append_item(const QJsonObject& item) {
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "NewInvoiceStock.append_item");
     stock_items.append(item);
+    update_totals();
     shortage_policy_ = "reject";
     emit add_item_to_invoice(item);
     for (const auto& key : {"quantity", "price", "notes"})
@@ -319,6 +360,7 @@ void NewInvoiceStock::set_offline(bool offline) {
 void NewInvoiceStock::pdf_generated(const QString& path) {
     Infrastructure::Logging::Operation operation(Infrastructure::Logging::ui(), "NewInvoiceStock.pdf_generated");
     saving_pdf_ = false;
+    invoice_finalized_ = true;
     set_saving_stock(false);
     status_label_->setText("PDF saved to " + path);
     entry_widget_->setEnabled(false);
@@ -371,4 +413,15 @@ void NewInvoiceStock::show_stock_shortage(const QJsonArray& items) {
         emit resolve_stock_shortage(QJsonDocument(stock_items), shortage_policy_);
     });
     dialog->open();
+}
+
+void NewInvoiceStock::update_totals() {
+    Domain::Invoices::Amounts totals;
+    for (const auto& value : stock_items) {
+        const auto line = value.toObject();
+        totals.add(line.value("Price").toDouble(), line.value("Quantity").toInt(), gst_registered_);
+    }
+    totals_label_->setText(QString("Subtotal: $%1   |   GST%2: $%3   |   Total: $%4")
+        .arg(totals.subtotal, 0, 'f', 2).arg(gst_registered_ ? " (10%)" : " (not registered)")
+        .arg(totals.gst, 0, 'f', 2).arg(totals.total(), 0, 'f', 2));
 }

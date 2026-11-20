@@ -15,6 +15,7 @@
 #include <cmath>
 #include "Domain/Stock/StockShortage.h"
 #include "Domain/Invoices/InvoiceRecord.h"
+#include "Domain/Invoices/InvoiceFilename.h"
 #include <mongocxx/options/find.hpp>
 
 QString MongoDBDataManager::reserve_invoice_number(const std::string& user_id, const std::string& business_id,
@@ -39,9 +40,18 @@ bool MongoDBDataManager::save_invoice_settings(const std::string& user_id, const
     const auto business = Infrastructure::Database::parse_object_id(settings.value("BusinessID").toString().toStdString());
     if (!owner || !business || !settings.value("InvoicePrefix").isString() ||
         settings.value("InvoicePrefix").toString().size() > 40) return false;
+    if (!Domain::Business::valid_preferences(settings) || !Domain::Invoices::valid_filename_setting(settings)) return false;
+    const auto terms = settings.value("InvoiceTerms");
+    if (!terms.isUndefined() && (!terms.isString() || terms.toString().size() > 4000)) return false;
+    QJsonObject updates{{"InvoicePrefix", settings.value("InvoicePrefix")}};
+    // Partial updates from older clients preserve preferences they do not send.
+    for (const auto* key : {"InvoiceTerms", "InvoiceFilenameTemplate", "GSTRegistered", "PaymentTerms", "BankName",
+                            "BankAccountName", "BankBSB", "BankAccountNumber"})
+        if (settings.contains(key)) updates[key] = settings.value(key);
+    const auto fields = bsoncxx::from_json(QJsonDocument(updates).toJson(QJsonDocument::Compact).toStdString());
     const auto result = database()["Business"].update_one(
         make_document(kvp("_id", *business), kvp("UserID", *owner)),
-        make_document(kvp("$set", make_document(kvp("InvoicePrefix", settings.value("InvoicePrefix").toString().toStdString())))));
+        make_document(kvp("$set", fields.view())));
     return result && result->matched_count() == 1;
 }
 
@@ -150,7 +160,7 @@ QJsonObject MongoDBDataManager::list_invoices(const std::string& user_id, const 
             {"DateCreated", text("DateCreated")}, {"DateDue", text("DateDue")},
             {"Paid", view["Paid"] && view["Paid"].get_bool().value},
             {"Total", total && total.type() == bsoncxx::type::k_double ? QJsonValue(total.get_double().value) : QJsonValue()},
-            {"LegacyCopy", !view["SnapshotVersion"] || view["SnapshotVersion"].get_int32().value != 1}});
+            {"LegacyCopy", !view["SnapshotVersion"] || view["SnapshotVersion"].get_int32().value < 1}});
     }
     const bool more = records.size() > 50;
     if (more) records.removeLast();
@@ -431,11 +441,13 @@ QJsonDocument MongoDBDataManager::list_resources(const std::string& resource,
             QJsonObject item{{"_id", QString::fromStdString(business_id.to_string())}};
             // Legacy LogoPath values must never leave the database for rendering.
             for (const auto* field :
-                 {"BusinessName", "ABN", "ACN", "Phone", "BusinessAddress", "Website", "LogoData", "InvoicePrefix"}) {
+                 {"BusinessName", "ABN", "ACN", "Phone", "BusinessAddress", "Website", "LogoData", "InvoicePrefix", "InvoiceTerms", "InvoiceFilenameTemplate", "PaymentTerms", "BankName", "BankAccountName", "BankBSB", "BankAccountNumber"}) {
                 const auto value = business[field];
                 if (value && value.type() == bsoncxx::type::k_string)
                     item[field] = QString::fromUtf8(value.get_string().value);
             }
+            const auto gst = business["GSTRegistered"];
+            item["GSTRegistered"] = gst && gst.type() == bsoncxx::type::k_bool && gst.get_bool().value;
             item["Address"] = item.value("BusinessAddress");
             result.append(item);
             continue;
@@ -491,6 +503,7 @@ bool MongoDBDataManager::save_resource(const std::string& resource,
             return false;
         std::string inserted_id;
         if (resource == "business") {
+            if (!Domain::Business::valid_preferences(data)) return false;
             QByteArray logo;
             const auto encoded = data.value("LogoData").toString().toLatin1();
             if (!encoded.isEmpty()) {
@@ -507,6 +520,12 @@ bool MongoDBDataManager::save_resource(const std::string& resource,
                                            kvp("ACN", data.value("ACN").toString().toStdString()),
                                            kvp("Website", data.value("Website").toString().toStdString()),
                                            kvp("LogoData", logo.toBase64().toStdString()),
+                                           kvp("GSTRegistered", Domain::Business::gst_registered(data)),
+                                           kvp("PaymentTerms", data.value("PaymentTerms").toString("COD").toStdString()),
+                                           kvp("BankName", data.value("BankName").toString().toStdString()),
+                                           kvp("BankAccountName", data.value("BankAccountName").toString().toStdString()),
+                                           kvp("BankBSB", data.value("BankBSB").toString().toStdString()),
+                                           kvp("BankAccountNumber", data.value("BankAccountNumber").toString().toStdString()),
                                            kvp("ClientIDs", bsoncxx::builder::basic::array{}),
                                            kvp("StockIDs", bsoncxx::builder::basic::array{}));
             if (!insertDocument("Business", doc.view(), &inserted_id))

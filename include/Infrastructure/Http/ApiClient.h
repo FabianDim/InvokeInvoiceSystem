@@ -1,4 +1,5 @@
 #pragma once
+#include <QJsonObject>
 
 #include "pch.h"
 #include <QNetworkAccessManager>
@@ -82,6 +83,7 @@ class ApiClient : public QObject {
     QByteArray session_token_;
     QNetworkRequest make_request(const QUrl& url) const;
     QString current_business_id_;
+    QJsonObject current_business_;
     QString invoice_directory_;
     QString invoice_filename_;
     quint64 invoice_generation_ = 0;
