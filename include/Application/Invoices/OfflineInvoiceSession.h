@@ -1,4 +1,5 @@
 #pragma once
+namespace Domain::Records { class RecordUpdate; }
 
 #include <QJsonArray>
 #include <QJsonObject>
@@ -17,7 +18,7 @@ class OfflineInvoiceSession {
     void set_invoice_paid(const QString& business_id, const QString& id, bool paid);
 
     QString save(const QString& resource, QJsonObject data, const QString& business_id);
-    void update_stock(const QString& business_id, const QJsonObject& data);
+    void update_record(const QString& business_id, const Domain::Records::RecordUpdate& update);
     QJsonObject items(const QString& business_id) const;
     void clear_invoice();
     void begin_invoice(QJsonObject details, const QString& business_id);

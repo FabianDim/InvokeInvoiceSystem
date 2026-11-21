@@ -232,11 +232,7 @@ App::Views::BusinessInvoiceChoice* App::Views::MainWindow::business_invoice_choi
 
 App::Views::ManagementForm* App::Views::MainWindow::client_page() {
     if (!client_page_) {
-        client_page_ = new ManagementForm(
-            "Create New Client",
-            "client",
-            {"Name", "Phone", "Email", "Country", "State or province", "City", "Street address", "Postcode"},
-            this);
+        client_page_ = new ManagementForm(Domain::Records::RecordDefinition::for_resource("client"), this);
         pagesStack->addWidget(client_page_);
     }
     return client_page_;
@@ -244,20 +240,7 @@ App::Views::ManagementForm* App::Views::MainWindow::client_page() {
 
 App::Views::ManagementForm* App::Views::MainWindow::business_settings_page() {
     if (!business_settings_page_) {
-        business_settings_page_ = new ManagementForm("Configure Your Business",
-                                                     "business",
-                                                     {"ABN",
-                                                      "Business name",
-                                                      "Business phone",
-                                                      "Country",
-                                                      "State or province",
-                                                      "City",
-                                                      "Street address",
-                                                      "Postcode",
-                                                      "Are You Registered for GST",
-                                                      "ACN",
-                                                      "Website"},
-                                                     this);
+        business_settings_page_ = new ManagementForm(Domain::Records::RecordDefinition::for_resource("business"), this);
         pagesStack->addWidget(business_settings_page_);
     }
     return business_settings_page_;
@@ -265,8 +248,7 @@ App::Views::ManagementForm* App::Views::MainWindow::business_settings_page() {
 
 App::Views::ManagementForm* App::Views::MainWindow::stock_settings_page() {
     if (!stock_settings_page_) {
-        stock_settings_page_ = new ManagementForm(
-            "Create Stock Item", "stock", {"Product ID" ,"Name", "Quantity", "Price", "Margin", "Keywords", "Unit"}, this);
+        stock_settings_page_ = new ManagementForm(Domain::Records::RecordDefinition::for_resource("stock"), this);
         pagesStack->addWidget(stock_settings_page_);
     }
     return stock_settings_page_;

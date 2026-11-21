@@ -18,13 +18,15 @@ struct Response {
     QByteArray body;
     QByteArray retry_after;
     QByteArray cache_control;
+    QByteArray request_id;
 };
 
 Response request(quint16 port, const QString& path, const QByteArray& body = {}, bool post = false,
-                 const QByteArray& forwarded_for = {}) {
+                 const QByteArray& forwarded_for = {}, const QByteArray& api_version = {}) {
     QNetworkAccessManager network;
     QNetworkRequest request(QUrl(QString("http://127.0.0.1:%1%2").arg(port).arg(path)));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    if (!api_version.isNull()) request.setRawHeader("X-Invoice-API-Version", api_version);
     if (!forwarded_for.isEmpty()) {
         request.setRawHeader("X-Forwarded-For", forwarded_for);
         request.setRawHeader("Forwarded", "for=" + forwarded_for);
@@ -38,7 +40,7 @@ Response request(quint16 port, const QString& path, const QByteArray& body = {},
     timeout.start(3000);
     loop.exec();
     return {reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(), reply->readAll(),
-            reply->rawHeader("Retry-After"), reply->rawHeader("Cache-Control")};
+            reply->rawHeader("Retry-After"), reply->rawHeader("Cache-Control"), reply->rawHeader("X-Request-ID")};
 }
 
 const QByteArray credentials = R"({"email":"test@example.com","password":"password"})";
@@ -98,6 +100,62 @@ class BackendServerTests : public QObject {
         QCOMPARE(request(port_, "/").status, 200);
     }
 
+    void api_routes_enforce_supported_versions_data() {
+        QTest::addColumn<QString>("path");
+        QTest::addColumn<bool>("post");
+        QTest::addColumn<int>("accepted_status");
+        for (const auto* path : {"/invoices/list", "/invoices/pdf", "/business/items", "/business/list", "/stock/list"})
+            QTest::newRow(path) << QString(path) << false << 401;
+        for (const auto* path : {"/invoices/payment", "/invoices/invoice_start", "/invoices/stock-list",
+                                "/business/invoice-settings", "/business/update", "/client/update", "/stock/update",
+                                "/data/business", "/data/client", "/data/stock"})
+            QTest::newRow(path) << QString(path) << true << 401;
+        for (const auto* path : {"/business/objectify", "/auth/signup", "/auth/login"})
+            QTest::newRow(path) << QString(path) << true << 400;
+        QTest::newRow("/auth/logout") << QString("/auth/logout") << true << 200;
+    }
+
+    void api_routes_enforce_supported_versions() {
+        QFETCH(QString, path);
+        QFETCH(bool, post);
+        QFETCH(int, accepted_status);
+        MongoDBDataManager database;
+        Server server(database, nullptr);
+        QVERIFY(server.is_listening());
+        // Malformed bodies ensure rejection precedes JSON parsing and database work.
+        for (const auto& version : {QByteArray("2"), QByteArray("invalid"), QByteArray("1.0"), QByteArray("01")}) {
+            const auto response = request(port_, path, "not-json", post, {}, version);
+            QCOMPARE(response.status, 400);
+            const auto error = QJsonDocument::fromJson(response.body).object();
+            QCOMPARE(error.value("code").toString(), "unsupported_api_version");
+            QCOMPARE(error.value("supported_api_versions").toArray(), QJsonArray{"1"});
+            QVERIFY(!error.value("error").toString().isEmpty());
+            QCOMPARE(response.cache_control, "no-store");
+            QVERIFY(!response.request_id.isEmpty());
+        }
+        // Explicit v1, absent headers and legacy empty headers still reach the handler.
+        for (const auto& version : {QByteArray("1"), QByteArray{}, QByteArray("")}) {
+            const auto response = request(port_, path, "not-json", post, {}, version);
+            QCOMPARE(response.status, accepted_status);
+            QVERIFY(QJsonDocument::fromJson(response.body).object().value("code") != "unsupported_api_version");
+        }
+        const auto health = request(port_, "/", {}, false, {}, "99");
+        QCOMPARE(health.status, 200);
+        QCOMPARE(health.body, QByteArray(INVOKE_APP_VERSION));
+    }
+
+    void incompatible_auth_requests_do_not_consume_authentication_quota() {
+        MongoDBDataManager database;
+        Server server(database, nullptr);
+        QVERIFY(server.is_listening());
+        for (const auto* path : {"/auth/login", "/auth/signup"}) {
+            for (int i = 0; i < 25; ++i)
+                QCOMPARE(QJsonDocument::fromJson(request(port_, path, credentials, true, {}, "2").body)
+                             .object().value("code").toString(), "unsupported_api_version");
+            QCOMPARE(request(port_, path, "not-json", true, {}, "1").status, 400);
+        }
+    }
+
     void unauthenticated_invoice_and_data_routes_are_protected() {
         MongoDBDataManager database;
         Server server(database, nullptr);
@@ -107,6 +165,8 @@ class BackendServerTests : public QObject {
         QCOMPARE(request(port_, "/business/list").status, 401);
         QCOMPARE(request(port_, "/stock/list").status, 401);
         QCOMPARE(request(port_, "/stock/update", "{}", true).status, 401);
+        QCOMPARE(request(port_, "/business/update", "{}", true).status, 401);
+        QCOMPARE(request(port_, "/client/update", "{}", true).status, 401);
         QCOMPARE(request(port_, "/data/business", "{}", true).status, 401);
         QCOMPARE(request(port_, "/auth/logout", "{}", true).status, 200);
         QCOMPARE(request(port_, "/auth/logout", "{}", true).status, 200);

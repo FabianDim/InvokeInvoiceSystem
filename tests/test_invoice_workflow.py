@@ -86,8 +86,10 @@ class InvoiceWorkflowTests(unittest.TestCase):
             self.backend.terminate()
         self.backend.wait(timeout=10)
 
-    def request(self, path, data=None, token=None):
+    def request(self, path, data=None, token=None, api_version=None):
         headers = {"Content-Type": "application/json"}
+        if api_version is not None:
+            headers["X-Invoice-API-Version"] = api_version
         if token:
             headers["Authorization"] = "Bearer " + token
         request = urllib.request.Request(self.base + path,
@@ -125,6 +127,84 @@ class InvoiceWorkflowTests(unittest.TestCase):
 
     def quantity(self, stock):
         return self.db.Stock.find_one({"_id": ObjectId(stock)})["Quantity"]
+
+    def test_api_version_rejection_prevents_writes_and_session_changes(self):
+        stock = self.save("stock", {"BusinessID": self.business, "Name": "Original", "Price": 10, "Quantity": 8})
+        update = dict(_id=stock, BusinessID=self.business, Name="Edited", Quantity=12,
+                      ExpectedQuantity=8, Price=14.5, Margin=0.25, Unit="box", Keywords="Copper, pipe")
+        client_count = self.db.Clients.count_documents({})
+        for path, data in [
+            ("/stock/update", update),
+            ("/data/client", dict(BusinessID=self.business, Name="Must not be created")),
+            ("/auth/logout", {}),
+        ]:
+            with self.subTest(path=path):
+                status, body = self.request(path, data, self.token, api_version="2")
+                self.assertEqual(status, 400)
+                self.assertEqual(body["code"], "unsupported_api_version")
+                self.assertEqual(body["supported_api_versions"], ["1"])
+                self.assertEqual(self.last_headers.get("Cache-Control"), "no-store")
+        self.assertEqual(self.quantity(stock), 8)
+        self.assertEqual(self.db.Stock.find_one({"_id": ObjectId(stock)})["Name"], "Original")
+        self.assertEqual(self.db.Clients.count_documents({}), client_count)
+        # Rejected logout must leave the existing session usable.
+        self.assertEqual(self.request("/business/list", token=self.token, api_version="1")[0], 200)
+        self.assertEqual(self.request("/stock/update", update, self.token, api_version="1")[0], 200)
+        self.assertEqual(self.quantity(stock), 12)
+
+    def test_business_and_client_edits_preserve_ownership_and_persist(self):
+        original = self.db.Business.find_one({"_id": ObjectId(self.business)})
+        self.db.Business.update_one({"_id": ObjectId(self.business)}, {"$set": {"InvoicePrefix": "KEEP-", "InvoiceSequence": 7}})
+        second = self.save("business", {"Business name": "Second"})
+        cases = [
+            ("business", dict(_id=self.business, BusinessID=self.business, BusinessName="Edited business",
+                              ABN="123", ACN="", Phone="0412345678", BusinessAddress="New address",
+                              Website="https://example.invalid", UserID=str(ObjectId()), InvoiceSequence=999,
+                              InvoicePrefix="OVERWRITE", ClientIDs=[], GSTRegistered=True, PaymentTerms="30",
+                              BankName="Updated bank")),
+            ("client", dict(_id=self.client, BusinessID=self.business, Name="Edited client", Phone="",
+                            Email="edited@example.invalid", Address="Client address", UserID=str(ObjectId()))),
+        ]
+        for resource, update in cases:
+            path = f"/{resource}/update"
+            with self.subTest(resource=resource):
+                self.assertEqual(self.request(path, update)[0], 401)
+                self.assertEqual(self.request(path, update, self.other)[0], 409)
+                self.assertEqual(self.request(path, dict(update, BusinessID=second), self.token)[0], 409)
+                self.assertEqual(self.request(path, dict(update, _id="bad"), self.token)[0], 400)
+                name = "BusinessName" if resource == "business" else "Name"
+                invalid_values = [{name: ""}, {name: "a" * 201}, {"Phone": []}]
+                if resource == "business":
+                    invalid_values += [{"PaymentTerms": "99"}, {"GSTRegistered": "yes"},
+                                       {"Website": "file:///bad"}, {"LogoData": "not an image"}]
+                for invalid in invalid_values:
+                    self.assertEqual(self.request(path, dict(update, **invalid), self.token)[0], 400)
+                self.assertEqual(self.request(path, update, self.token)[0], 200)
+                self.assertEqual(self.request(path, update, self.token)[0], 200)
+        business = self.db.Business.find_one({"_id": ObjectId(self.business)})
+        self.assertEqual(business["BusinessName"], "Edited business")
+        self.assertEqual(business["BusinessAddress"], "New address")
+        self.assertEqual(business["UserID"], original["UserID"])
+        self.assertEqual(business["ClientIDs"], original["ClientIDs"])
+        self.assertEqual(business["InvoicePrefix"], "KEEP-")
+        self.assertEqual(business["InvoiceSequence"], 7)
+        self.assertTrue(business["GSTRegistered"])
+        self.assertEqual(business["PaymentTerms"], "30")
+        self.assertEqual(business["BankName"], "Updated bank")
+        client = self.db.Clients.find_one({"_id": ObjectId(self.client)})
+        self.assertEqual(client["ClientName"], "Edited client")
+        self.assertEqual(client["BusinessID"], ObjectId(self.business))
+        self.assertNotIn("UserID", client)
+        self.assertEqual(self.db.Business.count_documents({"UserID": original["UserID"]}), 2)
+        self.assertEqual(self.db.Clients.count_documents({"BusinessID": ObjectId(self.business)}), 1)
+        self.stop_backend()
+        self.start_backend(os.environ["INVOICE_TEST_MONGODB_URI"])
+        self.token = self.login("owner@example.invalid")
+        status, records = self.request("/business/items?BusinessID=" + self.business, token=self.token)
+        self.assertEqual(status, 200)
+        self.assertEqual(records["businesses"][0]["BusinessName"], "Edited business")
+        self.assertEqual(records["clients"][0]["Name"], "Edited client")
+        self.assertEqual(records["clients"][0]["Email"], "edited@example.invalid")
 
     def test_stock_edits_persist_and_enforce_ownership_and_quantity_conflicts(self):
         stock = self.save("stock", {"BusinessID": self.business, "Name": "Original", "Price": 10, "Quantity": 8})

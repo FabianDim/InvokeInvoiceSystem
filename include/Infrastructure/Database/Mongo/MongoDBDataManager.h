@@ -1,4 +1,5 @@
 #pragma once
+namespace Domain::Records { class RecordUpdate; }
 #include "Infrastructure/Logging/Logging.h"
 #include "pch.h"
 #include "Infrastructure/Database/Mongo/ObjectId.h"
@@ -47,7 +48,7 @@ class MongoDBDataManager {
 
     MongoDBDataManager() = default;
     QString reserve_invoice_number(const std::string& user_id, const std::string& business_id, const QString& prefix);
-    bool update_stock(const std::string& user_id, const QJsonObject& data);
+    bool update_record(const std::string& user_id, const Domain::Records::RecordUpdate& update);
     bool save_invoice_settings(const std::string& user_id, const QJsonObject& settings);
     void complete_invoice(const std::string& user_id, const std::string& business_id,
                           const std::string& client_id, const QString& invoice_id,

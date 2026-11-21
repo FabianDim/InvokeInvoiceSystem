@@ -8,6 +8,7 @@
 #include "Domain/Accounts/Interfaces/IAccountManager.h"
 #include "Infrastructure/Http/AuthSessions.h"
 #include "Infrastructure/Security/LocalRateLimiter.h"
+#include "Infrastructure/Logging/HttpLogging.h"
 using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::make_document;
 
@@ -22,12 +23,28 @@ class Server {
     std::unique_ptr<Infrastructure::Security::RateLimiter> rate_limiter_;
     std::shared_ptr<Infrastructure::Http::AuthSessions::Session> session_for(const QHttpServerRequest& request);
     // Infrastructure::Services::BusinessService business_service_;
+    bool validate_api_version(const QHttpServerRequest& request);
+    static QHttpServerResponse unsupported_api_version_response();
+
+    // Use this wrapper for every API handler. Keep the deployment health route
+    // separate so probes remain independent of the desktop API contract.
+    template<class Handler>
+    auto api_route(const char* path, Handler handler) {
+        return Infrastructure::Logging::tracedRoute(path,
+            [this, handler = std::move(handler)](const QHttpServerRequest& request) -> QHttpServerResponse {
+                if (!validate_api_version(request)) return unsupported_api_version_response();
+                return handler(request);
+            });
+    }
 
   public:
-    Server(MongoDBDataManager& db_manager, Invoke::Domain::Accounts::IAccountManager* account_manager_,
+    Server(MongoDBDataManager& db_manager,
+           Invoke::Domain::Accounts::IAccountManager* account_manager_,
            std::unique_ptr<Infrastructure::Security::RateLimiter> rate_limiter = nullptr);
     ~Server() = default;
-    bool is_listening() const { return listening_; }
+    bool is_listening() const {
+        return listening_;
+    }
     void create_routes_basic();
     void create_routes_invoices();
     void create_routes_auth();

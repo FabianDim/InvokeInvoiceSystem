@@ -12,12 +12,18 @@
 #include "Domain/Accounts/Interfaces/IAccountManager.h"
 
 namespace Infrastructure::Http {
+namespace ApiContract {
+inline constexpr char client_version[] = "1";
+}
 class ApiClient : public QObject {
     Q_OBJECT
   public:
     explicit ApiClient(const QUrl& baseUrl, Invoke::Domain::Accounts::IAccountManager* mgr, QObject* parent = nullptr);
     void set_offline(bool offline);
-    bool is_offline() const { return offline_; }
+    bool is_offline() const {
+        return offline_;
+    }
+
   public slots:
     void get_invoices(int offset = 0);
     void set_invoice_paid(const QString& id, bool paid);
@@ -27,7 +33,7 @@ class ApiClient : public QObject {
     void get_business_list();
     void save_invoice_settings(const QJsonObject& settings);
     void get_stock_list();
-    void update_stock(const QJsonObject& data, quint64 request_id);
+    void update_record(const QString& resource, const QJsonObject& data, quint64 request_id);
     void business_selected(const QJsonObject& biz);
     void invoice_details(const QJsonDocument& invoice);
     void stock_list(const QJsonDocument& stock);
@@ -37,8 +43,8 @@ class ApiClient : public QObject {
     void get_business_items(bool refresh = false);
     void clear_session();
   signals:
-    void stock_updated(quint64 request_id);
-    void stock_update_failed(const QString& message, quint64 request_id);
+    void record_updated(quint64 request_id);
+    void record_update_failed(const QString& message, quint64 request_id);
     void invoices_received(const QJsonDocument& records);
     void invoice_history_failed(const QString& message);
     void invoice_payment_updated(const QString& id, bool paid);
@@ -96,7 +102,9 @@ class ApiClient : public QObject {
     QPointer<QNetworkReply> business_items_reply_;
     quint64 business_items_generation_ = 0;
     quint64 session_generation_ = 0;
-    void post_resource(const QString& resource, const QJsonDocument& data,
-                       const QJsonDocument& invoice_item = {}, quint64 request_id = 0);
+    void post_resource(const QString& resource,
+                       const QJsonDocument& data,
+                       const QJsonDocument& invoice_item = {},
+                       quint64 request_id = 0);
 };
 } // namespace Infrastructure::Http

@@ -98,9 +98,9 @@ AppController::AppController(App::Views::MainWindow* main,
                      this, &AppController::page_navigation);
     QObject::connect(main_->default_invoice_settings_page(), &App::Views::DefaultInvoiceSettings::navigate_to,
                      this, &AppController::page_navigation);
-    connect(main_->items_page(), &App::Views::ItemsPage::stock_update_requested, api_, &Infrastructure::Http::ApiClient::update_stock);
-    connect(api_, &Infrastructure::Http::ApiClient::stock_updated, main_->items_page(), &App::Views::ItemsPage::stock_updated);
-    connect(api_, &Infrastructure::Http::ApiClient::stock_update_failed, main_->items_page(), &App::Views::ItemsPage::stock_update_failed);
+    connect(main_->items_page(), &App::Views::ItemsPage::record_update_requested, api_, &Infrastructure::Http::ApiClient::update_record);
+    connect(api_, &Infrastructure::Http::ApiClient::record_updated, main_->items_page(), &App::Views::ItemsPage::record_updated);
+    connect(api_, &Infrastructure::Http::ApiClient::record_update_failed, main_->items_page(), &App::Views::ItemsPage::record_update_failed);
     QObject::connect(main_->items_page(), &App::Views::ItemsPage::items_requested,
                      api_, &Infrastructure::Http::ApiClient::get_business_items);
     QObject::connect(api_, &Infrastructure::Http::ApiClient::business_items_received,

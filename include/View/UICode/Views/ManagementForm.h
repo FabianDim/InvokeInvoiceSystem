@@ -1,5 +1,6 @@
 #pragma once
 #include "View/UICode/Views/InvoicePreferencesForm.h"
+#include "Domain/Records/RecordDefinition.h"
 
 #include <QWidget>
 #include <QVector>
@@ -17,7 +18,10 @@ namespace App::Views {
 class ManagementForm : public QWidget {
     Q_OBJECT
   public:
-    ManagementForm(const QString& title, const QString& resource, const QVector<QString>& fields, QWidget* parent = nullptr);
+    ManagementForm(const QString& title, const QString& resource, const QVector<QString>& fields, QWidget* parent = nullptr,
+                   const QJsonObject& record = {}, bool editing = false);
+    explicit ManagementForm(const Domain::Records::RecordDefinition& definition, QWidget* parent = nullptr);
+    ManagementForm(const Domain::Records::RecordDefinition& definition, const QJsonObject& record, QWidget* parent = nullptr);
 
   signals:
     void navigate_to(Page page);
@@ -36,6 +40,9 @@ class ManagementForm : public QWidget {
     void showEvent(QShowEvent* event) override;
 
   private:
+    const Domain::Records::RecordDefinition* definition_ = nullptr;
+    QJsonObject original_record_;
+    bool editing_ = false;
     bool field_required(const QString& field) const;
     void submit_form();
     QFormLayout* form_layout_ = nullptr;
