@@ -1,3 +1,4 @@
+#include "Domain/Records/RecordDefinition.h"
 #include "Domain/Invoices/InvoiceFilename.h"
 #include "Domain/Invoices/InvoiceRecord.h"
 #include "Application/Accounts/FrontendAccountSession.h"
@@ -144,6 +145,168 @@ class BusinessSessionTests : public QObject {
     QTemporaryDir settings_directory_;
   private slots:
 
+    void record_popup_edits_business_and_client_data() {
+        QTest::addColumn<QString>("resource");
+        QTest::addColumn<int>("tab");
+        QTest::newRow("business") << QString("business") << 0;
+        QTest::newRow("client") << QString("client") << 1;
+    }
+
+    void record_popup_edits_business_and_client() {
+        QFETCH(QString, resource);
+        QFETCH(int, tab);
+        ApiClient api(QUrl("http://127.0.0.1:1"), nullptr);
+        api.set_offline(true);
+        QSignalSpy businesses(&api, &ApiClient::business_list_received);
+        api.save_resource("business", QJsonDocument(QJsonObject{{"Business name", "Original business"},
+            {"Address", "Original address"}, {"InvoicePrefix", "KEEP-"}, {"InvoiceTerms", "Keep terms"},
+            {"GSTRegistered", true}, {"PaymentTerms", "14"}, {"BankName", "Original bank"}}));
+        api.get_business_list();
+        const auto list = qvariant_cast<QJsonDocument>(businesses.last().first()).object();
+        const auto business = list.begin().value().toObject();
+        api.business_selected(business);
+        api.save_resource("client", QJsonDocument(QJsonObject{{"Name", "Original client"}, {"Address", "Client address"}}));
+        App::Views::ItemsPage page;
+        page.business_selected(business);
+        connect(&page, &App::Views::ItemsPage::items_requested, &api, &ApiClient::get_business_items);
+        connect(&api, &ApiClient::business_items_received, &page, &App::Views::ItemsPage::populate_items);
+        connect(&page, &App::Views::ItemsPage::record_update_requested, &api, &ApiClient::update_record);
+        connect(&api, &ApiClient::record_updated, &page, &App::Views::ItemsPage::record_updated);
+        connect(&api, &ApiClient::record_update_failed, &page, &App::Views::ItemsPage::record_update_failed);
+        QSignalSpy updates(&api, &ApiClient::record_updated);
+        QSignalSpy requests(&page, &App::Views::ItemsPage::record_update_requested);
+        page.load_items();
+        page.resize(950, 650); page.show();
+        auto* tabs = page.findChild<QTabWidget*>("business_items_tabs");
+        tabs->setCurrentIndex(tab);
+        auto* table = qobject_cast<QTableWidget*>(tabs->currentWidget());
+        auto* edit = page.findChild<QPushButton*>("edit_record");
+        QCOMPARE(edit->text(), "Edit " + resource);
+        QVERIFY(!edit->isEnabled());
+        table->selectRow(0);
+        QVERIFY(edit->isEnabled());
+        const auto id = table->item(0, 0)->data(Qt::UserRole);
+        edit->click();
+        const auto prefix = resource + "_edit_";
+        QPointer<QDialog> popup = page.findChild<QDialog*>(prefix + "dialog");
+        QVERIFY(popup);
+        QVERIFY(popup->findChild<App::Views::ManagementForm*>());
+        QCOMPARE(popup->windowTitle(), "Edit " + resource);
+        QVERIFY(!popup->findChild<QLineEdit*>(prefix + "quantity"));
+        const auto name = prefix + (resource == "business" ? "businessname" : "name");
+        const auto address = prefix + (resource == "business" ? "businessaddress" : "address");
+        QCOMPARE(popup->findChild<QLineEdit*>(address)->text(), resource == "business" ? "Original address" : "Client address");
+        popup->findChild<QLineEdit*>(name)->clear();
+        popup->findChild<QPushButton*>(prefix + "save")->click();
+        QCOMPARE(requests.size(), 0);
+        QVERIFY(!popup->findChild<QLabel*>("record_edit_status")->text().isEmpty());
+        popup->findChild<QLineEdit*>(name)->setText("Updated " + resource);
+        popup->findChild<QLineEdit*>(address)->setText("New address");
+        popup->findChild<QLineEdit*>(prefix + "phone")->setText("0412 345 678");
+        if (resource == "client") popup->findChild<QLineEdit*>(prefix + "email")->setText("client@example.invalid");
+        else {
+            auto* website = popup->findChild<QLineEdit*>(prefix + "website");
+            website->setText("file:///invalid-website");
+            popup->findChild<QPushButton*>(prefix + "save")->click();
+            QCOMPARE(requests.size(), 0);
+            website->setText("https://example.invalid");
+            QVERIFY(popup->findChild<QCheckBox*>("form_gst_registered")->isChecked());
+            auto* terms = popup->findChild<QComboBox*>("business_payment_terms");
+            QCOMPARE(terms->currentData().toString(), "14");
+            terms->setCurrentIndex(terms->findData("30"));
+            QCOMPARE(popup->findChild<QLineEdit*>("BankName")->text(), "Original bank");
+            popup->findChild<QLineEdit*>("BankName")->setText("Updated bank");
+        }
+        const auto preview = qEnvironmentVariable("INVOICE_RECORD_PREVIEW_DIR");
+        if (!preview.isEmpty()) {
+            QDir().mkpath(preview); QTest::qWait(50);
+            QVERIFY(popup->grab().save(preview + "/" + resource + "-edit.png"));
+        }
+        popup->findChild<QPushButton*>(prefix + "save")->click();
+        QCOMPARE(updates.size(), 1);
+        QCOMPARE(requests.first()[0].toString(), resource);
+        QTRY_VERIFY(popup.isNull());
+        QCOMPARE(table->rowCount(), 1);
+        QCOMPARE(table->item(0, 0)->data(Qt::UserRole), id);
+        QCOMPARE(table->item(0, 0)->text(), "Updated " + resource);
+        if (resource == "business") {
+            const auto refreshed = qvariant_cast<QJsonDocument>(businesses.last().first()).object();
+            const auto record = refreshed.begin().value().toObject();
+            QCOMPARE(record.value("BusinessName").toString(), "Updated business");
+            QCOMPARE(record.value("Address").toString(), "New address");
+            QCOMPARE(record.value("InvoicePrefix").toString(), "KEEP-");
+            QCOMPARE(record.value("InvoiceTerms").toString(), "Keep terms");
+            QCOMPARE(record.value("PaymentTerms").toString(), "30");
+            QCOMPARE(record.value("BankName").toString(), "Updated bank");
+            QVERIFY(record.value("GSTRegistered").toBool());
+        }
+        // Double-click opens the same editor; cancelling keeps the saved values.
+        emit table->cellDoubleClicked(0, 0);
+        popup = page.findChild<QDialog*>(prefix + "dialog");
+        QVERIFY(popup);
+        popup->findChild<QLineEdit*>(name)->setText("Cancelled");
+        popup->findChild<QPushButton*>(prefix + "cancel")->click();
+        QTRY_VERIFY(popup.isNull());
+        QCOMPARE(updates.size(), 1);
+        QCOMPARE(table->item(0, 0)->text(), "Updated " + resource);
+        tabs->setCurrentIndex(2);
+        QCOMPARE(edit->text(), "Edit stock item");
+        QVERIFY(!edit->isEnabled());
+    }
+
+    void record_updates_preserve_identity_and_business_isolation() {
+        Application::Invoices::OfflineInvoiceSession session;
+        const auto biz = session.save("business", {{"Business name", "Owner"}, {"InvoicePrefix", "KEEP-"}}, {});
+        const auto other = session.save("business", {{"Business name", "Other"}}, {});
+        const auto client = session.save("client", {{"Name", "Original"}}, biz);
+        QJsonObject changes{{"_id", client}, {"Name", "Updated"}, {"Phone", ""}, {"Email", ""}, {"Address", ""},
+            {"UserID", "attacker"}, {"BusinessID", other}};
+        QVERIFY_EXCEPTION_THROWN(session.update_record(other, Domain::Records::RecordUpdate("client", changes)), std::invalid_argument);
+        session.update_record(biz, Domain::Records::RecordUpdate("client", changes));
+        const auto saved = session.clients.first().toObject();
+        QCOMPARE(saved.value("_id").toString(), client);
+        QCOMPARE(saved.value("BusinessID").toString(), biz);
+        QVERIFY(!saved.contains("UserID"));
+        changes["Name"] = "";
+        QVERIFY_EXCEPTION_THROWN(session.update_record(biz, Domain::Records::RecordUpdate("client", changes)), std::invalid_argument);
+        QVERIFY_EXCEPTION_THROWN(session.update_record(biz, Domain::Records::RecordUpdate("account", changes)), std::invalid_argument);
+        QJsonObject business{{"_id", biz}, {"BusinessName", "New business"}, {"ABN", ""}, {"ACN", ""},
+            {"Phone", ""}, {"BusinessAddress", ""}, {"Website", ""}, {"InvoicePrefix", "OVERWRITE"}};
+        QVERIFY_EXCEPTION_THROWN(session.update_record(other, Domain::Records::RecordUpdate("business", business)), std::invalid_argument);
+        session.update_record(biz, Domain::Records::RecordUpdate("business", business));
+        QCOMPARE(session.businesses.value(biz).toObject().value("InvoicePrefix").toString(), "KEEP-");
+    }
+
+    void record_update_http_failure_retry_and_selection_change() {
+        RecordingServer server; QVERIFY(server.start());
+        QJsonObject received;
+        bool fail = true;
+        server.http.route("/client/update", QHttpServerRequest::Method::Post, [&](const QHttpServerRequest& request) {
+            received = QJsonDocument::fromJson(request.body()).object();
+            return fail ? QHttpServerResponse(QJsonObject{{"error", "Try again"}}, QHttpServerResponse::StatusCode::InternalServerError)
+                        : QHttpServerResponse(QJsonObject{{"ok", true}});
+        });
+        ApiClient api(server.url(), nullptr);
+        const QString biz = "65a000000000000000000001";
+        api.business_selected({{"_id", biz}});
+        QSignalSpy items(&api, &ApiClient::business_items_received);
+        QSignalSpy saved(&api, &ApiClient::record_updated);
+        QSignalSpy failed(&api, &ApiClient::record_update_failed);
+        api.get_business_items(); QTRY_COMPARE(items.size(), 1);
+        const QJsonObject changes{{"_id", "65b000000000000000000001"}, {"BusinessID", biz}, {"Name", "Updated"},
+            {"Phone", ""}, {"Email", ""}, {"Address", ""}};
+        api.update_record("client", changes, 1); QTRY_COMPARE(failed.size(), 1);
+        QCOMPARE(received, changes); QCOMPARE(saved.size(), 0);
+        fail = false;
+        api.update_record("client", changes, 2); QTRY_COMPARE(saved.size(), 1);
+        api.get_business_items(); QTRY_COMPARE(items.size(), 2);
+        QCOMPARE(server.items_businesses.size(), 2);
+        api.update_record("client", changes, 3);
+        api.business_selected({{"_id", "different"}});
+        QTest::qWait(80);
+        QCOMPARE(saved.size(), 1);
+    }
+
     void stock_records_popup_edits_offline_and_refreshes() {
         ApiClient api(QUrl("http://127.0.0.1:1"), nullptr);
         api.set_offline(true);
@@ -159,18 +322,18 @@ class BusinessSessionTests : public QObject {
         page.business_selected(business);
         connect(&page, &App::Views::ItemsPage::items_requested, &api, &ApiClient::get_business_items);
         connect(&api, &ApiClient::business_items_received, &page, &App::Views::ItemsPage::populate_items);
-        connect(&page, &App::Views::ItemsPage::stock_update_requested, &api, &ApiClient::update_stock);
-        connect(&api, &ApiClient::stock_updated, &page, &App::Views::ItemsPage::stock_updated);
-        connect(&api, &ApiClient::stock_update_failed, &page, &App::Views::ItemsPage::stock_update_failed);
-        QSignalSpy updates(&api, &ApiClient::stock_updated);
-        QSignalSpy requests(&page, &App::Views::ItemsPage::stock_update_requested);
+        connect(&page, &App::Views::ItemsPage::record_update_requested, &api, &ApiClient::update_record);
+        connect(&api, &ApiClient::record_updated, &page, &App::Views::ItemsPage::record_updated);
+        connect(&api, &ApiClient::record_update_failed, &page, &App::Views::ItemsPage::record_update_failed);
+        QSignalSpy updates(&api, &ApiClient::record_updated);
+        QSignalSpy requests(&page, &App::Views::ItemsPage::record_update_requested);
         page.load_items();
         page.resize(900, 650); page.show();
         auto* table = page.findChild<QTableWidget*>("stock_records");
         page.findChild<QTabWidget*>("business_items_tabs")->setCurrentIndex(2);
         table->selectRow(0);
         const auto id = table->item(0, 0)->data(Qt::UserRole);
-        page.findChild<QPushButton*>("edit_stock_item")->click();
+        page.findChild<QPushButton*>("edit_record")->click();
         QPointer<QDialog> popup = page.findChild<QDialog*>("stock_edit_dialog");
         QVERIFY(popup);
         QCOMPARE(popup->findChild<QLineEdit*>("stock_edit_name")->text(), "Original");
@@ -179,7 +342,7 @@ class BusinessSessionTests : public QObject {
         popup->findChild<QLineEdit*>("stock_edit_quantity")->setText("2.5");
         popup->findChild<QPushButton*>("stock_edit_save")->click();
         QCOMPARE(requests.size(), 0);
-        QVERIFY(!popup->findChild<QLabel*>("stock_edit_status")->text().isEmpty());
+        QVERIFY(!popup->findChild<QLabel*>("record_edit_status")->text().isEmpty());
         popup->findChild<QLineEdit*>("stock_edit_quantity")->setText("14");
         popup->findChild<QLineEdit*>("stock_edit_price")->setText("18.5");
         popup->findChild<QLineEdit*>("stock_edit_margin")->setText("30");
@@ -199,7 +362,7 @@ class BusinessSessionTests : public QObject {
         QCOMPARE(table->item(0, 3)->text(), "30%");
         QCOMPARE(table->item(0, 5)->text(), "copper, pipe");
         table->selectRow(0);
-        page.findChild<QPushButton*>("edit_stock_item")->click();
+        page.findChild<QPushButton*>("edit_record")->click();
         popup = page.findChild<QDialog*>("stock_edit_dialog");
         popup->findChild<QLineEdit*>("stock_edit_name")->setText("Cancelled");
         popup->findChild<QPushButton*>("stock_edit_cancel")->click();
@@ -216,21 +379,21 @@ class BusinessSessionTests : public QObject {
         page.findChild<QTabWidget*>("business_items_tabs")->setCurrentIndex(2);
         auto* table = page.findChild<QTableWidget*>("stock_records");
         table->selectRow(0);
-        page.findChild<QPushButton*>("edit_stock_item")->click();
+        page.findChild<QPushButton*>("edit_record")->click();
         QPointer<QDialog> popup = page.findChild<QDialog*>("stock_edit_dialog");
-        QSignalSpy saves(&page, &App::Views::ItemsPage::stock_update_requested);
+        QSignalSpy saves(&page, &App::Views::ItemsPage::record_update_requested);
         popup->findChild<QLineEdit*>("stock_edit_name")->setText("Retry name");
         popup->findChild<QPushButton*>("stock_edit_save")->click();
         QCOMPARE(saves.size(), 1);
-        const auto request = saves.last()[1].toULongLong();
-        page.stock_update_failed("Connection failed", request);
+        const auto request = saves.last()[2].toULongLong();
+        page.record_update_failed("Connection failed", request);
         QVERIFY(popup->isEnabled());
         QCOMPARE(popup->findChild<QLineEdit*>("stock_edit_name")->text(), "Retry name");
         popup->findChild<QPushButton*>("stock_edit_save")->click();
         QCOMPARE(saves.size(), 2);
         page.business_selected({{"_id", "different"}});
         QTRY_VERIFY(popup.isNull());
-        page.stock_updated(saves.last()[1].toULongLong());
+        page.record_updated(saves.last()[2].toULongLong());
         QCOMPARE(table->rowCount(), 0);
     }
 
@@ -241,15 +404,15 @@ class BusinessSessionTests : public QObject {
         const auto stock = session.save("stock", {{"Name", "Original"}, {"Price", 1}, {"Quantity", 4}}, biz);
         QJsonObject changes{{"_id", stock}, {"Name", "Updated"}, {"Quantity", -2}, {"ExpectedQuantity", 4},
             {"Price", 2}, {"Margin", 0.15}, {"Unit", ""}, {"Keywords", "A, B"}};
-        QVERIFY_EXCEPTION_THROWN(session.update_stock(other, changes), std::invalid_argument);
-        session.update_stock(biz, changes);
+        QVERIFY_EXCEPTION_THROWN(session.update_record(other, Domain::Records::RecordUpdate("stock", changes)), std::invalid_argument);
+        session.update_record(biz, Domain::Records::RecordUpdate("stock", changes));
         QCOMPARE(session.stocks.size(), 1);
         QCOMPARE(session.stocks.first().toObject().value("Quantity").toInt(), -2);
         QCOMPARE(session.stocks.first().toObject().value("Unit").toString(), "each");
-        QVERIFY_EXCEPTION_THROWN(session.update_stock(biz, changes), std::invalid_argument);
+        QVERIFY_EXCEPTION_THROWN(session.update_record(biz, Domain::Records::RecordUpdate("stock", changes)), std::invalid_argument);
         changes["ExpectedQuantity"] = -2;
         changes["Price"] = -1;
-        QVERIFY_EXCEPTION_THROWN(session.update_stock(biz, changes), std::invalid_argument);
+        QVERIFY_EXCEPTION_THROWN(session.update_record(biz, Domain::Records::RecordUpdate("stock", changes)), std::invalid_argument);
         QCOMPARE(session.stocks.first().toObject().value("Price").toDouble(), 2.0);
     }
 
@@ -266,19 +429,19 @@ class BusinessSessionTests : public QObject {
         const QString biz = "65a000000000000000000001";
         api.business_selected({{"_id", biz}});
         QSignalSpy items(&api, &ApiClient::business_items_received);
-        QSignalSpy saved(&api, &ApiClient::stock_updated);
-        QSignalSpy failed(&api, &ApiClient::stock_update_failed);
+        QSignalSpy saved(&api, &ApiClient::record_updated);
+        QSignalSpy failed(&api, &ApiClient::record_update_failed);
         api.get_business_items(); QTRY_COMPARE(items.size(), 1);
         const QJsonObject changes{{"_id", "65c000000000000000000001"}, {"BusinessID", biz}, {"Name", "Updated"},
             {"Quantity", 8}, {"ExpectedQuantity", 10}, {"Price", 10}, {"Margin", 0.2}, {"Unit", "each"}, {"Keywords", "a"}};
-        api.update_stock(changes, 1); QTRY_COMPARE(failed.size(), 1);
+        api.update_record("stock", changes, 1); QTRY_COMPARE(failed.size(), 1);
         QCOMPARE(received, changes); QCOMPARE(saved.size(), 0);
         fail = false;
-        api.update_stock(changes, 2); QTRY_COMPARE(saved.size(), 1);
+        api.update_record("stock", changes, 2); QTRY_COMPARE(saved.size(), 1);
         QCOMPARE(saved.first().first().toULongLong(), 2);
         api.get_business_items(); QTRY_COMPARE(items.size(), 2);
         QCOMPARE(server.items_businesses.size(), 2);
-        api.update_stock(changes, 3);
+        api.update_record("stock", changes, 3);
         api.business_selected({{"_id", "different"}});
         QTest::qWait(80);
         QCOMPARE(saved.size(), 1);

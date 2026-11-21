@@ -1,4 +1,4 @@
-#include "Domain/Stock/StockEdit.h"
+#include "Domain/Records/RecordDefinition.h"
 #include "Infrastructure/Logging/Logging.h"
 #include "Application/Invoices/OfflineInvoiceSession.h"
 #include "Infrastructure/Pdf/InvoicePdfGenerator.h"
@@ -49,6 +49,7 @@ QString OfflineInvoiceSession::save(const QString& resource, QJsonObject data, c
         data["_id"] = id;
         data["BusinessName"] = data.value("Business name");
         data["Phone"] = data.value("Business phone");
+        data["BusinessAddress"] = data.value("Address");
         businesses[id] = data;
     } else {
         data["BusinessID"] = business_id;
@@ -72,19 +73,24 @@ QString OfflineInvoiceSession::save(const QString& resource, QJsonObject data, c
     return id;
 }
 
-void OfflineInvoiceSession::update_stock(const QString& business_id, const QJsonObject& data) {
-    const auto values = Domain::Stock::stock_edit_values(data);
+void OfflineInvoiceSession::update_record(const QString& business_id, const Domain::Records::RecordUpdate& update) {
     if (!businesses.contains(business_id)) throw std::invalid_argument("Choose a business first.");
-    for (int index = 0; index < stocks.size(); ++index) {
-        auto record = stocks[index].toObject();
-        if (record.value("BusinessID").toString() != business_id || record.value("_id") != data.value("_id")) continue;
-        if (record.value("Quantity").toDouble() != data.value("ExpectedQuantity").toDouble())
-            throw std::invalid_argument("Stock on hand changed. Cancel, refresh records and reopen the item before saving.");
-        for (auto it = values.begin(); it != values.end(); ++it) record[it.key()] = it.value();
-        stocks[index] = record;
+    const auto& definition = update.definition();
+    const auto id = update.data().value("_id").toString();
+    if (definition.is_business()) {
+        if (id != business_id) throw std::invalid_argument("Choose the selected business record.");
+        businesses[business_id] = update.apply_to(businesses.value(business_id).toObject());
         return;
     }
-    throw std::invalid_argument("This stock item is no longer available for this business.");
+    auto& records = definition.tracks_quantity() ? stocks : clients;
+    for (int index = 0; index < records.size(); ++index) {
+        const auto record = records[index].toObject();
+        if (record.value("BusinessID").toString() == business_id && record.value("_id").toString() == id) {
+            records[index] = update.apply_to(record);
+            return;
+        }
+    }
+    throw std::invalid_argument("This record is no longer available for this business.");
 }
 
 QJsonObject OfflineInvoiceSession::items(const QString& business_id) const {

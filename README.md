@@ -188,6 +188,14 @@ and are held in memory on the single backend dyno, so restarting it requires
 signing in again. The desktop keeps tokens only in memory; automatic sign-in
 across application launches is not implemented.
 
+API compatibility is independent of the desktop release version. The desktop
+sends `X-Invoice-API-Version: 1`. All API routes validate this header before
+authentication, rate limits or record operations. Missing or empty headers are
+accepted as legacy API 1. Unsupported versions receive HTTP 400 with JSON
+`code: "unsupported_api_version"`, a readable `error`, and
+`supported_api_versions: ["1"]`; no operation is performed. The `/` deployment
+health/version endpoint remains available independently of API compatibility.
+
 Login and signup use fixed-window rate limits in each server instance, including
 the embedded local server. Login allows 20 requests per 60 seconds per peer IP
 and 5 per 60 seconds per email (trimmed and case-folded for the quota only).
@@ -569,14 +577,25 @@ do not affect stock. Account invoice completion requires MongoDB Atlas or a
 replica set; standalone MongoDB cannot perform these transactions. Offline demo
 invoices apply the same inventory rules to their temporary records.
 
-Business records show names and details. In the Stock tab, select a row and click
-**Edit stock item**, double-click it, or use its right-click menu. The popup edits
-name, stock on hand, price (excluding GST), margin (%), unit and keywords. Save
-updates the existing item and refreshes records; Cancel discards changes. Failed
+Business records show names and details. In any records tab, select a row and click
+**Edit business**, **Edit client** or **Edit stock item**, double-click it, or use
+its right-click menu. The popup adapts to the record: business name, ABN, ACN,
+phone, address and website; client name, phone, email and address; or stock name,
+stock on hand, price (excluding GST), margin (%), unit and keywords. Business
+editing also uses the original form's logo, GST, payment terms and bank fields;
+invoice numbering and saved invoice snapshots are preserved. Save updates the existing record and
+refreshes records; Cancel discards changes. Failed
 saves keep your edits available to retry. If stock on hand changed while the popup
 was open, cancel and refresh before editing again. Account edits persist in the
 database; offline edits last for the demo session. Right-click any record to view
 or copy its record ID.
+
+Creation and editing share `ManagementForm` and the field definitions in
+`Domain/Records/RecordDefinition.h`. The editor loads the selected record into the
+same form, with stored addresses shown intact instead of guessing address parts.
+`RecordUpdate` validates editable values; both offline and MongoDB persistence use
+one `update_record` operation. Stock quantity conflict checks remain part of that
+operation, and record IDs and ownership are never editable form fields.
 
 To run the HTTP/database regression tests, start an isolated local MongoDB replica
 set, install `pymongo` in your test Python environment, then run:

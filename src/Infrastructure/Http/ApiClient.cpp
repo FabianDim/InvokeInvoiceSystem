@@ -1,4 +1,5 @@
-#include "Domain/Stock/StockEdit.h"
+#include <optional>
+#include "Domain/Records/RecordDefinition.h"
 #include "Domain/Business/InvoicePreferences.h"
 #include "Domain/Invoices/InvoiceFilename.h"
 #include "Infrastructure/Logging/HttpLogging.h"
@@ -17,22 +18,54 @@ using namespace Infrastructure::Http;
 
 ApiClient::ApiClient(const QUrl& baseUrl, Invoke::Domain::Accounts::IAccountManager* mgr, QObject* parent)
     : QObject(parent), networkManager_(new QNetworkAccessManager(this)), baseUrl_(baseUrl), account_manager_(mgr) {
-    connect(this, &ApiClient::login_succeeded, this, []() { qCDebug(Infrastructure::Logging::auth) << "event=client.login_succeeded"; });
-    connect(this, &ApiClient::login_failed, this, []() { qCWarning(Infrastructure::Logging::auth) << "event=client.login_failed"; });
-    connect(this, &ApiClient::signup_succeeded, this, []() { qCDebug(Infrastructure::Logging::auth) << "event=client.signup_succeeded"; });
-    connect(this, &ApiClient::signup_failed, this, []() { qCWarning(Infrastructure::Logging::auth) << "event=client.signup_failed"; });
-    connect(this, &ApiClient::business_list_received, this, []() { qCDebug(Infrastructure::Logging::http) << "event=client.business_list_received"; });
-    connect(this, &ApiClient::stock_list_received, this, []() { qCDebug(Infrastructure::Logging::http) << "event=client.stock_list_received"; });
-    connect(this, &ApiClient::business_items_received, this, []() { qCDebug(Infrastructure::Logging::http) << "event=client.business_items_received"; });
-    connect(this, &ApiClient::business_items_failed, this, []() { qCWarning(Infrastructure::Logging::http) << "event=client.business_items_failed"; });
-    connect(this, &ApiClient::resource_saved, this, []() { qCDebug(Infrastructure::Logging::http) << "event=client.resource_saved"; });
-    connect(this, &ApiClient::resource_save_failed, this, []() { qCWarning(Infrastructure::Logging::http) << "event=client.resource_save_failed"; });
-    connect(this, &ApiClient::invoice_stock_saved, this, []() { qCDebug(Infrastructure::Logging::http) << "event=client.invoice_stock_saved"; });
-    connect(this, &ApiClient::invoice_stock_save_failed, this, []() { qCWarning(Infrastructure::Logging::http) << "event=client.invoice_stock_save_failed"; });
-    connect(this, &ApiClient::invoice_started, this, []() { qCDebug(Infrastructure::Logging::pdf) << "event=client.invoice_started"; });
-    connect(this, &ApiClient::invoice_failed, this, []() { qCWarning(Infrastructure::Logging::pdf) << "event=client.invoice_failed"; });
-    connect(this, &ApiClient::pdf_generated, this, []() { qCDebug(Infrastructure::Logging::pdf) << "event=client.pdf_generated"; });
-    connect(this, &ApiClient::pdf_failed, this, []() { qCWarning(Infrastructure::Logging::pdf) << "event=client.pdf_failed"; });
+    connect(this, &ApiClient::login_succeeded, this, []() {
+        qCDebug(Infrastructure::Logging::auth) << "event=client.login_succeeded";
+    });
+    connect(this, &ApiClient::login_failed, this, []() {
+        qCWarning(Infrastructure::Logging::auth) << "event=client.login_failed";
+    });
+    connect(this, &ApiClient::signup_succeeded, this, []() {
+        qCDebug(Infrastructure::Logging::auth) << "event=client.signup_succeeded";
+    });
+    connect(this, &ApiClient::signup_failed, this, []() {
+        qCWarning(Infrastructure::Logging::auth) << "event=client.signup_failed";
+    });
+    connect(this, &ApiClient::business_list_received, this, []() {
+        qCDebug(Infrastructure::Logging::http) << "event=client.business_list_received";
+    });
+    connect(this, &ApiClient::stock_list_received, this, []() {
+        qCDebug(Infrastructure::Logging::http) << "event=client.stock_list_received";
+    });
+    connect(this, &ApiClient::business_items_received, this, []() {
+        qCDebug(Infrastructure::Logging::http) << "event=client.business_items_received";
+    });
+    connect(this, &ApiClient::business_items_failed, this, []() {
+        qCWarning(Infrastructure::Logging::http) << "event=client.business_items_failed";
+    });
+    connect(this, &ApiClient::resource_saved, this, []() {
+        qCDebug(Infrastructure::Logging::http) << "event=client.resource_saved";
+    });
+    connect(this, &ApiClient::resource_save_failed, this, []() {
+        qCWarning(Infrastructure::Logging::http) << "event=client.resource_save_failed";
+    });
+    connect(this, &ApiClient::invoice_stock_saved, this, []() {
+        qCDebug(Infrastructure::Logging::http) << "event=client.invoice_stock_saved";
+    });
+    connect(this, &ApiClient::invoice_stock_save_failed, this, []() {
+        qCWarning(Infrastructure::Logging::http) << "event=client.invoice_stock_save_failed";
+    });
+    connect(this, &ApiClient::invoice_started, this, []() {
+        qCDebug(Infrastructure::Logging::pdf) << "event=client.invoice_started";
+    });
+    connect(this, &ApiClient::invoice_failed, this, []() {
+        qCWarning(Infrastructure::Logging::pdf) << "event=client.invoice_failed";
+    });
+    connect(this, &ApiClient::pdf_generated, this, []() {
+        qCDebug(Infrastructure::Logging::pdf) << "event=client.pdf_generated";
+    });
+    connect(this, &ApiClient::pdf_failed, this, []() {
+        qCWarning(Infrastructure::Logging::pdf) << "event=client.pdf_failed";
+    });
 }
 
 QNetworkRequest ApiClient::make_request(const QUrl& url) const {
@@ -41,13 +74,15 @@ QNetworkRequest ApiClient::make_request(const QUrl& url) const {
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     request.setTransferTimeout(30000);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
+    request.setRawHeader("X-Invoice-API-Version", ApiContract::client_version);
     if (!session_token_.isEmpty())
         request.setRawHeader("Authorization", "Bearer " + session_token_);
     return request;
 }
 
 void ApiClient::invalidate_business_items() {
-    Infrastructure::Logging::Operation operation(Infrastructure::Logging::http(), "ApiClient.invalidate_business_items");
+    Infrastructure::Logging::Operation operation(Infrastructure::Logging::http(),
+                                                 "ApiClient.invalidate_business_items");
     ++business_items_generation_;
     business_items_cache_ = QJsonDocument{};
     business_items_age_.invalidate();
@@ -81,7 +116,8 @@ void ApiClient::clear_session() {
     loginInProgress_ = false;
     // Disconnect before aborting: no late online response may populate a demo.
     for (auto* reply : networkManager_->findChildren<QNetworkReply*>()) {
-        qCDebug(Infrastructure::Logging::http) << "event=client.request.cancelled request_id=" << reply->request().rawHeader("X-Request-ID");
+        qCDebug(Infrastructure::Logging::http)
+            << "event=client.request.cancelled request_id=" << reply->request().rawHeader("X-Request-ID");
         reply->disconnect(this);
         reply->abort();
         reply->deleteLater();
@@ -104,21 +140,34 @@ void ApiClient::clear_session() {
 
 void ApiClient::get_invoices(int offset) {
     const auto business = current_business_id_;
-    if (business.isEmpty()) { emit invoice_history_failed("Choose a business first."); return; }
-    if (offset < 0) { emit invoice_history_failed("Invalid invoice page."); return; }
-    if (offline_) { emit invoices_received(QJsonDocument(offline_session_.invoice_list(business, offset))); return; }
-    QUrl url = baseUrl_; url.setPath("/invoices/list");
+    if (business.isEmpty()) {
+        emit invoice_history_failed("Choose a business first.");
+        return;
+    }
+    if (offset < 0) {
+        emit invoice_history_failed("Invalid invoice page.");
+        return;
+    }
+    if (offline_) {
+        emit invoices_received(QJsonDocument(offline_session_.invoice_list(business, offset)));
+        return;
+    }
+    QUrl url = baseUrl_;
+    url.setPath("/invoices/list");
     url.setQuery(QUrlQuery{{"BusinessID", business}, {"offset", QString::number(offset)}});
     const auto generation = ++invoice_list_generation_;
     const auto session = session_generation_;
     auto* reply = networkManager_->get(make_request(url));
     connect(reply, &QNetworkReply::finished, this, [this, reply, business, generation, session]() {
         reply->deleteLater();
-        if (business != current_business_id_ || generation != invoice_list_generation_ || session != session_generation_) return;
+        if (business != current_business_id_ || generation != invoice_list_generation_ ||
+            session != session_generation_)
+            return;
         const auto data = QJsonDocument::fromJson(reply->readAll());
         if (reply->error() != QNetworkReply::NoError || !data.object().value("invoices").isArray() ||
             data.object().value("BusinessID").toString() != business) {
-            emit invoice_history_failed(data.object().value("error").toString("Could not load invoices.")); return;
+            emit invoice_history_failed(data.object().value("error").toString("Could not load invoices."));
+            return;
         }
         emit invoices_received(data);
     });
@@ -127,51 +176,72 @@ void ApiClient::get_invoices(int offset) {
 void ApiClient::set_invoice_paid(const QString& id, bool paid) {
     const auto business = current_business_id_;
     if (offline_) {
-        try { offline_session_.set_invoice_paid(business, id, paid); emit invoice_payment_updated(id, paid); }
-        catch (const std::exception& error) { emit invoice_payment_failed(QString::fromUtf8(error.what())); }
+        try {
+            offline_session_.set_invoice_paid(business, id, paid);
+            emit invoice_payment_updated(id, paid);
+        } catch (const std::exception& error) {
+            emit invoice_payment_failed(QString::fromUtf8(error.what()));
+        }
         return;
     }
-    QUrl url = baseUrl_; url.setPath("/invoices/payment");
+    QUrl url = baseUrl_;
+    url.setPath("/invoices/payment");
     const auto session = session_generation_;
-    auto* reply = networkManager_->post(make_request(url), QJsonDocument(QJsonObject{
-        {"BusinessID", business}, {"InvoiceID", id}, {"Paid", paid}}).toJson(QJsonDocument::Compact));
+    auto* reply =
+        networkManager_->post(make_request(url),
+                              QJsonDocument(QJsonObject{{"BusinessID", business}, {"InvoiceID", id}, {"Paid", paid}})
+                                  .toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this, [this, reply, business, session, id, paid]() {
         reply->deleteLater();
-        if (business != current_business_id_ || session != session_generation_) return;
+        if (business != current_business_id_ || session != session_generation_)
+            return;
         const auto data = QJsonDocument::fromJson(reply->readAll()).object();
         if (reply->error() != QNetworkReply::NoError || !data.value("ok").toBool()) {
-            emit invoice_payment_failed(data.value("error").toString("Could not update payment status.")); return;
+            emit invoice_payment_failed(data.value("error").toString("Could not update payment status."));
+            return;
         }
         emit invoice_payment_updated(id, paid);
     });
 }
 
 void ApiClient::export_saved_invoice(const QString& id, const QString& path) {
-    if (invoice_export_busy_) { emit invoice_export_failed("An invoice PDF is already being generated."); return; }
+    if (invoice_export_busy_) {
+        emit invoice_export_failed("An invoice PDF is already being generated.");
+        return;
+    }
     if (!invoice_export_deadline_.hasExpired()) {
         emit invoice_export_wait(static_cast<int>((invoice_export_deadline_.remainingTime() + 999) / 1000));
-        emit invoice_export_failed("Please wait before generating another invoice PDF."); return;
+        emit invoice_export_failed("Please wait before generating another invoice PDF.");
+        return;
     }
     if (path.isEmpty() || !QFileInfo(path).dir().exists()) {
-        emit invoice_export_failed("Choose an existing output folder."); return;
+        emit invoice_export_failed("Choose an existing output folder.");
+        return;
     }
     const auto save = [this, path](const QByteArray& data) {
         QSaveFile file(path);
-        if (!data.startsWith("%PDF-") || !file.open(QIODevice::WriteOnly) || file.write(data) != data.size() || !file.commit()) {
-            emit invoice_export_failed("Could not save the PDF. Check the output folder and try again."); return;
+        if (!data.startsWith("%PDF-") || !file.open(QIODevice::WriteOnly) || file.write(data) != data.size() ||
+            !file.commit()) {
+            emit invoice_export_failed("Could not save the PDF. Check the output folder and try again.");
+            return;
         }
         emit invoice_exported(path);
     };
     invoice_export_deadline_ = QDeadlineTimer(10000);
     emit invoice_export_wait(10);
     if (offline_) {
-        try { save(Infrastructure::PDF::InvoicePdfGenerator::render_record(offline_session_.saved_invoice(current_business_id_, id))); }
-        catch (const std::exception& error) { emit invoice_export_failed(QString::fromUtf8(error.what())); }
+        try {
+            save(Infrastructure::PDF::InvoicePdfGenerator::render_record(
+                offline_session_.saved_invoice(current_business_id_, id)));
+        } catch (const std::exception& error) {
+            emit invoice_export_failed(QString::fromUtf8(error.what()));
+        }
         return;
     }
     const auto business = current_business_id_;
     const auto session = session_generation_;
-    QUrl url = baseUrl_; url.setPath("/invoices/pdf");
+    QUrl url = baseUrl_;
+    url.setPath("/invoices/pdf");
     url.setQuery(QUrlQuery{{"BusinessID", business}, {"InvoiceID", id}});
     auto request = make_request(url);
     request.setRawHeader("Accept", "application/pdf");
@@ -180,7 +250,8 @@ void ApiClient::export_saved_invoice(const QString& id, const QString& path) {
     connect(reply, &QNetworkReply::finished, this, [this, reply, business, session, save]() {
         reply->deleteLater();
         invoice_export_busy_ = false;
-        if (business != current_business_id_ || session != session_generation_) return;
+        if (business != current_business_id_ || session != session_generation_)
+            return;
         const auto data = reply->readAll();
         if (reply->error() != QNetworkReply::NoError) {
             if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 429) {
@@ -188,10 +259,13 @@ void ApiClient::export_saved_invoice(const QString& id, const QString& path) {
                 invoice_export_deadline_ = QDeadlineTimer(wait * 1000);
                 emit invoice_export_wait(wait);
             }
-            emit invoice_export_failed(QJsonDocument::fromJson(data).object().value("error").toString("Could not regenerate the invoice.")); return;
+            emit invoice_export_failed(
+                QJsonDocument::fromJson(data).object().value("error").toString("Could not regenerate the invoice."));
+            return;
         }
         if (!reply->header(QNetworkRequest::ContentTypeHeader).toString().startsWith("application/pdf")) {
-            emit invoice_export_failed("The backend did not return a PDF."); return;
+            emit invoice_export_failed("The backend did not return a PDF.");
+            return;
         }
         save(data);
     });
@@ -254,8 +328,10 @@ void ApiClient::get_business_items(bool refresh) {
             emit business_items_failed("The server returned invalid business records.");
             return;
         }
-        qCDebug(Infrastructure::Logging::http) << "event=business_cache.updated businesses=" << object.value("businesses").toArray().size()
-            << "clients=" << object.value("clients").toArray().size() << "stocks=" << object.value("stocks").toArray().size();
+        qCDebug(Infrastructure::Logging::http)
+            << "event=business_cache.updated businesses=" << object.value("businesses").toArray().size()
+            << "clients=" << object.value("clients").toArray().size()
+            << "stocks=" << object.value("stocks").toArray().size();
         business_items_cache_ = data;
         business_items_age_.start();
         emit business_items_received(data);
@@ -278,7 +354,7 @@ void Infrastructure::Http::ApiClient::get_business_list() {
         auto reply = networkManager_->get(request);
         Infrastructure::Logging::traceReply(reply);
         connect(reply, &QNetworkReply::finished, this, [=]() {
-        Infrastructure::Logging::RequestContext context(reply->request().rawHeader("X-Request-ID"));
+            Infrastructure::Logging::RequestContext context(reply->request().rawHeader("X-Request-ID"));
             if (reply->error() == QNetworkReply::NoError && session == session_generation_) {
                 QByteArray data = reply->readAll();
                 QJsonDocument jsonResponse = QJsonDocument::fromJson(data);
@@ -347,7 +423,7 @@ void Infrastructure::Http::ApiClient::get_stock_list() {
         auto reply = networkManager_->get(request);
         Infrastructure::Logging::traceReply(reply);
         connect(reply, &QNetworkReply::finished, this, [=]() {
-        Infrastructure::Logging::RequestContext context(reply->request().rawHeader("X-Request-ID"));
+            Infrastructure::Logging::RequestContext context(reply->request().rawHeader("X-Request-ID"));
             if (reply->error() == QNetworkReply::NoError && current_business_id_ == business_id) {
                 const auto data = reply->readAll();
                 emit stock_list_received(QJsonDocument::fromJson(data));
@@ -406,7 +482,10 @@ void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoi
     const auto filename = payload.take("file_name").toString();
     if (!filename.isEmpty()) {
         const auto error = Domain::Invoices::filename_error(filename);
-        if (!error.isEmpty()) { emit invoice_failed(error); return; }
+        if (!error.isEmpty()) {
+            emit invoice_failed(error);
+            return;
+        }
     }
     const auto business = current_business_;
     QUrl url = baseUrl_;
@@ -419,7 +498,7 @@ void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoi
             auto reply = networkManager_->post(request, QJsonDocument(payload).toJson());
             Infrastructure::Logging::traceReply(reply);
             connect(reply, &QNetworkReply::finished, this, [=]() {
-        Infrastructure::Logging::RequestContext context(reply->request().rawHeader("X-Request-ID"));
+                Infrastructure::Logging::RequestContext context(reply->request().rawHeader("X-Request-ID"));
                 reply->deleteLater();
                 if (generation != invoice_generation_) {
                     qCDebug(Infrastructure::Logging::http) << "event=client.response.discarded reason=stale_generation";
@@ -427,10 +506,15 @@ void Infrastructure::Http::ApiClient::invoice_details(const QJsonDocument& invoi
                 }
                 if (reply->error() == QNetworkReply::NoError) {
                     invoice_directory_ = directory;
-                    const auto assigned = QJsonDocument::fromJson(reply->readAll()).object().value("invoice_number").toString();
-                    invoice_filename_ = filename.trimmed().isEmpty()
-                        ? Domain::Invoices::invoice_filename(business.value("InvoiceFilenameTemplate").toString(),
-                            business.value("BusinessName").toString(), assigned, business.value("InvoicePrefix").toString("INV-")) : filename;
+                    const auto assigned =
+                        QJsonDocument::fromJson(reply->readAll()).object().value("invoice_number").toString();
+                    invoice_filename_ =
+                        filename.trimmed().isEmpty()
+                            ? Domain::Invoices::invoice_filename(business.value("InvoiceFilenameTemplate").toString(),
+                                                                 business.value("BusinessName").toString(),
+                                                                 assigned,
+                                                                 business.value("InvoicePrefix").toString("INV-"))
+                            : filename;
                     emit invoice_number_assigned(assigned);
                     emit invoice_started();
                 } else {
@@ -476,7 +560,8 @@ void Infrastructure::Http::ApiClient::finish_stock_list(const QJsonDocument& sto
         emit pdf_failed(filename_error);
         return;
     }
-    if (invoice_directory_.isEmpty() || !QFileInfo(invoice_directory_).isDir() || !QFileInfo(invoice_directory_).isWritable()) {
+    if (invoice_directory_.isEmpty() || !QFileInfo(invoice_directory_).isDir() ||
+        !QFileInfo(invoice_directory_).isWritable()) {
         qCWarning(Infrastructure::Logging::pdf) << "event=pdf.export.rejected reason=unwritable_directory";
         emit pdf_failed("The PDF folder is unavailable. Choose an existing, writable folder in the invoice details.");
         return;
@@ -490,8 +575,10 @@ void Infrastructure::Http::ApiClient::finish_stock_list(const QJsonDocument& sto
     url.setPath("/invoices/stock-list");
     auto request = make_request(url);
     request.setRawHeader("Accept", "application/pdf");
-    const auto payload = shortage_policy == "reject" ? stock
-        : QJsonDocument(QJsonObject{{"items", stock.array()}, {"stockShortagePolicy", shortage_policy}});
+    const auto payload =
+        shortage_policy == "reject"
+            ? stock
+            : QJsonDocument(QJsonObject{{"items", stock.array()}, {"stockShortagePolicy", shortage_policy}});
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     auto* reply = networkManager_->post(request, payload.toJson(QJsonDocument::Compact));
     Infrastructure::Logging::traceReply(reply);
@@ -524,7 +611,8 @@ void Infrastructure::Http::ApiClient::finish_stock_list(const QJsonDocument& sto
         qCDebug(Infrastructure::Logging::pdf) << "event=pdf.local_write.started bytes=" << data.size();
         QSaveFile file(path);
         if (!file.open(QIODevice::WriteOnly) || file.write(data) != data.size() || !file.commit()) {
-            qCWarning(Infrastructure::Logging::pdf) << "event=pdf.local_write.failed code=" << static_cast<int>(file.error());
+            qCWarning(Infrastructure::Logging::pdf)
+                << "event=pdf.local_write.failed code=" << static_cast<int>(file.error());
             emit pdf_failed("Could not save PDF to " + path + ": " + file.errorString());
             return;
         }
@@ -555,7 +643,8 @@ void ApiClient::post_resource(const QString& resource,
     if (offline_) {
         try {
             const auto id = offline_session_.save(resource, data.object(), current_business_id_);
-            if (resource == "business") emit business_created(id);
+            if (resource == "business")
+                emit business_created(id);
             emit resource_saved(resource);
             if (!invoice_item.isNull()) {
                 auto saved = invoice_item.object();
@@ -595,7 +684,7 @@ void ApiClient::post_resource(const QString& resource,
             &QNetworkReply::finished,
             this,
             [this, reply, resource, business_id, session, invoice_item, request_id]() {
-        Infrastructure::Logging::RequestContext context(reply->request().rawHeader("X-Request-ID"));
+                Infrastructure::Logging::RequestContext context(reply->request().rawHeader("X-Request-ID"));
                 reply->deleteLater();
                 if (session != session_generation_) {
                     qCDebug(Infrastructure::Logging::http) << "event=client.response.discarded reason=stale_generation";
@@ -605,7 +694,8 @@ void ApiClient::post_resource(const QString& resource,
                 if (reply->error() == QNetworkReply::NoError) {
                     if (business_id == current_business_id_)
                         invalidate_business_items();
-                    if (resource == "business") emit business_created(QJsonDocument::fromJson(body).object().value("_id").toString());
+                    if (resource == "business")
+                        emit business_created(QJsonDocument::fromJson(body).object().value("_id").toString());
                     emit resource_saved(resource);
                     if (!invoice_item.isNull() && business_id == current_business_id_) {
                         auto saved = invoice_item.object();
@@ -676,7 +766,8 @@ void Infrastructure::Http::ApiClient::do_login(const QString& email, const QStri
             auto message = response.value("error").toString();
             if (message.isEmpty()) {
                 message = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 401
-                    ? "Invalid email or password" : reply->errorString();
+                              ? "Invalid email or password"
+                              : reply->errorString();
             }
             emit login_failed(message);
         }
@@ -688,7 +779,8 @@ void Infrastructure::Http::ApiClient::do_login(const QString& email, const QStri
 
 void ApiClient::save_invoice_settings(const QJsonObject& settings) {
     if (!Domain::Invoices::valid_filename_setting(settings)) {
-        emit invoice_settings_failed("Enter a valid filename template of at most 200 characters using the available pills.");
+        emit invoice_settings_failed(
+            "Enter a valid filename template of at most 200 characters using the available pills.");
         return;
     }
     if (!Domain::Business::valid_preferences(settings)) {
@@ -709,9 +801,17 @@ void ApiClient::save_invoice_settings(const QJsonObject& settings) {
         }
         auto business = offline_session_.businesses.value(business_id).toObject();
         business["InvoicePrefix"] = settings.value("InvoicePrefix");
-        if (!terms.isUndefined()) business["InvoiceTerms"] = terms;
-        for (const auto* key : {"GSTRegistered", "PaymentTerms", "BankName", "BankAccountName", "BankBSB", "BankAccountNumber", "InvoiceFilenameTemplate"})
-            if (settings.contains(key)) business[key] = settings.value(key);
+        if (!terms.isUndefined())
+            business["InvoiceTerms"] = terms;
+        for (const auto* key : {"GSTRegistered",
+                                "PaymentTerms",
+                                "BankName",
+                                "BankAccountName",
+                                "BankBSB",
+                                "BankAccountNumber",
+                                "InvoiceFilenameTemplate"})
+            if (settings.contains(key))
+                business[key] = settings.value(key);
         offline_session_.businesses[business_id] = business;
         emit invoice_settings_saved();
         get_business_list();
@@ -724,9 +824,11 @@ void ApiClient::save_invoice_settings(const QJsonObject& settings) {
     Infrastructure::Logging::traceReply(reply);
     connect(reply, &QNetworkReply::finished, this, [this, reply, generation, business_id]() {
         reply->deleteLater();
-        if (generation != session_generation_ || business_id != current_business_id_) return;
+        if (generation != session_generation_ || business_id != current_business_id_)
+            return;
         if (reply->error() != QNetworkReply::NoError) {
-            emit invoice_settings_failed(QJsonDocument::fromJson(reply->readAll()).object().value("error").toString(reply->errorString()));
+            emit invoice_settings_failed(
+                QJsonDocument::fromJson(reply->readAll()).object().value("error").toString(reply->errorString()));
             return;
         }
         invalidate_business_items();
@@ -735,23 +837,47 @@ void ApiClient::save_invoice_settings(const QJsonObject& settings) {
     });
 }
 
-void Infrastructure::Http::ApiClient::update_stock(const QJsonObject& data, quint64 request_id) {
+void Infrastructure::Http::ApiClient::update_record(const QString& resource, const QJsonObject& data, quint64 request_id) {
+    const auto failed = [this, resource, request_id](const QString& message) {
+        emit record_update_failed(message, request_id);
+    };
     const auto business = current_business_id_;
-    if (business.isEmpty() || data.value("BusinessID").toString() != business || data.value("_id").toString().isEmpty()) {
-        emit stock_update_failed("Choose a stock item from the selected business.", request_id); return;
+    if (business.isEmpty() || data.value("BusinessID").toString() != business ||
+        data.value("_id").toString().isEmpty()) {
+        failed("Choose a record from the selected business.");
+        return;
     }
-    try { Domain::Stock::stock_edit_values(data); }
-    catch (const std::exception& error) { emit stock_update_failed(QString::fromUtf8(error.what()), request_id); return; }
+    std::optional<Domain::Records::RecordUpdate> update;
+    try {
+        update.emplace(resource, data);
+    } catch (const std::exception& error) {
+        failed(QString::fromUtf8(error.what()));
+        return;
+    }
+    if (resource == "business" && data.value("_id").toString() != business) {
+        failed("Choose the selected business record."); return;
+    }
+    const auto saved = [this, resource, request_id, values = update->values()]() {
+        invalidate_business_items();
+        if (resource == "business") {
+            for (auto it = values.begin(); it != values.end(); ++it) current_business_[it.key()] = it.value();
+            current_business_["Address"] = current_business_.value("BusinessAddress");
+        }
+        emit record_updated(request_id);
+        if (resource == "business") get_business_list();
+    };
     if (offline_) {
         try {
-            offline_session_.update_stock(business, data);
-            invalidate_business_items();
-            emit stock_updated(request_id);
-        } catch (const std::exception& error) { emit stock_update_failed(QString::fromUtf8(error.what()), request_id); }
+            offline_session_.update_record(business, *update);
+            saved();
+        } catch (const std::exception& error) {
+            failed(QString::fromUtf8(error.what()));
+        }
         return;
     }
     const auto session = session_generation_;
-    auto url = baseUrl_; url.setPath("/stock/update");
+    auto url = baseUrl_;
+    url.setPath("/" + resource + "/update");
     auto request = make_request(url);
     request.setTransferTimeout(30000);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
@@ -759,11 +885,12 @@ void Infrastructure::Http::ApiClient::update_stock(const QJsonObject& data, quin
     Infrastructure::Logging::traceReply(reply);
     connect(reply, &QNetworkReply::finished, this, [=, this]() {
         reply->deleteLater();
-        if (session != session_generation_ || business != current_business_id_) return;
+        if (session != session_generation_ || business != current_business_id_)
+            return;
         const auto response = QJsonDocument::fromJson(reply->readAll()).object();
         if (reply->error() == QNetworkReply::NoError && response.value("ok").toBool()) {
-            invalidate_business_items();
-            emit stock_updated(request_id);
-        } else emit stock_update_failed(response.value("error").toString("Could not save stock. Please try again."), request_id);
+            saved();
+        } else
+            failed(response.value("error").toString("Could not save record. Please try again."));
     });
 }
